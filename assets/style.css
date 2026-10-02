@@ -135,7 +135,7 @@ section.chapter:first-of-type { border-top: none; }
 }
 .topbar-in {
   max-width: var(--maxw); margin: 0 auto; padding: 0 28px;
-  display: flex; align-items: center; gap: 18px; height: 60px;
+  display: flex; align-items: center; gap: 18px; min-height: 60px;
 }
 .brand {
   display: flex; align-items: center; gap: 10px;
@@ -171,11 +171,15 @@ section.chapter:first-of-type { border-top: none; }
   .navlinks a.current .label { display: none; }
   .navlinks a.current .num { margin-right: 0; }
   .navlinks a { padding: 6px 8px; }
+  .topbar-in { padding: 0 16px; gap: 10px; }
+  .brand > span:last-child { display: none; }
+  .navlinks { flex-wrap: nowrap; overflow-x: auto; min-width: 0; flex: 1; scrollbar-width: none; }
+  .navlinks::-webkit-scrollbar { display: none; }
 }
 
 /* ---------- page header ---------- */
 
-.pagehead { padding: 3.2rem 0 2.2rem; }
+.pagehead { padding-top: 3.2rem; padding-bottom: 2.2rem; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em;

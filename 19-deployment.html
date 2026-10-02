@@ -1,0 +1,1993 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>19 · Deploying and running models — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .cv-sm { width: 100%; height: 200px; }
+  .cv-ts { width: 100%; height: 170px; }
+  .bigstat { text-align: center; padding: 15px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.7rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.warn .n { color: var(--warn); }
+  .split3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+  .split4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+  @media (max-width: 900px) { .split3, .split4 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+  /* 19.1 — the hidden-technical-debt picture, as a reflowing grid */
+  .tdgrid {
+    display: grid; gap: 8px; grid-template-columns: repeat(6, minmax(0,1fr));
+    grid-template-areas:
+      "cfg cfg col col ver ver"
+      "fea fea ml  ana srv srv"
+      "pro pro res res srv srv"
+      "mon mon mon mon mon mon";
+  }
+  @media (max-width: 700px) {
+    .tdgrid { grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-areas: "cfg col" "ver fea" "ml ana" "pro res" "srv srv" "mon mon"; }
+  }
+  .td {
+    font: inherit; text-align: left; cursor: pointer; min-height: 74px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink-2);
+    border-radius: var(--r); padding: 10px 12px; font-size: .86rem; font-weight: 620;
+  }
+  .td:hover { border-color: var(--accent); color: var(--ink); }
+  .td.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .td .sub { display: block; font-size: .72rem; font-weight: 500; color: var(--ink-3); margin-top: 3px; }
+  .td-mlcell { grid-area: ml; display: grid; place-items: center; }
+  .td.ml {
+    min-height: 0; width: 64px; height: 44px; padding: 4px; text-align: center;
+    background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: .74rem; line-height: 1.15;
+  }
+  .td.ml.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* 19.3 — stage breakdown rows */
+  .ltrow { display: grid; grid-template-columns: 150px minmax(0,1fr) 128px; gap: 10px; align-items: center;
+    font-size: .84rem; margin-bottom: 6px; }
+  .ltrow .tr { height: 14px; background: var(--bg-3); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; position: relative; }
+  .ltrow .fi { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 7px; }
+  .ltrow .fi.p99 { opacity: .28; }
+  .ltrow .vv { font-family: var(--mono); font-size: .78rem; text-align: right; }
+  @media (max-width: 600px) { .ltrow { grid-template-columns: 96px minmax(0,1fr) 96px; font-size: .78rem; } }
+
+  /* legends */
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .8rem; color: var(--ink-2); }
+  .legend .sw { display: inline-block; width: 18px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .legend .sw.dash { background: none !important; border-top: 2px dashed currentColor; height: 0; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: middle; }
+
+  .alertlog { font-size: .84rem; display: grid; gap: 5px; max-height: 210px; overflow-y: auto; }
+  .alertlog .a { border: 1px solid var(--line); border-left-width: 3px; border-radius: 0 8px 8px 0; padding: 6px 10px; background: var(--panel); }
+  .alertlog .a.hi { border-left-color: var(--bad); }
+  .alertlog .a.md { border-left-color: var(--warn); }
+  .alertlog .a .d { font-family: var(--mono); font-weight: 700; margin-right: 6px; }
+  .modelchips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tablewrap td.num { white-space: nowrap; }
+  td .neg { color: var(--bad); font-weight: 700; }
+  td .pos { color: var(--good); font-weight: 700; }
+  .progress { height: 6px; background: var(--bg-3); border-radius: 3px; overflow: hidden; border: 1px solid var(--line); }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+</style>
+</head>
+<body data-page="p19">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 19 · Part IV — Shipping it</span>
+  <h1>Deploying and running models</h1>
+  <p class="lead">The notebook ends with a number on a test set. The product starts there. Getting a
+  model onto an ECU, a bench PC or a server, proving which version made which decision, releasing it
+  without hurting anyone, and noticing when it quietly stops working — that is most of the job, and it
+  is what this module is about.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">The sentence to take away</span>
+  <p class="mb0">A deployed model is <strong>a software component with a data dependency</strong>. It
+  needs everything any production component needs — version control, a release process, monitoring,
+  an owner and a tested way back — plus one thing ordinary software does not: a continuous check that
+  the world still looks like the data it learned from.</p>
+</div>
+
+<!-- ============================================= 19.1 -->
+<section class="chapter" id="debt">
+  <h2>19.1 · The model is the small box</h2>
+  <p>In 2015 a group of Google engineers published a paper called <em>Hidden Technical Debt in
+  Machine Learning Systems</em>. Its best-known contribution is a single picture: a production ML system
+  drawn as a set of boxes, with the actual machine-learning code as a tiny square in the middle. Every
+  other box is ordinary engineering — and every other box is somewhere the system can break without the
+  model changing at all.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>What surrounds a production model</h3><span class="tag">Click a box</span></div>
+    <div class="split-wide">
+      <div class="tdgrid" id="tdGrid">
+        <button class="td" data-k="cfg" style="grid-area:cfg">Configuration<span class="sub">thresholds, feature lists, variants</span></button>
+        <button class="td" data-k="col" style="grid-area:col">Data collection<span class="sub">loggers, DAQ, telemetry</span></button>
+        <button class="td" data-k="ver" style="grid-area:ver">Data verification<span class="sub">schema, ranges, units</span></button>
+        <button class="td" data-k="fea" style="grid-area:fea">Feature extraction<span class="sub">raw signal → model input</span></button>
+        <div class="td-mlcell"><button class="td ml on" data-k="ml">ML code</button></div>
+        <button class="td" data-k="ana" style="grid-area:ana">Analysis tools<span class="sub">slicing, error review</span></button>
+        <button class="td" data-k="srv" style="grid-area:srv">Serving infrastructure<span class="sub">runtime, timing, fallback, update path</span></button>
+        <button class="td" data-k="pro" style="grid-area:pro">Process management<span class="sub">pipelines, registry, approvals</span></button>
+        <button class="td" data-k="res" style="grid-area:res">Machine resources<span class="sub">ECU budget, GPUs, bench PCs</span></button>
+        <button class="td" data-k="mon" style="grid-area:mon">Monitoring<span class="sub">inputs, outputs, delayed ground truth, latency, alerts</span></button>
+      </div>
+      <div class="card" id="tdInfo" style="min-height:240px"></div>
+    </div>
+    <p class="small muted mt1 mb0">Authored diagram, after Sculley et al., NeurIPS 2015. The box list is
+    theirs; the relative sizes are illustrative, not measured. The point survives any reasonable
+    re-drawing: the part your data scientist wrote is the smallest part.</p>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><h4>Training/serving skew</h4><p class="small mb0">The feature code is written
+    twice — once in Python for training, once in C for the ECU — and the two disagree in some corner
+    (a filter's initial state, a rounding mode, a unit). The model is fine; its inputs are not the inputs
+    it was trained on. Share the code, or test the two implementations against each other on recorded
+    data.</p></div>
+    <div class="card"><h4>Undeclared consumers</h4><p class="small mb0">Somebody downstream starts
+    using your model's score for a purpose you never validated — a dashboard, a second threshold, a
+    warranty report. Now your next release breaks their system. Know who reads your outputs.</p></div>
+    <div class="card"><h4>Entanglement</h4><p class="small mb0">Change one input's scaling and every
+    learned weight is now slightly wrong. In ML, nothing is truly modular: <em>changing anything changes
+    everything</em>, which is why the rest of this module insists on versioning and re-validation.</p></div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 4 minutes. Click through three or four boxes; let the audience suggest which box has
+      bitten their own projects. Configuration and feature extraction are the usual answers.</li>
+      <li>Expected question: “Is this still true with modern tooling?” Yes. The tooling has got better
+      at each box; it has not removed any of them.</li>
+      <li>For people coming from embedded software: none of this is new to you. The new part is the
+      data dependency, and that is what sections 19.2 and 19.6 deal with.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 19.2 -->
+<section class="chapter" id="versioning">
+  <h2>19.2 · Version everything, or you cannot answer the question</h2>
+  <p>Sooner or later someone will ask: <em>why did the system make that decision, on that day?</em> An
+  auditor, a customer-quality engineer, a court. To answer, you need to rebuild the exact model that was
+  running. A model is the product of <strong>five</strong> things, and losing any one of them means you
+  cannot.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>What</th><th>Why it matters</th><th>How it is usually pinned</th></tr></thead>
+      <tbody>
+        <tr><td><b>Data</b></td><td>Tables grow, labels get corrected, a filter changes which rows are included.</td><td>Immutable snapshot with an ID or content hash; never “the table as it is today”.</td></tr>
+        <tr><td><b>Code</b></td><td>Feature extraction and preprocessing are part of the model.</td><td>A Git commit, recorded in the model's metadata.</td></tr>
+        <tr><td><b>Config</b></td><td>Learning rate, number of steps, threshold, feature list.</td><td>A config file in the same commit, or its hash stored with the model.</td></tr>
+        <tr><td><b>Randomness</b></td><td>Weight initialisation, shuffling, dropout, data augmentation.</td><td>Explicit seeds, logged.</td></tr>
+        <tr><td><b>Environment</b></td><td>Library versions and hardware change the arithmetic.</td><td>Container image digest or lock file; note the hardware.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted mt1">The output — the trained weights — goes into a <strong>model registry</strong>
+  with a version number and a record of all five inputs. That record is the model's birth certificate.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Reproduce last month's model</h3><span class="tag try">Untick one thing, then retrain</span></div>
+    <p class="small">A test-bench surrogate screens proposed calibration points, predicting whether a
+    point will knock before anyone spends bench time on it. Last month it screened out calibration point
+    <b>CP-0417</b>. The calibration lead wants to know why. Tick what your team actually pinned, then try to
+    rebuild the model. The training is real: a small neural network, retrained from scratch in your
+    browser each time.</p>
+    <div class="split-wide">
+      <div>
+        <canvas id="rpCv" class="cv"></canvas>
+        <div class="legend mt1">
+          <span><span class="sw dash" style="color:var(--ink)"></span>last month's boundary</span>
+          <span><span class="sw" style="background:var(--accent)"></span>rebuilt boundary</span>
+          <span><span class="swatch" style="background:var(--bad);opacity:.35"></span>region where they disagree</span>
+        </div>
+      </div>
+      <div>
+        <div class="checklist" id="rpPins"></div>
+        <div class="btnrow"><button class="btn primary" id="rpRun">Rebuild the model</button></div>
+        <div class="verdict info" id="rpVerdict"><span class="lvl">Not rebuilt yet</span>Press the button.</div>
+      </div>
+    </div>
+    <div class="metrics mt1">
+      <div class="m"><span class="k">decisions changed</span><span class="v" id="rpChanged">—</span></div>
+      <div class="m"><span class="k">max weight difference</span><span class="v" id="rpDw">—</span></div>
+      <div class="m"><span class="k">accuracy, last month</span><span class="v" id="rpAcc0">—</span></div>
+      <div class="m"><span class="k">accuracy, rebuilt</span><span class="v" id="rpAcc1">—</span></div>
+      <div class="m"><span class="k">CP-0417 then → now</span><span class="v" id="rpCp">—</span></div>
+    </div>
+    <p class="small muted mt1 mb0">Decisions are compared on a fixed set of 2,000 synthetic calibration
+    points. The unpinned alternatives are realistic, authored stand-ins: six weeks of extra rows and some
+    corrected labels (data), a scaler changed on the main branch (code), new defaults in the config
+    template (config), a fresh random seed (seed), and float32 instead of float64 arithmetic after a
+    container rebuild (environment).</p>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Two things the lab shows</span>
+    <p class="mb0"><strong>A fixed seed is not reproducibility.</strong> Unpin the data alone and the
+    model changes, however carefully the seed was set. And <strong>bit-identical is not always
+    necessary</strong>: unpin only the environment and the weights differ in the seventh decimal place
+    while every decision stays the same. Decide in advance which one your use case needs — a safety
+    argument usually needs the first; a planning tool can live with the second.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 6 minutes. Start with everything ticked (bit-identical), then untick “seed” and press
+      rebuild twice — the boundary moves each time. Then tick seed again and untick data.</li>
+      <li>On GPUs, even a fixed seed and fixed data can give different results run to run, because some
+      parallel operations add numbers in a non-deterministic order. Most frameworks have a
+      “deterministic” mode; it is slower, and for certification-relevant models it is worth it.</li>
+      <li>Expected question: “Do we really need to keep every dataset?” You need to keep every dataset
+      that trained a model which is, or was, in a product. Storage is cheap compared with being unable to
+      answer the question.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 19.3 -->
+<section class="chapter" id="serving">
+  <h2>19.3 · Where it runs: serving patterns and the latency budget</h2>
+  <p>“Deployment” means very different things depending on when the answer is needed and where the
+  data is. Four patterns cover almost everything.</p>
+
+  <div class="grid g2">
+    <div class="card"><h4>Batch</h4><p class="small mb0">Run over yesterday's data on a schedule; write
+    results to a table. <b>Example:</b> scoring every warranty claim overnight for likely fraud, ranking
+    tomorrow's bench test plan. Latency: hours, and nobody minds. Easiest to run, easiest to roll back.</p></div>
+    <div class="card"><h4>Online (request–response)</h4><p class="small mb0">A service answers one
+    request at a time. <b>Example:</b> the inspection station sends an image, gets accept/reject back.
+    Latency: tens to hundreds of milliseconds. Now you own availability, timeouts and a fallback for
+    when the service is down.</p></div>
+    <div class="card"><h4>Streaming</h4><p class="small mb0">The model consumes a continuous feed and
+    emits results as data arrives. <b>Example:</b> anomaly detection on test-bench channels at 1 kHz,
+    plant-wide sensor streams. Latency: milliseconds to seconds; state and ordering become your problem.</p></div>
+    <div class="card"><h4>On-device / edge</h4><p class="small mb0">The model runs where the data is: an
+    ECU, a camera, a bench PC. <b>Example:</b> an on-vehicle classifier in a 10 ms control cycle. No network,
+    hard deadlines, fixed memory, and updating it means a software release — over the air or in the
+    workshop.</p></div>
+  </div>
+
+  <div class="tablewrap mt1">
+    <table>
+      <thead><tr><th>Target</th><th>Compute and memory</th><th>Timing</th><th>Updating it</th></tr></thead>
+      <tbody>
+        <tr><td><b>On-vehicle ECU</b></td><td>Fixed and small: kilobytes to a few megabytes for the model, shared CPU or a small accelerator.</td><td>Hard real-time; a missed deadline is a fault.</td><td>Full software release, homologation impact, OTA or workshop.</td></tr>
+        <tr><td><b>Test-bench PC</b></td><td>Generous: a desktop CPU or GPU.</td><td>Soft real-time on a general-purpose OS; occasional long stalls.</td><td>Easy, but someone must record which version ran which test.</td></tr>
+        <tr><td><b>Cloud / data centre</b></td><td>Effectively unlimited, paid per use.</td><td>Network round trip dominates, with a long tail; unavailable without connectivity.</td><td>Easiest of all — which is why it needs the most release discipline.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="mt2">For anything in a control loop, the question is not “how fast is the model?” but
+  <strong>“does the whole chain, sensor to actuator, finish before the deadline — every time?”</strong>
+  The model is one stage of several, and averages hide the cycles that matter.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · The latency budget</h3><span class="tag try">Pick “Cloud” and keep the 10 ms deadline</span></div>
+    <div class="btnrow">
+      <div class="segmented" id="ltSeg">
+        <button data-v="ecu" class="on">On-vehicle ECU</button>
+        <button data-v="bench">Test-bench PC</button>
+        <button data-v="cloud">Cloud</button>
+      </div>
+      <button class="btn sm" id="ltResample">New 20,000 cycles</button>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="ltCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Distribution of end-to-end latency over 20,000 simulated cycles
+        (Monte Carlo; the vertical scale is logarithmic so the rare slow cycles are visible). The red line
+        is the deadline.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Model inference time (mean)</span><span class="val" id="ltInfOut"></span></div>
+          <input type="range" id="ltInf" min="0" max="100" step="0.1" value="50">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Jitter (× the target's typical)</span><span class="val" id="ltJitOut"></span></div>
+          <input type="range" id="ltJit" min="0" max="3" step="0.05" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Chance of a stall per cycle (pre-emption, GC, retry)</span><span class="val" id="ltTailOut"></span></div>
+          <input type="range" id="ltTail" min="0" max="0.05" step="0.0005" value="0.001">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Deadline</span><span class="val" id="ltDlOut"></span></div>
+          <input type="range" id="ltDl" min="0" max="100" step="0.1" value="33">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Cycle rate</span><span class="val" id="ltRateOut"></span></div>
+          <input type="range" id="ltRate" min="0" max="100" step="0.1" value="67">
+        </div>
+      </div>
+    </div>
+    <div class="split4 mt1">
+      <div class="bigstat"><span class="n" id="ltP50">—</span><span class="l">median</span></div>
+      <div class="bigstat"><span class="n" id="ltP99">—</span><span class="l">99th percentile</span></div>
+      <div class="bigstat" id="bsLtMiss"><span class="n" id="ltMiss">—</span><span class="l">deadline misses</span></div>
+      <div class="bigstat" id="bsLtHr"><span class="n" id="ltHr">—</span><span class="l">misses per hour</span></div>
+    </div>
+    <h4 class="mt1">Where the time goes — mean (solid) and 99th percentile (faint) per stage</h4>
+    <div id="ltStages"></div>
+    <div class="card mt1" id="ltNote" style="min-height:100px"></div>
+    <p class="small muted mt1 mb0">Stage timings for each target are authored, indicative figures — not
+    measurements of any particular ECU or network. The simulation itself is real: each cycle draws every
+    stage independently, and the statistics are computed from the draws.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Sampling is not a timing guarantee</span>
+    <p class="mb0">Twenty thousand cycles without a miss tells you the miss rate is probably below about
+    1 in 6,700 (the “rule of three”: 3 ÷ N). At 100 Hz that could still be one miss a minute. For a
+    function with a safety or homologation case, timing is argued with worst-case execution time analysis
+    and a scheduler designed for it — which is far easier for a fixed-size neural network with no
+    data-dependent loops than for most code, and is one of the quiet advantages of putting a small model on
+    an ECU. Module 20 picks this up.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 7 minutes. Start on ECU: it meets 10 ms comfortably. Switch to Cloud: the median alone is
+      over the deadline. That single click ends most “let's run it in the cloud” conversations for control
+      functions.</li>
+      <li>Then the bench PC: the median is fine, the tail is not. Push the stall chance up and watch misses
+      per hour climb while the median barely moves. That is the general-purpose-OS problem in one slider.</li>
+      <li>Expected question: “Can't we just make the model faster?” Drag inference time down on the cloud
+      target. The network round trip does not care how fast your model is.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 19.4 -->
+<section class="chapter" id="quantise">
+  <h2>19.4 · Making it fit: quantisation and pruning</h2>
+  <p>A trained network stores each weight as a 32-bit floating-point number. An ECU may have a few
+  hundred kilobytes for every ML function in the car, and integer arithmetic is far cheaper in silicon and
+  energy than floating point. Two standard techniques shrink a model after training:</p>
+  <ul>
+    <li><strong>Quantisation</strong> — store each weight as a small integer plus a shared scale factor.
+    8 bits makes the model four times smaller; 4 bits, eight times. The question is how much accuracy it
+    costs.</li>
+    <li><strong>Pruning</strong> — set the smallest weights to exactly zero. Saves memory only if the
+    model is stored in a sparse format, and saves time only if the hardware has kernels that skip
+    zeros.</li>
+  </ul>
+  <div class="eqbox">
+    scale = max|w| ÷ (2<sup>bits−1</sup> − 1) &nbsp;&nbsp; q = round(w ÷ scale) &nbsp;&nbsp; w′ = q × scale
+    <small>Symmetric uniform quantisation. “Per tensor” uses one scale for a whole layer; “per channel”
+    gives each neuron's weights their own scale, which costs a few extra numbers and protects neurons with
+    small weights.</small>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Quantise a real network</h3><span class="tag try">Go to 3 bits, then 2, then fine-tune</span></div>
+    <p class="small">An on-vehicle classifier flags a low-grip road surface from two normalised features
+    (wheel-slip and vibration energy; synthetic, seeded data). It is a genuine 2–12–12–1 network trained
+    in your browser. Its weights are then actually rounded to the bit-width you choose, and every number
+    below is measured on 2,000 held-out points.</p>
+    <div class="progress mb0" id="qzProg"><div></div></div>
+    <p class="small muted" id="qzStatus">Training the float model…</p>
+    <div class="split-wide">
+      <div>
+        <canvas id="qzCv" class="cv"></canvas>
+        <div class="legend mt1">
+          <span><span class="swatch" style="background:var(--accent);opacity:.35"></span>quantised model says “low grip”</span>
+          <span><span class="swatch" style="background:var(--bad);opacity:.6"></span>disagrees with the float model</span>
+          <span><span class="sw dash" style="color:var(--ink)"></span>float model boundary</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Weight precision</span></div>
+          <div class="segmented" id="qzBits">
+            <button data-v="32" class="on">float32</button>
+            <button data-v="8">8-bit</button>
+            <button data-v="6">6</button>
+            <button data-v="4">4</button>
+            <button data-v="3">3</button>
+            <button data-v="2">2</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Scale granularity</span></div>
+          <div class="segmented" id="qzGran">
+            <button data-v="t" class="on">Per tensor</button>
+            <button data-v="c">Per channel</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Magnitude pruning (weights set to zero)</span><span class="val" id="qzPruneOut"></span></div>
+          <input type="range" id="qzPrune" min="0" max="0.9" step="0.05" value="0">
+        </div>
+        <div class="btnrow">
+          <button class="btn" id="qzQat" disabled>Quantisation-aware fine-tune (200 steps)</button>
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsQzAcc"><span class="n" id="qzAcc">—</span><span class="l">test accuracy</span></div>
+          <div class="bigstat" id="bsQzAgr"><span class="n" id="qzAgr">—</span><span class="l">agrees with float</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">float accuracy</span><span class="v" id="qzAccF">—</span></div>
+          <div class="m"><span class="k">model size</span><span class="v" id="qzMem">—</span></div>
+          <div class="m"><span class="k">energy (indic.)</span><span class="v" id="qzEn">—</span></div>
+          <div class="m"><span class="k">latency (indic.)</span><span class="v" id="qzLat">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid g2 mt1">
+      <div>
+        <canvas id="qzHist" class="cv-sm"></canvas>
+        <p class="small muted mt1 mb0">Grey: the float weights. Blue spikes: where they land after
+        quantisation and pruning. At 2 bits there are only three values left.</p>
+      </div>
+      <div>
+        <h4>Post-training sweep at the current pruning and granularity</h4>
+        <div class="tablewrap">
+          <table><thead><tr><th>Precision</th><th class="num">Accuracy</th><th class="num">Agrees</th><th class="num">Size</th><th class="num">At 250k weights</th></tr></thead>
+          <tbody id="qzSweep"></tbody></table>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="qzNote" style="min-height:90px"></div>
+    <p class="small muted mt1 mb0"><b>What is computed and what is indicative.</b> Accuracy, agreement,
+    the boundary and the weight histogram are computed from the real quantised network. Size counts the
+    actual bits (weights, plus 32-bit biases and scales; sparse storage with a 1-bit mask when that is
+    smaller). Energy and latency are <em>indicative ratios to float32</em> from a simple model: per-operation
+    energies scaled from Horowitz (ISSCC 2014, 45 nm) plus weight-memory traffic, dense kernels, and 6-, 3-
+    and 2-bit weights unpacked to 8-bit at run time because few targets have native kernels for them. Only
+    weights are quantised here; real deployments also quantise activations, which needs a calibration set.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">A quantised model is a different model</span>
+    <p class="mb0">Report two numbers, not one: accuracy, and <strong>agreement with the float model you
+    validated</strong>. Two models can both be 96% accurate and disagree on 3% of cases — and those cases
+    are exactly where nobody has looked. Whatever runs on the target is the thing you validate, test and
+    sign off; the float model on the data scientist's laptop is a development artefact.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 8 minutes. Walk 8 → 4 → 3 → 2 bits per tensor; at 8 bits nothing changes, at 2 bits the
+      boundary falls apart. Switch to per channel at 3 bits to show the cheap fix. Then press fine-tune at 2
+      bits and show it recovers most of the loss — training with the rounding in the loop lets the
+      network adapt to it.</li>
+      <li>Pruning: this network is tiny, so it has little redundancy and pruning hurts quickly. Large
+      networks often tolerate 50–90% pruning. Say so — it is the honest reading of the result.</li>
+      <li>Expected question: “Why not always use 4 bits?” Because the target needs kernels for it, the
+      accuracy loss must be re-validated on every release, and below 8 bits the tooling and the
+      certification evidence are both thinner.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 19.5 -->
+<section class="chapter" id="release">
+  <h2>19.5 · Releasing it: shadow, canary, A/B and rollback</h2>
+  <p>Every new model version is a hypothesis that it is better than the old one. Offline evaluation
+  (module 8) is the first test; the release strategy is the second, run on real traffic. The strategies
+  differ in two things: <strong>how many decisions the new model makes before you know</strong>, and
+  <strong>how quickly the evidence accumulates</strong>.</p>
+
+  <div class="grid g2">
+    <div class="card"><h4>Big bang</h4><p class="small mb0">Replace the old model everywhere at once.
+    You compare the new model against last month's numbers — which were measured under last month's
+    conditions. Fast, and every decision is exposed.</p></div>
+    <div class="card"><h4>Canary</h4><p class="small mb0">Send a small share of traffic (one line, one
+    plant, 1% of the fleet) to the new model; widen in stages if nothing goes wrong. The old model keeps
+    running alongside as a concurrent control.</p></div>
+    <div class="card"><h4>A/B test</h4><p class="small mb0">Split traffic evenly for a fixed period and
+    compare. Statistically clean, and half of your decisions are made by the unproven model.</p></div>
+    <div class="card"><h4>Shadow mode</h4><p class="small mb0">The new model sees every input and its
+    output is logged, but the old model still makes every decision. No exposure at all, and both models are
+    judged on <em>the same</em> parts. Costs double the compute, and it cannot show effects that depend on
+    acting differently.</p></div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Roll out a slightly worse model</h3><span class="tag try">Run 200 rollouts, then set the degradation to zero</span></div>
+    <p class="small">A plant inspection model, v3.1, makes a wrong accept/reject decision on 3.0% of parts.
+    Version 3.2 passed offline evaluation but is in fact slightly worse. Ground truth comes from a human
+    audit of a sample of parts, and arrives late. The process itself varies from day to day, which moves
+    both models' error rates together. Each strategy is simulated over 14 days; an alert fires when a
+    statistical test says the new model is worse (z above the threshold), and the strategy then rolls
+    back.</p>
+    <div class="split-wide">
+      <div>
+        <canvas id="rlCv" class="cv"></canvas>
+        <div class="legend mt1" id="rlLegend"></div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>How much worse v3.2 really is</span><span class="val" id="rlDeltaOut"></span></div>
+          <input type="range" id="rlDelta" min="0" max="2.5" step="0.1" value="1.2">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Parts per hour</span><span class="val" id="rlVolOut"></span></div>
+          <input type="range" id="rlVol" min="50" max="2000" step="50" value="400">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Share of parts audited (ground truth)</span><span class="val" id="rlAudOut"></span></div>
+          <input type="range" id="rlAud" min="0.01" max="0.5" step="0.01" value="0.1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Audit result delay</span><span class="val" id="rlLagOut"></span></div>
+          <input type="range" id="rlLag" min="0" max="96" step="4" value="24">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Day-to-day process variation</span><span class="val" id="rlEnvOut"></span></div>
+          <input type="range" id="rlEnv" min="0" max="0.4" step="0.01" value="0.15">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Alert threshold (z)</span><span class="val" id="rlZOut"></span></div>
+          <input type="range" id="rlZ" min="2" max="4.5" step="0.1" value="3">
+        </div>
+        <div class="btnrow">
+          <button class="btn sm" id="rlNew">New random fortnight</button>
+          <button class="btn primary sm" id="rlMany">Run 200 rollouts</button>
+        </div>
+      </div>
+    </div>
+    <h4 class="mt1">This fortnight</h4>
+    <div class="tablewrap">
+      <table><thead><tr><th>Strategy</th><th>Alert and rollback</th><th class="num">Parts decided by v3.2</th><th class="num">Extra wrong decisions</th></tr></thead>
+      <tbody id="rlTable"></tbody></table>
+    </div>
+    <div id="rlManyWrap" class="hidden">
+      <h4 class="mt1">Over 200 simulated rollouts</h4>
+      <div class="tablewrap">
+        <table><thead><tr><th>Strategy</th><th class="num">Caught within 14 days</th><th class="num">Median time to alert</th><th class="num">Median extra wrong decisions</th><th class="num">False alarms if v3.2 were equal</th></tr></thead>
+        <tbody id="rlManyTable"></tbody></table>
+      </div>
+    </div>
+    <div class="card mt1" id="rlNote" style="min-height:100px"></div>
+    <p class="small muted mt1 mb0">Tests used: big bang compares v3.2's audited error rate with the
+    historical 3.0% (one-sample z); canary and A/B compare v3.2 with v3.1 on concurrent traffic
+    (two-proportion z); shadow compares both models on the same audited parts (McNemar's test on the parts
+    where they disagree), and keeps v3.1 running in shadow after promotion. Tests are repeated hourly on
+    cumulative data, which is why the threshold must be well above 2. “Extra wrong decisions” is the
+    expected number caused by v3.2 compared with v3.1 on the same parts.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">A canary without statistical power is a ritual</span>
+      <p class="mb0">Run the lab with a small degradation: at 5% of traffic, with errors at 3% and a tenth
+      of parts audited, the canary simply does not see enough wrong decisions to notice — and then it
+      promotes itself. Before choosing a canary share and duration, work out how many labelled examples it
+      takes to detect the smallest degradation you care about. That arithmetic, not habit, sets the plan.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Rollback is a capability, not a button</span>
+      <p class="mb0">Rolling back a cloud service takes seconds. Rolling back an ECU model means an OTA
+      campaign or a workshop visit, and the vehicles keep driving in the meantime. That asymmetry is why
+      <strong>shadow mode on the vehicle</strong> — the new model runs, logs, and decides nothing — is so
+      valuable in automotive: you collect the evidence before you have anything to roll back.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 8 minutes. Show one fortnight first, then press “Run 200 rollouts”. Typical reading at the
+      defaults: shadow catches it with zero exposure; big bang catches it fast but after hundreds of bad
+      decisions; the canary usually gathers enough evidence only after it has already promoted itself; A/B
+      is slow and exposes half the line.</li>
+      <li>Then set the degradation to 0 and run 200 again: the false-alarm column. Big bang raises false
+      alarms because it compares against a historical baseline in a process that varies day to day.
+      Concurrent comparison cancels that out — which is the real argument for canaries and shadows.</li>
+      <li>Expected question: “Why not just wait for more data?” You can — raise the threshold and watch
+      detection slow down and exposure rise. There is no free setting; you are choosing a trade-off and
+      should write down which.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 19.6 -->
+<section class="chapter" id="monitor">
+  <h2>19.6 · Running it: the production monitoring dashboard</h2>
+  <p>Module 7.5 introduced drift. In production you need it as a set of dashboards with agreed alert
+  levels and a named person who receives them. There are four layers, from cheapest and fastest to most
+  expensive and slowest:</p>
+  <ol>
+    <li><strong>Data quality</strong> — missing values, stuck sensors, values out of range, unit changes.
+    Free, immediate, and catches the most embarrassing failures.</li>
+    <li><strong>Input drift</strong> — has the distribution of each input moved away from the training
+    data? Needs no labels.</li>
+    <li><strong>Prediction drift</strong> — is the model flagging more or less than it used to? Needs no
+    labels either.</li>
+    <li><strong>Performance against ground truth</strong> — the only layer that tells you whether the
+    model is actually right. Arrives late and only for a sample.</li>
+  </ol>
+  <div class="eqbox">
+    PSI = Σ<sub>bins</sub> (<span class="hi">q</span> − <span class="hi2">p</span>) · ln(<span class="hi">q</span> ÷ <span class="hi2">p</span>)
+    &nbsp;&nbsp;&nbsp; KS = max<sub>x</sub> |F<sub>today</sub>(x) − F<sub>train</sub>(x)|
+    <small>PSI (population stability index) compares the share of today's data, q, with the share of the
+    training data, p, in each of ten bins set by the training data's deciles. Below 0.1 is usually read as
+    stable, above 0.25 as a significant shift. KS (Kolmogorov–Smirnov) is the largest gap between the two
+    cumulative distributions; with large daily samples it flags even trivial shifts, which is why PSI is
+    more often used for alerts.</small>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · A quarter in production</h3><span class="tag try">Pick “Concept change” and find the day you would have noticed</span></div>
+    <p class="small">An on-vehicle classifier flags likely wheel-bearing wear from two features: vibration
+    band energy (A) and bearing-housing temperature (B). The fleet uploads 300 events a day. Ground truth
+    comes from workshop inspections of 20% of flagged and unflagged vehicles, weeks later. Everything below
+    is computed live from seeded synthetic events; the scenario events are authored.</p>
+    <div class="btnrow">
+      <div class="segmented" id="mnSeg">
+        <button data-v="quiet" class="on">Quiet quarter</button>
+        <button data-v="sensor">Sensor supplier change</button>
+        <button data-v="season">Seasonal drift</button>
+        <button data-v="concept">Concept change</button>
+        <button data-v="pipe">Broken pipeline</button>
+      </div>
+    </div>
+    <div class="split-wide">
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Today</span><span class="val" id="mnTodayOut"></span></div>
+          <input type="range" id="mnToday" min="7" max="119" step="1" value="75">
+        </div>
+        <canvas id="mnCv1" class="cv-ts"></canvas>
+        <div class="legend mt1 mb0">
+          <span><span class="sw" style="background:var(--accent)"></span>PSI, feature A</span>
+          <span><span class="sw" style="background:var(--violet)"></span>PSI, feature B</span>
+          <span><span class="sw dash" style="color:var(--bad)"></span>alert level</span>
+        </div>
+        <canvas id="mnCv2" class="cv-ts mt1"></canvas>
+        <div class="legend mt1 mb0">
+          <span><span class="sw" style="background:var(--warn)"></span>share of events flagged</span>
+          <span><span class="swatch" style="background:var(--ink-3);opacity:.3"></span>expected band (±3σ)</span>
+        </div>
+        <canvas id="mnCv3" class="cv-ts mt1"></canvas>
+        <div class="legend mt1 mb0">
+          <span><span class="sw" style="background:var(--good)"></span>recall (7-day, labelled)</span>
+          <span><span class="sw" style="background:var(--accent-2)"></span>precision (7-day, labelled)</span>
+          <span><span class="swatch" style="background:var(--warn);opacity:.35"></span>labels not yet arrived</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Ground-truth delay</span><span class="val" id="mnLagOut"></span></div>
+          <input type="range" id="mnLag" min="0" max="40" step="1" value="21">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>PSI alert level</span><span class="val" id="mnPsiThOut"></span></div>
+          <input type="range" id="mnPsiTh" min="0.1" max="0.5" step="0.01" value="0.25">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Recall floor</span><span class="val" id="mnRecThOut"></span></div>
+          <input type="range" id="mnRecTh" min="0.5" max="0.95" step="0.01" value="0.7">
+        </div>
+        <div class="metrics">
+          <div class="m"><span class="k">PSI A / B</span><span class="v" id="mnPsiNow">—</span></div>
+          <div class="m"><span class="k">KS A / B</span><span class="v" id="mnKsNow">—</span></div>
+          <div class="m"><span class="k">flag rate</span><span class="v" id="mnFlagNow">—</span></div>
+          <div class="m"><span class="k">score PSI</span><span class="v" id="mnSpsiNow">—</span></div>
+          <div class="m"><span class="k">last known recall</span><span class="v" id="mnRecNow">—</span></div>
+        </div>
+        <p class="small muted mt1 mb0" id="mnKsNote"></p>
+        <div class="verdict info mt1" id="mnVerdict"><span class="lvl">—</span></div>
+        <div class="btnrow">
+          <button class="btn sm" id="mnRetrain">Retrain on labelled data</button>
+          <button class="btn sm" id="mnRollback">Roll back to v1</button>
+        </div>
+        <div class="modelchips" id="mnModels"></div>
+        <h4 class="mt1">Alert log</h4>
+        <div class="alertlog" id="mnAlerts"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">The model is a logistic regression fitted to 3,000 reference events.
+    PSI and KS are computed each day against the data the active model was trained on. Retraining fits a
+    new model to the labelled events from the 30 most recent days whose labels have arrived — starting
+    after the latest drift onset, if there is one — and it takes effect from tomorrow — drag “today” forward to see what it did.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Drift is not failure</span>
+      <p class="mb0">In the seasonal scenario the temperature input drifts far past any PSI alert level,
+      and the model stays right, because the relationship it learned still holds. An alert on drift is a
+      reason to look, not a reason to retrain.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Failure is not always drift</span>
+      <p class="mb0">In the concept-change scenario the inputs do not move at all. A new bearing supplier
+      wears out at lower vibration levels, and only the late, sampled ground truth can see it. If you have
+      no ground-truth pipeline, you will find out from warranty claims.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Do not retrain on broken data</span>
+      <p class="mb0">When a feature is stuck or missing, the right action is the kill switch and a fix to
+      the pipeline. Retraining teaches the model that the broken feature is normal — and then the fix
+      breaks the model.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 9 minutes; this is the centrepiece. For each scenario, drag “today” from day 30 forward
+      slowly and ask the room, at each alert, “what would you do now?” before revealing the verdict.</li>
+      <li>Sensor change: input and prediction drift fire within a day, labels confirm three weeks later.
+      The question to ask is “who knew the sensor had changed?” — usually purchasing did, and nobody told
+      the model owner.</li>
+      <li>Concept change: nothing fires until the labels arrive. Set the delay to 40 days to make the
+      point painful. Then retrain and walk forward.</li>
+      <li>Under no drift, PSI with 300 events a day and ten bins sits around 0.03 from sampling noise
+      alone. That is why alert levels below about 0.1 produce a stream of false alarms.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 19.7 -->
+<section class="chapter" id="checklist">
+  <h2>19.7 · The operational checklist</h2>
+  <p>None of this is specific to machine learning, and almost all of it is skipped on ML projects,
+  because the team that built the model is rarely the team that has run production systems. Tick what is
+  true today for a model you know.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Ready for go-live?</h3><span class="tag try">Be honest</span></div>
+    <div class="split">
+      <div class="checklist" id="opList"></div>
+      <div>
+        <div class="verdict info" id="opVerdict"><span class="lvl">Nothing ticked yet</span>Work through the list.</div>
+        <div class="card mt1" id="opGaps" style="min-height:220px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The two that matter most</span>
+    <p class="mb0"><strong>A kill switch with a defined fallback</strong>, and <strong>a log that ties
+    every decision to a model version</strong>. The first limits how bad your worst day can be. The second
+    means that when someone asks what happened, you can answer with evidence rather than reconstruction.
+    Both are cheap to build at the start and very expensive to add after an incident.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 3 minutes. Hand it out with the module 7.8 and 9.8 checklists; together they cover data,
+      agents and operations.</li>
+      <li>The item most often missing is the tested rollback. Ask when anyone last actually did one.</li>
+      <li>“Fallback” must be a behaviour, not a sentence: what does the vehicle, the station or the bench
+      do in the second after the model is switched off?</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>Everything here assumed that a wrong decision is costly but recoverable — a rejected good part, an
+  unnecessary workshop visit. When the model sits inside a function that can hurt someone, the standards
+  change: ISO 26262, SOTIF, and the question of how you argue that a learned component is safe enough.
+  That is module 20.</p>
+  <p><a href="20-safety.html"><strong>Module 20 · AI in safety-critical vehicle systems →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+  function $(id) { return document.getElementById(id); }
+
+  /* ---------------- seeded randomness ---------------- */
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) {
+    var u = 0, v = 0;
+    while (!u) u = r();
+    while (!v) v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307 * v);
+  }
+  function binom(n, p, r) {
+    if (n <= 0 || p <= 0) return 0;
+    if (p >= 1) return n;
+    var i, k = 0;
+    if (n < 40) { for (i = 0; i < n; i++) if (r() < p) k++; return k; }
+    var mu = n * p;
+    if (mu < 12) {
+      var L = Math.exp(-mu), pr = 1;
+      do { k++; pr *= r(); } while (pr > L);
+      return Math.min(n, k - 1);
+    }
+    var v = Math.round(mu + Math.sqrt(mu * (1 - p)) * gauss(r));
+    return Math.max(0, Math.min(n, v));
+  }
+  function sig(z) { return 1 / (1 + Math.exp(-z)); }
+  function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+  function median(a) {
+    if (!a.length) return NaN;
+    var s = a.slice().sort(function (x, y) { return x - y; });
+    var m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  function deepW(W) { return W.map(function (L) { return L.map(function (r) { return r.slice(); }); }); }
+  function seededMLP(sizes, act, seed) {
+    var net = new AI.MLP(sizes, act), r = rng(seed);
+    for (var l = 0; l < net.W.length; l++) {
+      var sc = Math.sqrt(2 / (sizes[l] + sizes[l + 1])) * 1.6;
+      for (var j = 0; j < net.W[l].length; j++)
+        for (var i = 0; i < net.W[l][j].length; i++) net.W[l][j][i] = (r() * 2 - 1) * sc;
+    }
+    return net;
+  }
+  function cloneNet(n) {
+    var m = new AI.MLP(n.s, n.act);
+    m.W = deepW(n.W); m.B = n.B.map(function (b) { return b.slice(); });
+    return m;
+  }
+  function msFmt(x) {
+    if (!isFinite(x)) return '—';
+    if (x >= 1000) return (x / 1000).toFixed(x >= 10000 ? 0 : 1) + ' s';
+    if (x >= 100) return x.toFixed(0) + ' ms';
+    if (x >= 10) return x.toFixed(1) + ' ms';
+    return x.toFixed(2) + ' ms';
+  }
+  function bytesFmt(b) {
+    if (b >= 1048576) return (b / 1048576).toFixed(b >= 10485760 ? 0 : 1) + ' MB';
+    if (b >= 1024) return (b / 1024).toFixed(b >= 10240 ? 0 : 1) + ' kB';
+    return Math.round(b) + ' B';
+  }
+
+  /* ============================================ 19.1 technical debt grid */
+  var DEBT = {
+    ml: ['ML code', 'The part the notebook contains: the model definition and the training loop. In a mature system it is a small fraction of the code, and an even smaller fraction of the things that can go wrong.',
+      'The low-grip classifier in section 19.4 is a few hundred weights. The software around it on the ECU — signal acquisition, plausibility checks, fallback logic, diagnostics, calibration parameters — is many times larger.'],
+    cfg: ['Configuration', 'Thresholds, feature lists, model file paths, per-variant and per-market overrides. Configuration is code that often escapes review: change a threshold from 0.50 to 0.45 in a YAML file and every decision the model makes changes.',
+      'An inspection threshold tuned for one plant gets copied to a second plant with a different camera. Version configuration with the model, review it like code, and log its hash with every decision.'],
+    col: ['Data collection', 'Loggers, data-acquisition systems, plant historians, fleet telemetry upload. If the sampling rate, units, firmware or mounting position change, the model’s inputs change, and nothing in the model will tell you.',
+      'A bench DAQ upgrade changes the anti-aliasing filter. The surrogate model’s inputs now have slightly less high-frequency content and its predictions shift by a few percent.'],
+    ver: ['Data verification', 'Schema checks, range checks, missing-value rates, unit and timestamp checks on every batch before the model sees it. The cheapest monitoring that exists, and the layer that catches the most embarrassing failures.',
+      'A supplier’s sensor starts reporting temperature in kelvin instead of Celsius. A range check catches it in the first minute; without one, the model sees an extraordinary heatwave.'],
+    fea: ['Feature extraction', 'The code that turns raw signals into model inputs: filtering, windowing, FFTs, normalisation. It is part of the model, and it must be the same code — or provably equivalent code — in training and in serving.',
+      'Training features computed in Python with a zero-phase filter; the ECU implementation uses a causal filter. The features differ by a phase lag the model never saw. This is training/serving skew, and it is one of the most common production bugs.'],
+    ana: ['Analysis tools', 'Dashboards, slicing results by variant, plant, market and season, reviewing individual errors. Without them, you know that accuracy fell but not where or why.',
+      'Fleet-wide recall looks fine; sliced by market, it has collapsed in one country where a different tyre is fitted as standard.'],
+    pro: ['Process management', 'Training and retraining pipelines, scheduling, the model registry, approvals and the release record. The machinery that makes 19.2 and 19.5 routine rather than heroic.',
+      'A retrain is triggered automatically every month. Without an evaluation gate in the pipeline, that is a way of deploying a worse model on a schedule.'],
+    res: ['Machine resources', 'Training compute, and the inference budget on the target: memory, cycle time, energy. On a vehicle this is fixed at design time and shared with everything else on the ECU.',
+      'The model fits in the ECU’s flash at 8 bits but not at float32 — section 19.4. That decision has to be made, validated and documented, not discovered at integration.'],
+    srv: ['Serving infrastructure', 'Whatever executes the model: a batch job, a web service, a streaming processor, an ECU software component. It owns timing, error handling, the fallback when the model is unavailable, and the update path.',
+      'The cloud service times out once in ten thousand requests. Does the inspection station then accept the part, reject it, or stop the line? Someone has to decide, before it happens.'],
+    mon: ['Monitoring', 'Service health, data quality, input drift, prediction drift and delayed ground-truth performance, each with an alert level and a named recipient. Section 19.6 is a working example.',
+      'Warranty data reveals a missed failure mode four months after a model update. With monitoring on the model’s inputs and outputs, the change would usually have been visible within days.']
+  };
+  function debtPick(k) {
+    AI.qsa('#tdGrid .td').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-k') === k); });
+    var d = DEBT[k];
+    $('tdInfo').innerHTML = '<h4>' + d[0] + '</h4><p class="small">' + d[1] + '</p>' +
+      '<p class="small mb0"><b>Automotive example.</b> ' + d[2] + '</p>';
+  }
+
+  /* ============================================ 19.2 reproducibility */
+  var RP = { d1: null, d2: null, audit: null, orig: null, origDec: null, cp: -1, runs: 0, last: null, plot: null };
+  var PINS = [
+    ['data', 'Data snapshot', 'The exact training table, by ID or hash'],
+    ['code', 'Code commit', 'Including the preprocessing and scaler'],
+    ['cfg', 'Config', 'Learning rate, steps, decision threshold'],
+    ['seed', 'Random seed', 'Weight initialisation'],
+    ['env', 'Environment', 'Library versions, numeric precision']
+  ];
+  function rpZ(adv, iat) { return 0.30 * (adv - 23) + 0.075 * (iat - 35) + 0.0035 * (adv - 20) * (adv - 20) - 0.3; }
+  function rpGen(seed, n, iatLo, iatHi) {
+    var r = rng(seed), rows = [];
+    for (var i = 0; i < n; i++) {
+      var adv = 6 + r() * 28, iat = iatLo + r() * (iatHi - iatLo);
+      rows.push({ x: [adv, iat], y: (rpZ(adv, iat) + 0.9 * gauss(r)) > 0 ? 1 : 0 });
+    }
+    return rows;
+  }
+  function rpData() {
+    var base = rpGen(101, 320, 12, 57), r = rng(111);
+    /* v1 = as published last month: 5% of labels were wrong (later corrected) */
+    RP.d1 = base.map(function (d) { return { x: d.x, y: r() < 0.05 ? 1 - d.y : d.y }; });
+    /* v2 = today's table: corrected labels, plus six weeks of a hotter summer campaign */
+    RP.d2 = base.concat(rpGen(202, 90, 30, 62));
+    RP.audit = rpGen(303, 2000, 12, 60);
+  }
+  function rpScaler(rows, kind) {
+    var sc = { m: [0, 0], s: [1, 1] };
+    for (var f = 0; f < 2; f++) {
+      var v = rows.map(function (d) { return d.x[f]; });
+      if (kind === 'std') {
+        var m = v.reduce(function (a, b) { return a + b; }, 0) / v.length;
+        var s = Math.sqrt(v.reduce(function (a, b) { return a + (b - m) * (b - m); }, 0) / v.length);
+        sc.m[f] = m; sc.s[f] = s || 1;
+      } else {
+        var srt = v.slice().sort(function (a, b) { return a - b; });
+        var q = function (p) { return srt[Math.floor(p * (srt.length - 1))]; };
+        sc.m[f] = q(0.5); sc.s[f] = ((q(0.75) - q(0.25)) / 1.349) || 1;
+      }
+    }
+    return sc;
+  }
+  function rpTrain(rc) {
+    var rows = rc.data === 'v1' ? RP.d1 : RP.d2;
+    var sc = rpScaler(rows, rc.scaler);
+    var X = rows.map(function (d) { return [(d.x[0] - sc.m[0]) / sc.s[0], (d.x[1] - sc.m[1]) / sc.s[1]]; });
+    var Y = rows.map(function (d) { return d.y; });
+    var net = seededMLP([2, 6, 1], 'tanh', rc.seed);
+    for (var it = 0; it < rc.steps; it++) {
+      net.step(X, Y, rc.lr, 0.9);
+      if (rc.f32) {
+        net.W.forEach(function (L) { L.forEach(function (row) { for (var i = 0; i < row.length; i++) row[i] = Math.fround(row[i]); }); });
+        net.B.forEach(function (b) { for (var i = 0; i < b.length; i++) b[i] = Math.fround(b[i]); });
+        net.mW.forEach(function (L) { L.forEach(function (row) { for (var i = 0; i < row.length; i++) row[i] = Math.fround(row[i]); }); });
+      }
+    }
+    return { net: net, sc: sc, thr: rc.thr };
+  }
+  function rpP(m, x) { return m.net.predict([(x[0] - m.sc.m[0]) / m.sc.s[0], (x[1] - m.sc.m[1]) / m.sc.s[1]]); }
+  var RP_ORIG = { data: 'v1', scaler: 'std', lr: 0.3, steps: 300, thr: 0.5, seed: 42, f32: false };
+  function rpInit() {
+    rpData();
+    RP.orig = rpTrain(RP_ORIG);
+    RP.origP = RP.audit.map(function (d) { return rpP(RP.orig, d.x); });
+    /* CP-0417: a borderline point that was screened out (predicted to knock) */
+    var best = -1, bd = 9;
+    RP.origP.forEach(function (p, i) { if (p >= 0.5 && Math.abs(p - 0.54) < bd) { bd = Math.abs(p - 0.54); best = i; } });
+    RP.cp = best;
+    var h = '';
+    PINS.forEach(function (p) {
+      h += '<label><input type="checkbox" data-k="' + p[0] + '" checked><span><b>' + p[1] + '</b><span class="sub">' + p[2] + '</span></span></label>';
+    });
+    $('rpPins').innerHTML = h;
+    $('rpAcc0').textContent = F.pct(rpAcc(RP.orig), 1);
+  }
+  function rpAcc(m) {
+    var c = 0;
+    RP.audit.forEach(function (d) { if ((rpP(m, d.x) >= m.thr ? 1 : 0) === d.y) c++; });
+    return c / RP.audit.length;
+  }
+  function rpPinned() {
+    var o = {};
+    AI.qsa('#rpPins input').forEach(function (cb) { o[cb.getAttribute('data-k')] = cb.checked; });
+    return o;
+  }
+  function rpRun() {
+    var pin = rpPinned();
+    RP.runs++;
+    var rc = {
+      data: pin.data ? 'v1' : 'v2',
+      scaler: pin.code ? 'std' : 'robust',
+      lr: pin.cfg ? 0.3 : 0.5, steps: pin.cfg ? 300 : 400, thr: pin.cfg ? 0.5 : 0.45,
+      seed: pin.seed ? 42 : (1000 + ((Date.now() + RP.runs * 7919) % 100000)),
+      f32: !pin.env
+    };
+    var m = rpTrain(rc);
+    RP.last = m;
+    var changed = 0, cpNow = 0;
+    var P = RP.audit.map(function (d, i) {
+      var p = rpP(m, d.x);
+      if ((p >= m.thr) !== (RP.origP[i] >= RP.orig.thr)) changed++;
+      return p;
+    });
+    cpNow = P[RP.cp];
+    var dw = 0;
+    for (var l = 0; l < m.net.W.length; l++) {
+      for (var j = 0; j < m.net.W[l].length; j++) {
+        dw = Math.max(dw, Math.abs(m.net.B[l][j] - RP.orig.net.B[l][j]));
+        for (var i = 0; i < m.net.W[l][j].length; i++) dw = Math.max(dw, Math.abs(m.net.W[l][j][i] - RP.orig.net.W[l][j][i]));
+      }
+    }
+    $('rpChanged').textContent = changed + ' / 2,000';
+    $('rpDw').textContent = dw === 0 ? '0 (identical)' : dw < 1e-3 ? dw.toExponential(1) : dw.toFixed(3);
+    $('rpAcc1').textContent = F.pct(rpAcc(m), 1);
+    var cpThen = RP.origP[RP.cp] >= RP.orig.thr ? 'knock' : 'safe', cpN = cpNow >= m.thr ? 'knock' : 'safe';
+    $('rpCp').textContent = cpThen + ' → ' + cpN;
+
+    var un = PINS.filter(function (p) { return !pin[p[0]]; }).map(function (p) { return p[1].toLowerCase(); });
+    var v = $('rpVerdict');
+    if (!un.length) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Reproduced exactly</span><p class="small mb0">Every weight is bit-identical to last month’s model. You can show the calibration lead precisely why CP-0417 was screened out: the model scored it ' +
+        RP.origP[RP.cp].toFixed(3) + ' against a threshold of 0.5, and you can re-run that today.</p>';
+    } else if (un.length === 1 && !pin.env) {
+      v.className = changed ? 'verdict mid' : 'verdict info';
+      v.innerHTML = '<span class="lvl">' + (changed ? 'Close, not identical' : 'Functionally identical, not bit-identical') + '</span><p class="small mb0">Only the arithmetic changed. Weights differ by at most ' +
+        dw.toExponential(1) + ' and ' + changed + ' of 2,000 decisions changed. For most purposes that is reproduced; for a safety case you would need to explain the difference, which is why the environment is pinned too.</p>';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Not reproduced</span><p class="small mb0">Unpinned: <b>' + un.join(', ') + '</b>. The rebuilt model changes ' + changed +
+        ' of 2,000 decisions' + (cpThen !== cpN ? ', <b>including CP-0417, which it would now call ' + cpN + '</b>' : ' (CP-0417 happens to come out the same, at ' + cpNow.toFixed(3) + ' instead of ' + RP.origP[RP.cp].toFixed(3) + ')') +
+        '. You can no longer show what last month’s model did or why — only what a similar model does today.' +
+        (!pin.seed ? ' Press rebuild again: with an unpinned seed you get a different answer every time.' : '') + '</p>';
+    }
+    drawRp();
+  }
+  function drawRp() {
+    var p = RP.plot;
+    if (!p) return;
+    p.resize(); p.clear();
+    p.frame({ xticks: 6, yticks: 5, xlabel: 'spark advance (° before TDC)', ylabel: 'intake air temperature (°C)' });
+    var nx = 60, ny = 50, i, j, cw = p.pw / nx, ch = p.ph / ny;
+    var cur = RP.last;
+    var g0 = [], g1 = [];
+    for (j = 0; j < ny; j++) {
+      g0.push([]); g1.push([]);
+      for (i = 0; i < nx; i++) {
+        var x = [p.dom[0] + (i + 0.5) / nx * (p.dom[1] - p.dom[0]), p.ran[0] + (j + 0.5) / ny * (p.ran[1] - p.ran[0])];
+        g0[j].push(rpP(RP.orig, x) >= RP.orig.thr ? 1 : 0);
+        g1[j].push(cur ? (rpP(cur, x) >= cur.thr ? 1 : 0) : g0[j][i]);
+      }
+    }
+    var bad = C('--bad'), ink = C('--ink'), acc = C('--accent');
+    p.clip(function (g) {
+      for (j = 0; j < ny; j++) for (i = 0; i < nx; i++) {
+        var px = p.pad.l + i * cw, py = p.pad.t + p.ph - (j + 1) * ch;
+        if (g0[j][i] !== g1[j][i]) { g.fillStyle = bad + '55'; g.fillRect(px, py, cw + 0.5, ch + 0.5); }
+      }
+      RP.audit.slice(0, 450).forEach(function (d) {
+        p.dot(d.x[0], d.x[1], 2.2, d.y ? C('--warn') + 'aa' : C('--ink-3') + '66');
+      });
+      function edges(G, col, dashed) {
+        g.fillStyle = col;
+        for (j = 0; j < ny; j++) for (i = 0; i < nx; i++) {
+          var e = (i < nx - 1 && G[j][i] !== G[j][i + 1]) || (j < ny - 1 && G[j][i] !== G[j + 1][i]);
+          if (!e) continue;
+          if (dashed && ((i + j) % 3 === 0)) continue;
+          g.fillRect(p.pad.l + (i + 0.5) * cw - 1.5, p.pad.t + p.ph - (j + 0.5) * ch - 1.5, 3, 3);
+        }
+      }
+      if (cur) edges(g1, acc, false);
+      edges(g0, ink, true);
+      var c = RP.audit[RP.cp];
+      p.dot(c.x[0], c.x[1], 6, C('--panel'), ink);
+      g.fillStyle = ink; g.font = '700 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillText('CP-0417', p.X(c.x[0]) + 9, p.Y(c.x[1]) + 4);
+      g.font = '600 11px system-ui,sans-serif'; g.fillStyle = C('--warn');
+      g.fillText('knock', p.X(33), p.Y(57));
+      g.fillStyle = C('--ink-3');
+      g.fillText('safe', p.X(7), p.Y(14));
+    });
+  }
+
+  /* ============================================ 19.3 latency budget */
+  var TGT = {
+    ecu: { stages: [['Sensor + bus', 1.0, 0.15], ['Preprocessing', 0.8, 0.1], ['Inference', 3.0, 0.25], ['Network', 0, 0], ['Actuation command', 0.6, 0.1]],
+      tailP: 0.001, tailMs: 1.0, dl: 10, rate: 100, net: false },
+    bench: { stages: [['DAQ + driver', 2.0, 0.6], ['Preprocessing', 1.5, 0.4], ['Inference', 2.5, 0.8], ['Network', 0, 0], ['Write to rig', 1.5, 0.4]],
+      tailP: 0.01, tailMs: 12, dl: 20, rate: 50, net: false },
+    cloud: { stages: [['Sensor + gateway', 4, 1], ['Preprocessing', 3, 1], ['Inference', 12, 3], ['Network round trip', 60, 0.45], ['Actuation command', 4, 1]],
+      tailP: 0.01, tailMs: 150, dl: 10, rate: 100, net: true }
+  };
+  var LT = { tgt: 'ecu', inf: 3, jit: 1, tail: 0.002, dl: 10, rate: 100, seed: 11, lock: false, res: null, plot: null, h: {} };
+  function lgMap(v, lo, hi) { return Number((lo * Math.pow(hi / lo, v / 100)).toPrecision(2)); }
+  function lgInv(x, lo, hi) { return 100 * Math.log(x / lo) / Math.log(hi / lo); }
+  function ltSim() {
+    if (LT.lock) return;
+    var T = TGT[LT.tgt], r = rng(LT.seed), N = 20000, i, s;
+    var tot = new Float64Array(N), st = [], ns = T.stages.length;
+    for (s = 0; s <= ns; s++) st.push(new Float64Array(N));
+    var infScale = LT.inf / T.stages[2][1];
+    for (i = 0; i < N; i++) {
+      var sum = 0;
+      for (s = 0; s < ns; s++) {
+        var m = T.stages[s][1], j = T.stages[s][2], v;
+        if (s === 2) { m = LT.inf; j = j * infScale; }
+        if (m === 0) v = 0;
+        else if (T.net && s === 3) v = m * Math.exp(j * LT.jit * gauss(r));
+        else v = Math.max(m * 0.4, m + j * LT.jit * gauss(r));
+        st[s][i] = v; sum += v;
+      }
+      var stall = r() < LT.tail ? -T.tailMs * Math.log(1 - r()) : 0;
+      st[ns][i] = stall; sum += stall;
+      tot[i] = sum;
+    }
+    var sorted = Array.prototype.slice.call(tot).sort(function (a, b) { return a - b; });
+    function q(a, p) { return a[Math.min(a.length - 1, Math.floor(p * (a.length - 1)))]; }
+    var miss = 0, mean = 0;
+    for (i = 0; i < N; i++) { if (tot[i] > LT.dl) miss++; mean += tot[i]; }
+    mean /= N;
+    var stages = [];
+    for (s = 0; s <= ns; s++) {
+      var a = Array.prototype.slice.call(st[s]), mm = 0;
+      for (i = 0; i < N; i++) mm += a[i];
+      a.sort(function (x, y) { return x - y; });
+      var nm = s === ns ? 'Stalls (rare)' : T.stages[s][0];
+      if (s === 3 && !T.net) continue;
+      stages.push({ name: nm, mean: mm / N, p99: q(a, 0.99), p999: q(a, 0.999) });
+    }
+    LT.res = { tot: tot, sorted: sorted, p50: q(sorted, 0.5), p99: q(sorted, 0.99), p999: q(sorted, 0.999), max: sorted[N - 1],
+      miss: miss, N: N, mean: mean, stages: stages };
+    drawLt();
+  }
+  function drawLt() {
+    var R = LT.res, p = LT.plot;
+    if (!R || !p) return;
+    p.resize(); p.clear();
+    var xmax = Math.max(LT.dl * 1.35, R.p999 * 1.15, R.p50 * 1.6);
+    var nb = 70, bins = new Array(nb).fill(0), over = 0, i;
+    for (i = 0; i < R.N; i++) {
+      var b = Math.floor(R.tot[i] / xmax * nb);
+      if (b >= nb) { over++; b = nb - 1; }
+      bins[b]++;
+    }
+    var lmax = Math.log10(Math.max.apply(null, bins) + 1);
+    p.dom = [0, xmax]; p.ran = [0, Math.ceil(lmax + 0.2)];
+    p.frame({ xticks: 5, yticks: p.ran[1], xlabel: 'end-to-end latency (ms)', ylabel: 'cycles (log scale)',
+      xfmt: function (x) { return x >= 100 ? Math.round(x) : x >= 10 ? x.toFixed(0) : x.toFixed(1); },
+      yfmt: function (y) { return F.c(Math.pow(10, y)); } });
+    var bw = p.pw / nb, acc = C('--accent'), bad = C('--bad');
+    p.clip(function (g) {
+      for (i = 0; i < nb; i++) {
+        if (!bins[i]) continue;
+        var x0 = p.pad.l + i * bw, x1v = (i + 1) / nb * xmax;
+        var h = Math.log10(bins[i] + 1);
+        g.fillStyle = x1v > LT.dl ? bad + 'cc' : acc + 'bb';
+        g.fillRect(x0 + 0.5, p.Y(h), Math.max(1, bw - 1), p.Y(0) - p.Y(h));
+      }
+      p.line([[LT.dl, 0], [LT.dl, p.ran[1]]], bad, 2.2, [6, 4]);
+      p.line([[R.p99, 0], [R.p99, p.ran[1] * 0.82]], C('--ink-3'), 1.4, [3, 3]);
+      g.font = '600 11px system-ui,sans-serif'; g.textBaseline = 'top';
+      g.fillStyle = bad; g.textAlign = LT.dl > xmax * 0.75 ? 'right' : 'left';
+      g.fillText('deadline ' + msFmt(LT.dl), p.X(LT.dl) + (g.textAlign === 'right' ? -6 : 6), p.pad.t + 6);
+      g.fillStyle = C('--ink-3'); g.textAlign = R.p99 > xmax * 0.75 ? 'right' : 'left';
+      g.fillText('p99', p.X(R.p99) + (g.textAlign === 'right' ? -5 : 5), p.Y(p.ran[1] * 0.82));
+      if (over) {
+        g.fillStyle = bad; g.textAlign = 'right';
+        g.fillText(over + ' beyond axis', p.pad.l + p.pw - 4, p.pad.t + 22);
+      }
+    });
+
+    var missRate = R.miss / R.N, period = 1000 / LT.rate, perHr = missRate * LT.rate * 3600;
+    $('ltP50').textContent = msFmt(R.p50);
+    $('ltP99').textContent = msFmt(R.p99);
+    $('ltMiss').textContent = R.miss ? (missRate < 0.001 ? F.pct(missRate, 2) : F.pct(missRate, 1)) : '0';
+    $('ltHr').textContent = R.miss ? F.c(perHr) : '< ' + F.c(3 / R.N * LT.rate * 3600);
+    $('bsLtMiss').className = 'bigstat ' + (R.miss === 0 ? 'good' : missRate < 0.001 ? 'warn' : 'bad');
+    $('bsLtHr').className = 'bigstat ' + (R.miss === 0 ? 'good' : missRate < 0.001 ? 'warn' : 'bad');
+
+    var mx = 0;
+    R.stages.forEach(function (s) { mx = Math.max(mx, s.p99, s.mean); });
+    var cols = ['--accent', '--accent-2', '--violet', '--warn', '--good', '--bad'];
+    $('ltStages').innerHTML = R.stages.map(function (s, k) {
+      var c = s.name.indexOf('Stall') === 0 ? C('--bad') : C(cols[k % 5]);
+      return '<div class="ltrow"><span>' + s.name + '</span><div class="tr">' +
+        '<div class="fi p99" style="width:' + (s.p99 / mx * 100).toFixed(1) + '%;background:' + c + '"></div>' +
+        '<div class="fi" style="width:' + (s.mean / mx * 100).toFixed(1) + '%;background:' + c + '"></div></div>' +
+        '<span class="vv">' + msFmt(s.mean) + ' · ' + msFmt(s.p99) + '</span></div>';
+    }).join('');
+
+    var n = '<h4>Reading it</h4>';
+    var behind = R.mean > period ? ' It also cannot keep up: the average cycle of ' + msFmt(R.mean) + ' is longer than the ' + msFmt(period) +
+      ' period at ' + F.c(LT.rate) + ' Hz, so work piles up regardless of the deadline.' : '';
+    if (R.p50 > LT.dl) {
+      n += '<p class="small mb0" style="color:var(--bad)"><b>The typical cycle already misses.</b> The median is ' + msFmt(R.p50) + ' against a ' + msFmt(LT.dl) +
+        ' deadline. No amount of tuning the model fixes this: look at which stage dominates the bars above.' + (LT.tgt === 'cloud' ? ' Here it is the network round trip — physics and infrastructure, not ML.' : '') + behind + '</p>';
+    } else if (R.mean > period) {
+      n += '<p class="small mb0" style="color:var(--bad)"><b>The chain cannot keep up.</b>' + behind + ' Lower the rate, pipeline the stages, or move the model closer to the sensor.</p>';
+    } else if (R.miss === 0) {
+      n += '<p class="small mb0" style="color:var(--good)"><b>No misses in ' + F.c(R.N) + ' cycles.</b> That bounds the miss rate below about ' + F.pct(3 / R.N, 3) +
+        ' (rule of three), which at ' + F.c(LT.rate) + ' Hz is still up to ' + F.c(3 / R.N * LT.rate * 3600) + ' misses an hour. For a function that matters, argue timing from worst-case analysis, not from samples. Worst cycle seen: ' + msFmt(R.max) + '.</p>';
+    } else {
+      var every = 1 / (missRate * LT.rate);
+      n += '<p class="small mb0" style="color:var(--warn)"><b>The median is fine; the tail is not.</b> Median ' + msFmt(R.p50) + ', but ' + R.miss + ' of ' + F.c(R.N) +
+        ' cycles miss the ' + msFmt(LT.dl) + ' deadline — at ' + F.c(LT.rate) + ' Hz, roughly one every ' +
+        (every >= 120 ? (every / 60).toFixed(0) + ' minutes' : every.toFixed(every < 10 ? 1 : 0) + ' seconds') +
+        '. Whether that is acceptable depends entirely on what happens on a missed cycle — which is a design decision you must make explicitly.</p>';
+    }
+    $('ltNote').innerHTML = n;
+  }
+  function ltTarget(k) {
+    var T = TGT[k];
+    LT.tgt = k; LT.lock = true;
+    LT.h.inf.set(lgInv(T.stages[2][1], 0.1, 200));
+    LT.h.jit.set(1);
+    LT.h.tail.set(T.tailP);
+    LT.h.dl.set(lgInv(T.dl, 1, 1000));
+    LT.h.rate.set(lgInv(T.rate, 1, 1000));
+    LT.lock = false;
+    ltSim();
+  }
+
+  /* ============================================ 19.4 quantisation */
+  var QZ = { net: null, tr: null, te: null, bits: 32, pc: false, prune: 0, qat: null, busy: false, ready: false,
+    plot: null, hist: null, floatGrid: null };
+  function qzLabel(a, b, r) { return (b - 0.45 * Math.sin(2.6 * a) - 0.05 + 0.07 * gauss(r)) > 0 ? 1 : 0; }
+  function qzGen(seed, n) {
+    var r = rng(seed), X = [], Y = [];
+    for (var i = 0; i < n; i++) { var a = r() * 2 - 1, b = r() * 2 - 1; X.push([a, b]); Y.push(qzLabel(a, b, r)); }
+    return { X: X, Y: Y };
+  }
+  function quantNet(net, bits, prune, pc) {
+    var q = Object.create(AI.MLP.prototype);
+    q.s = net.s; q.act = net.act; q.B = net.B;
+    var W = deepW(net.W), scales = 0, nnz = 0, nW = 0;
+    if (prune > 0) {
+      var a = [];
+      W.forEach(function (L) { L.forEach(function (r) { r.forEach(function (w) { a.push(Math.abs(w)); }); }); });
+      a.sort(function (x, y) { return x - y; });
+      var k = Math.floor(prune * a.length), th = k > 0 ? a[k - 1] : -1;
+      W.forEach(function (L) { L.forEach(function (r) { for (var i = 0; i < r.length; i++) if (Math.abs(r[i]) <= th) r[i] = 0; }); });
+    }
+    if (bits < 32) {
+      var qm = Math.pow(2, bits - 1) - 1;
+      W.forEach(function (L) {
+        var mx = 0;
+        L.forEach(function (r) { r.forEach(function (w) { mx = Math.max(mx, Math.abs(w)); }); });
+        if (!pc) scales++;
+        L.forEach(function (r) {
+          var m = mx;
+          if (pc) { m = 0; r.forEach(function (w) { m = Math.max(m, Math.abs(w)); }); scales++; }
+          var s = m / qm;
+          if (s > 0) for (var i = 0; i < r.length; i++) r[i] = clamp(Math.round(r[i] / s), -qm, qm) * s;
+        });
+      });
+    }
+    W.forEach(function (L) { L.forEach(function (r) { r.forEach(function (w) { nW++; if (w !== 0) nnz++; }); }); });
+    q.W = W; q.meta = { scales: scales, nnz: nnz, nW: nW };
+    return q;
+  }
+  function qzAcc(m) {
+    var c = 0, X = QZ.te.X, Y = QZ.te.Y;
+    for (var i = 0; i < X.length; i++) if ((m.predict(X[i]) >= 0.5 ? 1 : 0) === Y[i]) c++;
+    return c / X.length;
+  }
+  function qzAgree(m) {
+    var c = 0, X = QZ.te.X;
+    for (var i = 0; i < X.length; i++) if ((m.predict(X[i]) >= 0.5) === QZ.floatDec[i]) c++;
+    return c / X.length;
+  }
+  function qzCost(bits, meta) {
+    var nB = 0;
+    QZ.net.B.forEach(function (b) { nB += b.length; });
+    var dense = meta.nW * bits + nB * 32 + (bits < 32 ? meta.scales * 32 : 0);
+    var sparse = meta.nnz * bits + meta.nW + nB * 32 + (bits < 32 ? meta.scales * 32 : 0);
+    var stored = Math.min(dense, sparse);
+    /* indicative energy: dense MACs + weight reads (Horowitz 2014, 45 nm: fp32 mult+add 4.6 pJ, int8 0.3 pJ, SRAM ~0.16 pJ/bit) */
+    var runBits = bits === 32 ? 32 : (bits === 8 || bits === 4) ? bits : 8;
+    var eMac = bits === 32 ? 4.6 : 0.3 * (runBits / 8);
+    var e = meta.nW * eMac + meta.nW * bits * 0.16;
+    var e32 = meta.nW * 4.6 + meta.nW * 32 * 0.16;
+    return { bytes: stored / 8, sparseUsed: sparse < dense, energy: e / e32, latency: runBits / 32, per250k: 250000 * bits / 8 };
+  }
+  function qzCurrent() {
+    var key = QZ.bits + '|' + QZ.pc + '|' + QZ.prune;
+    if (QZ.qat && QZ.qat.key === key && QZ.qat.done) return { m: quantNet(QZ.qat.net, QZ.bits, QZ.prune, QZ.pc), qat: true };
+    return { m: quantNet(QZ.net, QZ.bits, QZ.prune, QZ.pc), qat: false };
+  }
+  function qzTrain() {
+    QZ.tr = qzGen(501, 400); QZ.te = qzGen(502, 2000);
+    QZ.net = seededMLP([2, 12, 12, 1], 'tanh', 7);
+    var total = 900, done = 0;
+    function chunk() {
+      var loss = 0;
+      for (var k = 0; k < 30 && done < total; k++, done++) loss = QZ.net.step(QZ.tr.X, QZ.tr.Y, 0.15, 0.9);
+      $('qzProg').firstElementChild.style.width = (done / total * 100).toFixed(0) + '%';
+      $('qzStatus').textContent = 'Training the float model… step ' + done + ' of ' + total + ', loss ' + loss.toFixed(3);
+      if (done < total) { setTimeout(chunk, 0); return; }
+      QZ.ready = true;
+      QZ.floatDec = QZ.te.X.map(function (x) { return QZ.net.predict(x) >= 0.5; });
+      QZ.floatAcc = qzAcc(QZ.net);
+      $('qzStatus').textContent = 'Float model trained: 900 steps, test accuracy ' + F.pct(QZ.floatAcc, 1) + '. Now quantise it.';
+      $('qzQat').disabled = false;
+      qzFloatGrid();
+      qzUpdate();
+    }
+    setTimeout(chunk, 0);
+  }
+  var QG = 70;
+  function qzFloatGrid() {
+    QZ.floatGrid = [];
+    for (var j = 0; j < QG; j++) {
+      var row = [];
+      for (var i = 0; i < QG; i++) row.push(QZ.net.predict([-1 + 2 * (i + 0.5) / QG, -1 + 2 * (j + 0.5) / QG]) >= 0.5 ? 1 : 0);
+      QZ.floatGrid.push(row);
+    }
+  }
+  function qzUpdate() {
+    if (!QZ.ready) return;
+    var cur = qzCurrent(), m = cur.m;
+    var acc = qzAcc(m), agr = qzAgree(m), cost = qzCost(QZ.bits, m.meta);
+    $('qzAcc').textContent = F.pct(acc, 1);
+    $('qzAgr').textContent = F.pct(agr, 1);
+    $('qzAccF').textContent = F.pct(QZ.floatAcc, 1);
+    $('qzMem').textContent = bytesFmt(cost.bytes);
+    $('qzEn').textContent = cost.energy >= 0.995 ? '1×' : cost.energy.toFixed(2) + '×';
+    $('qzLat').textContent = cost.latency >= 0.995 ? '1×' : cost.latency.toFixed(2) + '×';
+    var drop = QZ.floatAcc - acc;
+    $('bsQzAcc').className = 'bigstat ' + (drop < 0.005 ? 'good' : drop < 0.03 ? 'warn' : 'bad');
+    $('bsQzAgr').className = 'bigstat ' + (agr > 0.995 ? 'good' : agr > 0.97 ? 'warn' : 'bad');
+    $('qzQat').textContent = cur.qat ? 'Fine-tuned for this setting ✓' : 'Quantisation-aware fine-tune (200 steps)';
+    $('qzQat').disabled = cur.qat || QZ.busy || (QZ.bits === 32 && QZ.prune === 0);
+
+    /* sweep table (post-training, at current pruning + granularity) */
+    var rows = '';
+    [32, 8, 6, 4, 3, 2].forEach(function (b) {
+      var qm = quantNet(QZ.net, b, QZ.prune, QZ.pc), a = qzAcc(qm), g = qzAgree(qm), cs = qzCost(b, qm.meta);
+      rows += '<tr' + (b === QZ.bits ? ' style="background:var(--accent-soft)"' : '') + '><td>' + (b === 32 ? 'float32' : b + '-bit') + '</td>' +
+        '<td class="num">' + F.pct(a, 1) + '</td><td class="num">' + F.pct(g, 1) + '</td>' +
+        '<td class="num">' + bytesFmt(cs.bytes) + '</td><td class="num">' + bytesFmt(cs.per250k) + '</td></tr>';
+    });
+    $('qzSweep').innerHTML = rows;
+
+    var n = '<h4>Reading it</h4>';
+    var nnzPct = m.meta.nnz / m.meta.nW;
+    if (QZ.bits === 32 && QZ.prune === 0) n += '<p class="small mb0">This is the float model as trained: ' + m.meta.nW + ' weights and ' + (QZ.net.nparams() - m.meta.nW) +
+      ' biases, ' + bytesFmt(cost.bytes) + '. Pick a bit-width.</p>';
+    else {
+      if (agr > 0.995 && drop < 0.005) n += '<p class="small"><b style="color:var(--good)">Essentially lossless.</b> ' + F.pct(agr, 1) + ' of decisions identical to the float model, at ' +
+        bytesFmt(cost.bytes) + '. At 8 bits this is the usual result, and why int8 is the default for embedded deployment.</p>';
+      else if (drop < 0.03) n += '<p class="small"><b style="color:var(--warn)">Small accuracy loss, larger change in behaviour.</b> Accuracy moved by ' + (drop * 100).toFixed(1) +
+        ' points, but ' + F.pct(1 - agr, 1) + ' of decisions changed. Those changed decisions sit near the boundary, where the original model was least certain — and they need validating, not assuming.</p>';
+      else n += '<p class="small"><b style="color:var(--bad)">This is a different, worse model.</b> Accuracy fell ' + (drop * 100).toFixed(1) + ' points and ' + F.pct(1 - agr, 0) +
+        ' of decisions changed. ' + (cur.qat ? 'Even after fine-tuning it has not fully recovered: this setting is too aggressive for this network.' :
+          QZ.prune >= 0.3 && QZ.bits >= 6 ? 'Most of this loss is the pruning, not the rounding: prune less, or fine-tune with the mask in place.' :
+          QZ.bits <= 3 && !QZ.pc ? 'Try per-channel scales first, then quantisation-aware fine-tuning.' : 'Try quantisation-aware fine-tuning.') + '</p>';
+      if (QZ.prune > 0) n += '<p class="small mb0">Pruning has zeroed ' + F.pct(1 - nnzPct, 0) + ' of weights. ' +
+        (cost.sparseUsed ? 'Stored sparse, that saves memory. ' : 'At this sparsity a dense layout is still smaller, so nothing is saved. ') +
+        'It saves no time on dense hardware. This network is tiny, so it has little redundancy to remove; large networks often tolerate far more.</p>';
+      else if (cur.qat) n += '<p class="small mb0">Fine-tuned with the rounding in the loop (a straight-through estimator): the network has adjusted its float weights so that their rounded versions work. This is a new model, trained on the target precision — validate it as such.</p>';
+      else n += '<p class="small mb0 muted">Size counts every bit, including the 32-bit scales and biases. The last column shows what the same precision means for a 250,000-weight model, a realistic size for an embedded classifier.</p>';
+    }
+    $('qzNote').innerHTML = n;
+    drawQz(m);
+    drawQzHist(m);
+  }
+  function drawQz(m) {
+    var p = QZ.plot;
+    if (!p) return;
+    m = m || (QZ.ready ? qzCurrent().m : null);
+    p.resize(); p.clear();
+    p.frame({ xticks: 4, yticks: 4, xlabel: 'wheel-slip feature (normalised)', ylabel: 'vibration feature (norm.)' });
+    if (!m) return;
+    var cw = p.pw / QG, ch = p.ph / QG, acc = C('--accent'), bad = C('--bad'), ink = C('--ink');
+    p.clip(function (g) {
+      var i, j;
+      for (j = 0; j < QG; j++) for (i = 0; i < QG; i++) {
+        var qd = m.predict([-1 + 2 * (i + 0.5) / QG, -1 + 2 * (j + 0.5) / QG]) >= 0.5 ? 1 : 0;
+        var px = p.pad.l + i * cw, py = p.pad.t + p.ph - (j + 1) * ch;
+        if (qd !== QZ.floatGrid[j][i]) { g.fillStyle = bad + '99'; g.fillRect(px, py, cw + 0.5, ch + 0.5); }
+        else if (qd) { g.fillStyle = acc + '30'; g.fillRect(px, py, cw + 0.5, ch + 0.5); }
+      }
+      for (i = 0; i < 300; i++) {
+        var x = QZ.te.X[i];
+        p.dot(x[0], x[1], 2.3, QZ.te.Y[i] ? acc : C('--ink-3') + '99');
+      }
+      g.fillStyle = ink;
+      var G = QZ.floatGrid;
+      for (j = 0; j < QG; j++) for (i = 0; i < QG; i++) {
+        var e = (i < QG - 1 && G[j][i] !== G[j][i + 1]) || (j < QG - 1 && G[j][i] !== G[j + 1][i]);
+        if (e && (i + j) % 3) g.fillRect(p.pad.l + (i + 0.5) * cw - 1.2, p.pad.t + p.ph - (j + 0.5) * ch - 1.2, 2.4, 2.4);
+      }
+    });
+  }
+  function drawQzHist(m) {
+    var p = QZ.hist;
+    if (!p) return;
+    p.resize(); p.clear();
+    if (!QZ.ready) { p.frame({ xticks: 4, yticks: 2 }); return; }
+    m = m || qzCurrent().m;
+    var fw = [], qw = [];
+    QZ.net.W.forEach(function (L) { L.forEach(function (r) { r.forEach(function (w) { fw.push(w); }); }); });
+    m.W.forEach(function (L) { L.forEach(function (r) { r.forEach(function (w) { qw.push(w); }); }); });
+    var mx = 0;
+    fw.forEach(function (w) { mx = Math.max(mx, Math.abs(w)); });
+    mx *= 1.05;
+    var nb = 60, hf = new Array(nb).fill(0), hq = new Array(nb).fill(0);
+    function bi(w) { return clamp(Math.floor((w + mx) / (2 * mx) * nb), 0, nb - 1); }
+    fw.forEach(function (w) { hf[bi(w)]++; });
+    qw.forEach(function (w) { hq[bi(w)]++; });
+    var top = Math.max(Math.max.apply(null, hf), Math.max.apply(null, hq));
+    p.dom = [-mx, mx]; p.ran = [0, top * 1.08];
+    p.frame({ xticks: 4, yticks: 3, xlabel: 'weight value', ylabel: 'count', xfmt: function (x) { return x.toFixed(1); }, yfmt: function (y) { return Math.round(y); } });
+    var bw = p.pw / nb;
+    p.clip(function (g) {
+      for (var i = 0; i < nb; i++) {
+        var x0 = p.pad.l + i * bw;
+        g.fillStyle = C('--ink-3') + '55';
+        g.fillRect(x0 + 0.5, p.Y(hf[i]), bw - 1, p.Y(0) - p.Y(hf[i]));
+        if (QZ.bits < 32 || QZ.prune > 0) {
+          g.fillStyle = C('--accent');
+          g.fillRect(x0 + bw * 0.3, p.Y(hq[i]), Math.max(1.5, bw * 0.4), p.Y(0) - p.Y(hq[i]));
+        }
+      }
+    });
+  }
+  function qzQat() {
+    if (QZ.busy || !QZ.ready) return;
+    QZ.busy = true;
+    var key = QZ.bits + '|' + QZ.pc + '|' + QZ.prune, bits = QZ.bits, pr = QZ.prune, pc = QZ.pc;
+    var net = cloneNet(QZ.net), steps = 200, done = 0;
+    QZ.qat = { key: key, net: net, done: false };
+    $('qzQat').disabled = true;
+    function chunk() {
+      for (var k = 0; k < 10 && done < steps; k++, done++) {
+        var Wf = deepW(net.W), Wq = quantNet(net, bits, pr, pc).W;
+        net.W = deepW(Wq);
+        net.step(QZ.tr.X, QZ.tr.Y, 0.05, 0.9);
+        for (var l = 0; l < Wf.length; l++) for (var j = 0; j < Wf[l].length; j++) for (var i = 0; i < Wf[l][j].length; i++)
+          Wf[l][j][i] += net.W[l][j][i] - Wq[l][j][i];
+        net.W = Wf;
+      }
+      $('qzQat').textContent = 'Fine-tuning… ' + done + ' / ' + steps;
+      if (done < steps) { setTimeout(chunk, 0); return; }
+      QZ.busy = false;
+      if (QZ.qat && QZ.qat.key === key) QZ.qat.done = true;
+      qzUpdate();
+    }
+    setTimeout(chunk, 0);
+  }
+
+  /* ============================================ 19.5 release strategies */
+  var STRATS = [
+    { name: 'Big bang', col: '--bad', share: function (t) { return 1; }, test: 'one' },
+    { name: 'Canary 5% → 25% → 100%', col: '--accent', share: function (t) { return t < 72 ? 0.05 : t < 168 ? 0.25 : 1; }, test: 'two' },
+    { name: 'A/B 50/50, then promote', col: '--warn', share: function (t) { return t < 168 ? 0.5 : 1; }, test: 'two' },
+    { name: 'Shadow 7 days, then promote', col: '--good', share: function (t) { return t < 168 ? 0 : 1; }, test: 'paired' }
+  ];
+  var RL = { delta: 0.012, vol: 400, aud: 0.1, lag: 24, env: 0.15, z: 3, seed: 5, res: null, plot: null, running: false };
+  var E0 = 0.03, HRS = 336;
+  function rlSim(sIdx, seed, delta, keep) {
+    var S = STRATS[sIdx], P = RL;
+    var re = rng(seed), rs = rng(seed * 31 + sIdx * 977 + 3);
+    var env = [];
+    for (var d = 0; d < 15; d++) env.push(Math.max(0.4, 1 + P.env * gauss(re)));
+    var inc = [], cum = { nN: 0, eN: 0, nO: 0, eO: 0, b: 0, c: 0 }, ptr = 0;
+    var alarmed = false, tDet = null, exposed = 0, excess = 0, series = keep ? [[0, 0]] : null;
+    for (var t = 0; t < HRS; t++) {
+      var f = env[Math.floor(t / 24)], e0 = E0 * f, e1 = (E0 + delta) * f;
+      var share = alarmed ? 0 : S.share(t);
+      var nNew = Math.round(P.vol * share), nOld = P.vol - nNew;
+      var rec = { nN: 0, eN: 0, nO: 0, eO: 0, b: 0, c: 0 };
+      if (S.test === 'paired' && !alarmed) {
+        var aud = binom(P.vol, P.aud, rs), pb = 0.6 * Math.min(e0, e1);
+        rec.b = binom(aud, Math.max(0, e0 - pb), rs);
+        rec.c = binom(aud, Math.max(0, e1 - pb), rs);
+      } else {
+        var aN = binom(nNew, P.aud, rs), aO = binom(nOld, P.aud, rs);
+        rec.nN = aN; rec.eN = binom(aN, e1, rs); rec.nO = aO; rec.eO = binom(aO, e0, rs);
+      }
+      inc.push(rec);
+      exposed += nNew; excess += nNew * (e1 - e0);
+      if (keep) series.push([(t + 1) / 24, excess]);
+      if (!alarmed) {
+        while (ptr <= t - P.lag) {
+          var r0 = inc[ptr++];
+          cum.nN += r0.nN; cum.eN += r0.eN; cum.nO += r0.nO; cum.eO += r0.eO; cum.b += r0.b; cum.c += r0.c;
+        }
+        var z = -9;
+        if (S.test === 'one' && cum.nN >= 30) z = (cum.eN - cum.nN * E0) / Math.sqrt(cum.nN * E0 * (1 - E0));
+        else if (S.test === 'two' && cum.nN >= 30 && cum.nO >= 30) {
+          var p1 = cum.eN / cum.nN, p0 = cum.eO / cum.nO, pp = (cum.eN + cum.eO) / (cum.nN + cum.nO);
+          var se = Math.sqrt(pp * (1 - pp) * (1 / cum.nN + 1 / cum.nO));
+          z = se > 0 ? (p1 - p0) / se : -9;
+        } else if (S.test === 'paired' && cum.b + cum.c >= 10) z = (cum.c - cum.b) / Math.sqrt(cum.b + cum.c);
+        if (z > P.z) { alarmed = true; tDet = t + 1; }
+      }
+    }
+    return { tDet: tDet, exposed: exposed, excess: excess, series: series };
+  }
+  function rlRun() {
+    RL.res = STRATS.map(function (s, i) { return rlSim(i, RL.seed, RL.delta, true); });
+    drawRl();
+    var rows = '';
+    RL.res.forEach(function (r, i) {
+      var S = STRATS[i];
+      rows += '<tr><td><span class="swatch" style="background:' + C(S.col) + '"></span>' + S.name + '</td><td>' +
+        (r.tDet === null ? '<span class="' + (RL.delta > 0 ? 'neg' : 'pos') + '">none in 14 days</span>' :
+          '<span class="' + (RL.delta > 0 ? 'pos' : 'neg') + '">' + dh(r.tDet) + '</span>' + (RL.delta > 0 ? '' : ' (false alarm)')) +
+        '</td><td class="num">' + F.c(r.exposed) + '</td><td class="num">' + Math.round(r.excess) + '</td></tr>';
+    });
+    $('rlTable').innerHTML = rows;
+    rlNote();
+  }
+  function dh(h) { return h < 48 ? h + ' h' : 'day ' + (h / 24).toFixed(1); }
+  function drawRl() {
+    var p = RL.plot;
+    if (!p || !RL.res) return;
+    p.resize(); p.clear();
+    var mx = 1;
+    RL.res.forEach(function (r) { mx = Math.max(mx, r.excess); });
+    var mag = Math.pow(10, Math.floor(Math.log10(mx * 1.05))), top = Math.ceil(mx * 1.05 / mag) * mag;
+    if (top / mag <= 2) top = Math.ceil(mx * 1.05 / (mag / 4)) * (mag / 4);
+    p.dom = [0, 14]; p.ran = [0, top];
+    p.frame({ xticks: 7, yticks: 4, xlabel: 'days since release', ylabel: 'extra wrong decisions',
+      xfmt: function (x) { return Math.round(x); }, yfmt: function (y) { return F.c(y); } });
+    p.clip(function (g) {
+      p.line([[3, 0], [3, top]], C('--line'), 1, [2, 4]);
+      p.line([[7, 0], [7, top]], C('--line'), 1, [2, 4]);
+      RL.res.forEach(function (r, i) {
+        var col = C(STRATS[i].col);
+        p.line(r.series, col, 2.6);
+        if (r.tDet !== null) {
+          var y = r.series[r.tDet][1];
+          p.dot(r.tDet / 24, y, 5.5, col, C('--panel'));
+        }
+      });
+      g.font = '600 10px system-ui,sans-serif'; g.fillStyle = C('--ink-3'); g.textAlign = 'left'; g.textBaseline = 'top';
+      g.fillText('canary → 25%', p.X(3) + 4, p.pad.t + 4);
+      g.fillText('promotions', p.X(7) + 4, p.pad.t + 4);
+    });
+    $('rlLegend').innerHTML = STRATS.map(function (s) {
+      return '<span><span class="sw" style="background:' + C(s.col) + '"></span>' + s.name + '</span>';
+    }).join('') + '<span class="muted">● = alert and rollback</span>';
+  }
+  function rlNote() {
+    var r = RL.res, n = '<h4>Reading it</h4>';
+    if (RL.delta === 0) {
+      var fa = r.filter(function (x) { return x.tDet !== null; }).length;
+      n += '<p class="small mb0">v3.2 is exactly as good as v3.1 here, so every alert is a <b>false alarm</b>' + (fa ? ' — ' + fa + ' of 4 strategies raised one this fortnight. ' : '. None fired this fortnight; run 200 rollouts to see the rates. ') +
+        'False alarms are not free: each one is a rollback of a perfectly good release and an afternoon of investigation. Big bang is most exposed because it compares against a historical baseline while the process wanders day to day.</p>';
+    } else {
+      var sh = r[3], bb = r[0];
+      n += '<p class="small">v3.2 makes ' + (RL.delta * 100).toFixed(1) + ' extra wrong decisions per hundred parts (' + (E0 * 100).toFixed(1) + '% → ' + ((E0 + RL.delta) * 100).toFixed(1) + '%). ' +
+        'Before any label arrives, shadow mode already shows the two models disagreeing on about ' + F.pct((E0 - 0.6 * E0) + (E0 + RL.delta - 0.6 * E0), 1) +
+        ' of parts — a signal that something differs, though not which model is right.</p>';
+      n += '<p class="small mb0">' + (sh.tDet !== null && sh.tDet <= 168 ? '<b>Shadow caught it with no exposure at all</b> — at ' + dh(sh.tDet) + ', before promotion. ' :
+        sh.tDet !== null ? 'Shadow caught it after promotion, at ' + dh(sh.tDet) + '. ' : 'Shadow did not catch it: the degradation is below what this much audit data can resolve in 14 days. ') +
+        (bb.tDet !== null ? 'Big bang alerted at ' + dh(bb.tDet) + ', by which time it had made about ' + Math.round(bb.excess) + ' extra wrong decisions. ' : 'Big bang never alerted, and made ' + Math.round(bb.excess) + ' extra wrong decisions. ') +
+        'Press <b>Run 200 rollouts</b> — one fortnight is an anecdote.</p>';
+    }
+    $('rlNote').innerHTML = n;
+  }
+  function rlMany() {
+    if (RL.running) return;
+    RL.running = true;
+    var btn = $('rlMany'); btn.disabled = true;
+    var NR = 200, k = 0, acc = STRATS.map(function () { return { det: 0, t: [], ex: [], fa: 0 }; });
+    function chunk() {
+      for (var c = 0; c < 10 && k < NR; c++, k++) {
+        var seed = 10007 + k * 13;
+        for (var i = 0; i < STRATS.length; i++) {
+          var a = rlSim(i, seed, RL.delta, false), b = rlSim(i, seed + 5, 0, false);
+          if (a.tDet !== null) { acc[i].det++; acc[i].t.push(a.tDet); }
+          acc[i].ex.push(a.excess);
+          if (b.tDet !== null) acc[i].fa++;
+        }
+      }
+      btn.textContent = 'Running… ' + k + ' / ' + NR;
+      if (k < NR) { setTimeout(chunk, 0); return; }
+      var rows = '';
+      acc.forEach(function (a, i) {
+        var S = STRATS[i], mt = median(a.t);
+        rows += '<tr><td><span class="swatch" style="background:' + C(S.col) + '"></span>' + S.name + '</td>' +
+          '<td class="num">' + (RL.delta > 0 ? F.pct(a.det / NR, 0) : '—') + '</td>' +
+          '<td class="num">' + (RL.delta > 0 && a.t.length ? dh(Math.round(mt)) : '—') + '</td>' +
+          '<td class="num">' + Math.round(median(a.ex)) + '</td>' +
+          '<td class="num">' + F.pct(a.fa / NR, 0) + '</td></tr>';
+      });
+      $('rlManyTable').innerHTML = rows;
+      $('rlManyWrap').classList.remove('hidden');
+      btn.textContent = 'Run 200 rollouts'; btn.disabled = false;
+      RL.running = false;
+    }
+    setTimeout(chunk, 0);
+  }
+
+  /* ============================================ 19.6 monitoring dashboard */
+  var MN = { scen: 'quiet', today: 75, lag: 21, psiTh: 0.25, recTh: 0.7, days: [], ref: null, models: [], stats: [],
+    p1: null, p2: null, p3: null, NDAY: 120, NPER: 300, AUD: 0.2 };
+  function mnRule(a, b, concept) { return sig(3 * (1.6 * a + 0.7 * b - (concept ? 0.9 : 1.6))); }
+  function mnFit(A, B, Y) {
+    var w = [0, 0, 0], n = Y.length;
+    for (var it = 0; it < 400; it++) {
+      var g0 = 0, g1 = 0, g2 = 0;
+      for (var i = 0; i < n; i++) {
+        var e = sig(w[0] * A[i] + w[1] * B[i] + w[2]) - Y[i];
+        g0 += e * A[i]; g1 += e * B[i]; g2 += e;
+      }
+      w[0] -= 1.0 * g0 / n; w[1] -= 1.0 * g1 / n; w[2] -= 1.0 * g2 / n;
+    }
+    return w;
+  }
+  function sortNum(a) { return a.slice().sort(function (x, y) { return x - y; }); }
+  function deciles(s) { var e = []; for (var k = 1; k < 10; k++) e.push(s[Math.floor(k * s.length / 10)]); return e; }
+  function psiVs(edges, vals) {
+    var c = new Array(10).fill(0), i, k;
+    for (i = 0; i < vals.length; i++) { k = 0; while (k < 9 && vals[i] >= edges[k]) k++; c[k]++; }
+    var s = 0;
+    for (k = 0; k < 10; k++) { var q = Math.max(c[k] / vals.length, 1e-4), p = 0.1; s += (q - p) * Math.log(q / p); }
+    return s;
+  }
+  function ks(aS, bS) {
+    var i = 0, j = 0, n = aS.length, m = bS.length, d = 0;
+    while (i < n && j < m) {
+      if (aS[i] <= bS[j]) i++; else j++;
+      d = Math.max(d, Math.abs(i / n - j / m));
+    }
+    return d;
+  }
+  function sdOf(a) { var m = 0, s = 0, i; for (i = 0; i < a.length; i++) m += a[i]; m /= a.length; for (i = 0; i < a.length; i++) s += (a[i] - m) * (a[i] - m); return Math.sqrt(s / a.length); }
+  function mnMakeModel(name, from, A, B, Y) {
+    var w = mnFit(A, B, Y), S = [];
+    for (var i = 0; i < A.length; i++) S.push(sig(w[0] * A[i] + w[1] * B[i] + w[2]));
+    var sA = sortNum(A), sB = sortNum(B), sS = sortNum(S);
+    var flag = S.filter(function (s) { return s >= 0.5; }).length / S.length;
+    var tp = 0, fp = 0;
+    for (i = 0; i < S.length; i++) if (S[i] >= 0.5) { if (Y[i]) tp++; else fp++; }
+    return { name: name, from: from, w: w, sA: sA, sB: sB, eA: deciles(sA), eB: deciles(sB), eS: deciles(sS), flag: flag,
+      pre0: tp + fp ? tp / (tp + fp) : 1, sdA: sdOf(A), sdB: sdOf(B) };
+  }
+  function mnGen() {
+    var r = rng(4242), A = [], B = [], Y = [], i;
+    for (i = 0; i < 3000; i++) { var a = gauss(r), b = gauss(r); A.push(a); B.push(b); Y.push(r() < mnRule(a, b, false) ? 1 : 0); }
+    MN.models = [mnMakeModel('v1', 0, A, B, Y)];
+    var rs = rng(777 + ['quiet', 'sensor', 'season', 'concept', 'pipe'].indexOf(MN.scen) * 101);
+    MN.days = [];
+    for (var d = 0; d < MN.NDAY; d++) {
+      var ev = { A: [], B: [], y: [], aud: [] };
+      var season = MN.scen === 'season' ? 1.5 * Math.max(0, (d - 20) / 99) : 0;
+      var concept = MN.scen === 'concept' && d >= 60;
+      for (i = 0; i < MN.NPER; i++) {
+        var at = gauss(rs), bt = gauss(rs) + season;
+        var yv = rs() < mnRule(at, bt, concept) ? 1 : 0;
+        var am = at, bm = bt;
+        if (MN.scen === 'sensor' && d >= 45) am = at * 1.1 + 0.6;
+        if (MN.scen === 'pipe' && d >= 70) bm = 0;
+        ev.A.push(am); ev.B.push(bm); ev.y.push(yv); ev.aud.push(rs() < MN.AUD);
+      }
+      MN.days.push(ev);
+    }
+  }
+  function mnActive(d) { var m = MN.models[0]; MN.models.forEach(function (x) { if (x.from <= d) m = x; }); return m; }
+  function mnCompute() {
+    MN.stats = MN.days.map(function (ev, d) {
+      var m = mnActive(d), w = m.w, S = [], flags = 0, tp = 0, fp = 0, fn = 0, tn = 0;
+      for (var i = 0; i < ev.A.length; i++) {
+        var s = sig(w[0] * ev.A[i] + w[1] * ev.B[i] + w[2]); S.push(s);
+        var f = s >= 0.5;
+        if (f) flags++;
+        if (ev.aud[i]) { if (f && ev.y[i]) tp++; else if (f) fp++; else if (ev.y[i]) fn++; else tn++; }
+      }
+      var sA = sortNum(ev.A), sB = sortNum(ev.B);
+      return { psiA: psiVs(m.eA, ev.A), psiB: psiVs(m.eB, ev.B), ksA: ks(sA, m.sA), ksB: ks(sB, m.sB),
+        psiS: psiVs(m.eS, S), flag: flags / ev.A.length, flag0: m.flag, sdA: sdOf(ev.A), sdB: sdOf(ev.B), m: m,
+        tp: tp, fp: fp, fn: fn, tn: tn };
+    });
+  }
+  function mnRoll(d) {
+    var tp = 0, fp = 0, fn = 0;
+    for (var k = Math.max(0, d - 6); k <= d; k++) { var s = MN.stats[k]; tp += s.tp; fp += s.fp; fn += s.fn; }
+    return { rec: tp + fn ? tp / (tp + fn) : NaN, pre: tp + fp ? tp / (tp + fp) : NaN };
+  }
+  function mnAlerts() {
+    var out = [], first = {}, d, s;
+    function add(key, day, sev, txt) { if (first[key] === undefined) { first[key] = day; out.push({ d: day, sev: sev, t: txt }); } }
+    var avail = MN.today - MN.lag;
+    for (d = 0; d <= MN.today; d++) {
+      s = MN.stats[d];
+      if (s.m.from === d && d > 0) { first = {}; out.push({ d: d, sev: 'info', t: 'Model ' + s.m.name + ' goes live; alerts re-armed.' }); }
+      if (s.sdA < 0.2 * s.m.sdA) add('stA', d, 'hi', 'Data quality: feature A has almost no variation — stuck or missing.');
+      if (s.sdB < 0.2 * s.m.sdB) add('stB', d, 'hi', 'Data quality: feature B has almost no variation — stuck or missing.');
+      if (s.psiA > MN.psiTh) add('pA', d, 'md', 'Input drift: PSI on feature A ' + s.psiA.toFixed(2) + '.');
+      if (s.psiB > MN.psiTh) add('pB', d, 'md', 'Input drift: PSI on feature B ' + s.psiB.toFixed(2) + '.');
+      var sd = Math.sqrt(s.flag0 * (1 - s.flag0) / MN.NPER);
+      if (Math.abs(s.flag - s.flag0) > 3 * sd) add('fl', d, 'md', 'Prediction drift: ' + F.pct(s.flag, 0) + ' flagged against an expected ' + F.pct(s.flag0, 0) + '.');
+    }
+    /* performance alerts: only labelled days, reported on the day the labels arrive */
+    for (d = 6; d <= avail; d++) {
+      var rr = mnRoll(d);
+      if (rr.rec < MN.recTh) add('rec' + MN.stats[d].m.from, d + MN.lag, 'hi', 'Ground truth: recall over days ' + (d - 6) + '–' + d + ' was ' + F.pct(rr.rec, 0) + ' (floor ' + F.pct(MN.recTh, 0) + ').');
+      var p0 = MN.stats[d].m.pre0;
+      if (rr.pre < p0 - 0.15) add('pre' + MN.stats[d].m.from, d + MN.lag, 'hi', 'Ground truth: precision over days ' + (d - 6) + '–' + d + ' was ' + F.pct(rr.pre, 0) + ', against ' + F.pct(p0, 0) + ' at training — many flags are false alarms.');
+    }
+    out.sort(function (a, b) { return a.d - b.d; });
+    return { list: out };
+  }
+  function mnTs(p, ran, ylabel, yfmt) {
+    p.resize(); p.clear();
+    p.dom = [0, MN.NDAY]; p.ran = ran;
+    p.frame({ xticks: 6, yticks: 3, xlabel: 'day', ylabel: ylabel, yfmt: yfmt, xfmt: function (x) { return Math.round(x); } });
+    var g = p.ctx;
+    g.save();
+    g.fillStyle = C('--bg-3'); g.globalAlpha = 0.75;
+    if (MN.today < MN.NDAY - 1) g.fillRect(p.X(MN.today), p.pad.t, p.X(MN.NDAY - 1) - p.X(MN.today), p.ph);
+    g.restore();
+    p.clip(function (g2) {
+      MN.models.forEach(function (m) {
+        if (m.from > 0 && m.from <= MN.today) {
+          p.line([[m.from, ran[0]], [m.from, ran[1]]], C('--ink-3'), 1.2, [2, 3]);
+          g2.font = '600 10px system-ui,sans-serif'; g2.fillStyle = C('--ink-3'); g2.textAlign = 'left'; g2.textBaseline = 'top';
+          g2.fillText(m.name, p.X(m.from) + 3, p.pad.t + 3);
+        }
+      });
+      p.line([[MN.today, ran[0]], [MN.today, ran[1]]], C('--ink'), 1.6);
+    });
+  }
+  function drawMn() {
+    if (!MN.p1 || !MN.stats.length) return;
+    var T = MN.today, d, st = MN.stats;
+    /* 1: PSI */
+    var pmax = 0.6;
+    for (d = 0; d <= T; d++) pmax = Math.max(pmax, Math.min(3, Math.max(st[d].psiA, st[d].psiB)) * 1.1);
+    mnTs(MN.p1, [0, pmax], 'PSI', function (y) { return y.toFixed(1); });
+    MN.p1.clip(function () {
+      var pa = [], pb = [];
+      for (d = 0; d <= T; d++) { pa.push([d, Math.min(st[d].psiA, pmax)]); pb.push([d, Math.min(st[d].psiB, pmax)]); }
+      MN.p1.line([[0, MN.psiTh], [MN.NDAY - 1, MN.psiTh]], C('--bad'), 1.4, [5, 4]);
+      MN.p1.line(pa, C('--accent'), 2);
+      MN.p1.line(pb, C('--violet'), 2);
+    });
+    /* 2: flag rate */
+    mnTs(MN.p2, [0, 0.6], 'flagged', function (y) { return Math.round(y * 100) + '%'; });
+    MN.p2.clip(function (g) {
+      var band = [], lo = [], fl = [];
+      for (d = 0; d <= T; d++) {
+        var f0 = st[d].flag0, sd = Math.sqrt(f0 * (1 - f0) / MN.NPER);
+        band.push([d, f0 + 3 * sd]); lo.push([d, f0 - 3 * sd]); fl.push([d, st[d].flag]);
+      }
+      g.beginPath();
+      band.forEach(function (pt, i) { var x = MN.p2.X(pt[0]), y = MN.p2.Y(pt[1]); if (i) g.lineTo(x, y); else g.moveTo(x, y); });
+      for (var i = lo.length - 1; i >= 0; i--) g.lineTo(MN.p2.X(lo[i][0]), MN.p2.Y(lo[i][1]));
+      g.closePath(); g.fillStyle = C('--ink-3') + '30'; g.fill();
+      MN.p2.line(fl, C('--warn'), 2);
+    });
+    /* 3: delayed performance */
+    var avail = T - MN.lag;
+    mnTs(MN.p3, [0.4, 1], 'labelled', function (y) { return Math.round(y * 100) + '%'; });
+    MN.p3.clip(function (g) {
+      var x0 = MN.p3.X(Math.max(0, avail)), x1 = MN.p3.X(T);
+      g.fillStyle = C('--warn') + '30'; g.fillRect(x0, MN.p3.pad.t, x1 - x0, MN.p3.ph);
+      if (avail > 6 && MN.lag > 6) {
+        g.font = '600 10px system-ui,sans-serif'; g.fillStyle = C('--warn'); g.textAlign = 'center'; g.textBaseline = 'bottom';
+        g.fillText('labels pending', (x0 + x1) / 2, MN.p3.pad.t + MN.p3.ph - 4);
+      }
+      MN.p3.line([[0, MN.recTh], [MN.NDAY - 1, MN.recTh]], C('--bad'), 1.4, [5, 4]);
+      var rec = [], pre = [];
+      for (d = 6; d <= avail; d++) { var rr = mnRoll(d); rec.push([d, rr.rec]); pre.push([d, rr.pre]); }
+      MN.p3.line(pre, C('--accent-2'), 2);
+      MN.p3.line(rec, C('--good'), 2.2);
+    });
+
+    /* readouts */
+    var s = st[T];
+    $('mnPsiNow').textContent = s.psiA.toFixed(2) + ' / ' + s.psiB.toFixed(2);
+    $('mnKsNow').textContent = s.ksA.toFixed(2) + ' / ' + s.ksB.toFixed(2);
+    $('mnFlagNow').textContent = F.pct(s.flag, 0);
+    $('mnSpsiNow').textContent = s.psiS.toFixed(2);
+    var lastRec = avail >= 6 ? mnRoll(avail).rec : NaN;
+    $('mnRecNow').textContent = isFinite(lastRec) ? F.pct(lastRec, 0) + ' (day ' + avail + ')' : 'none yet';
+    var kcrit = 1.63 * Math.sqrt((MN.NPER + s.m.sA.length) / (MN.NPER * s.m.sA.length));
+    $('mnKsNote').textContent = 'KS above ' + kcrit.toFixed(2) + ' is statistically significant (α = 0.01) for today’s 300 events against the training set.';
+
+    var al = mnAlerts(), list = al.list.filter(function (a) { return a.d <= T; });
+    $('mnAlerts').innerHTML = list.length ? list.slice().reverse().map(function (a) {
+      return '<div class="a ' + a.sev + '"><span class="d">day ' + a.d + '</span>' + a.t + '</div>';
+    }).join('') : '<p class="small muted mb0">No alerts up to day ' + T + '.</p>';
+
+    /* the decision, from what is visible today */
+    var recentDrift = s.psiA > MN.psiTh || s.psiB > MN.psiTh;
+    var stuck = s.sdA < 0.2 * s.m.sdA || s.sdB < 0.2 * s.m.sdB;
+    var flagNow = Math.abs(s.flag - s.flag0) > 3 * Math.sqrt(s.flag0 * (1 - s.flag0) / MN.NPER);
+    var lastPre = avail >= 6 ? mnRoll(avail).pre : NaN;
+    var haveEvidence = avail >= s.m.from + 6;
+    var recLow = haveEvidence && isFinite(lastRec) && lastRec < MN.recTh;
+    var preLow = haveEvidence && isFinite(lastPre) && lastPre < s.m.pre0 - 0.15;
+    /* first day of the current input-drift episode, for this model */
+    var onset = null;
+    for (d = T; d >= s.m.from; d--) { if (st[d].psiA > MN.psiTh || st[d].psiB > MN.psiTh) onset = d; else if (onset !== null) break; }
+    var driftCovered = onset !== null && avail >= onset + 6;
+    var v = $('mnVerdict'), cls, lvl, txt;
+    var isRetrain = s.m.from > 0 && s.m.name !== 'v1';
+    if (stuck) {
+      cls = 'hi'; lvl = 'Kill switch: fall back, fix the pipeline';
+      txt = 'A feature has stopped varying. This is a data failure, not drift: the model is being fed a constant. Switch to the fallback behaviour now, fix the pipeline, and do not retrain on this data.';
+    } else if (s.m.from > 0 && !haveEvidence) {
+      cls = 'info'; lvl = 'New model live — no ground truth on it yet';
+      txt = 'Model ' + s.m.name + ' went live on day ' + s.m.from + '. Its first week of labelled results arrives on day ' + (s.m.from + 6 + MN.lag) +
+        '. Until then only the unlabelled layers — data quality, input and prediction drift — can tell you anything, which is why a retrain should go through shadow or canary first (19.5).';
+    } else if (recLow || preLow) {
+      cls = 'hi'; lvl = isRetrain ? 'Roll back, then investigate' : 'Retrain — through the release process';
+      txt = 'Ground truth confirms ' + (recLow ? 'recall of ' + F.pct(lastRec, 0) + ', below the ' + F.pct(MN.recTh, 0) + ' floor' : 'precision of ' + F.pct(lastPre, 0) + ' against ' + F.pct(s.m.pre0, 0) + ' at training — most of the extra flags are false alarms, and each one is a warning lamp and a workshop visit') +
+        ' — and that is the state ' + MN.lag + ' days ago. ' +
+        (isRetrain ? 'The current model is a recent retrain; roll back to the last good version first. ' : 'Retrain on labelled data from after the change, evaluate on a held-out recent slice, and release via shadow or canary (19.5). ') +
+        (recentDrift ? 'Input drift is also present: find out what changed in the world before trusting a retrain.' : 'The inputs have not drifted, so this looks like a change in the relationship itself — a concept change.');
+    } else if (recentDrift && driftCovered) {
+      cls = 'mid'; lvl = 'Drift without damage — watch';
+      txt = 'Inputs have been drifting since day ' + onset + ', and the labelled results that now cover that period show recall at ' + F.pct(lastRec, 0) + ' and precision at ' + F.pct(lastPre, 0) +
+        '. The relationship the model learned still holds. Record the cause, keep watching, and consider refreshing the reference data — but retraining now would be acting on a symptom.';
+    } else if (recentDrift && flagNow) {
+      cls = 'mid'; lvl = 'Investigate today';
+      txt = 'Inputs and outputs have both moved. Labels to confirm whether the model is wrong will not arrive until day ' + ((onset !== null ? onset : T) + 6 + MN.lag) + '. Check change logs — sensor, supplier, software, calibration — and if false alarms are costly, contain it now (raise the threshold or fall back) rather than wait.';
+    } else if (recentDrift) {
+      cls = 'mid'; lvl = 'Drift, no visible effect yet — watch';
+      txt = 'An input has moved but the model\u2019s output rate has not. Find the cause and watch the labelled metrics as they arrive.';
+    } else if (flagNow) {
+      cls = 'mid'; lvl = 'Outputs moved, inputs did not';
+      txt = 'The model is flagging a different share of events with no input drift. Check for a model or configuration change, and for a change in the population being measured.';
+    } else {
+      cls = 'ok'; lvl = 'No action';
+      txt = 'Nothing is outside its alert level. Remember what that means: the inputs and outputs look normal, and performance is confirmed only up to day ' + Math.max(0, avail) + '. A concept change would be invisible until then.';
+    }
+    v.className = 'verdict mt1 ' + cls;
+    v.innerHTML = '<span class="lvl">' + lvl + '</span><p class="small mb0">' + txt + '</p>';
+
+    $('mnModels').innerHTML = MN.models.map(function (m) {
+      return '<span class="pill' + (m === s.m ? ' ok' : '') + '">' + m.name + ' · from day ' + m.from + '</span>';
+    }).join('');
+    $('mnRollback').disabled = s.m.name === 'v1' && MN.models[MN.models.length - 1].name === 'v1' || MN.today >= MN.NDAY - 1;
+    $('mnRetrain').disabled = MN.today >= MN.NDAY - 1;
+  }
+  function mnReset() { mnGen(); mnCompute(); drawMn(); }
+  function mnDropFuture() { MN.models = MN.models.filter(function (m) { return m.from <= MN.today; }); }
+  function mnRetrain() {
+    var avail = MN.today - MN.lag;
+    var A = [], B = [], Y = [], start = Math.max(0, avail - 29), m = mnActive(MN.today), k;
+    /* train only on data from after the most recent input-drift onset, if there is one */
+    for (k = avail; k >= Math.max(m.from, start); k--) {
+      var sk = MN.stats[k];
+      if (sk.psiA > MN.psiTh || sk.psiB > MN.psiTh) { if (k === 0 || !(MN.stats[k - 1].psiA > MN.psiTh || MN.stats[k - 1].psiB > MN.psiTh)) { start = k; break; } }
+    }
+    for (var d = start; d <= avail; d++) {
+      var ev = MN.days[d];
+      for (var i = 0; i < ev.A.length; i++) if (ev.aud[i]) { A.push(ev.A[i]); B.push(ev.B[i]); Y.push(ev.y[i]); }
+    }
+    if (A.length < 300) {
+      $('mnVerdict').className = 'verdict mt1 mid';
+      $('mnVerdict').innerHTML = '<span class="lvl">Not enough labelled data yet</span><p class="small mb0">Only ' + A.length + ' labelled events have arrived in the window. With a ' + MN.lag + '-day delay you have to wait — which is the point.</p>';
+      return;
+    }
+    mnDropFuture();
+    var nv = 'v' + (MN.models.filter(function (m) { return m.name !== 'v1' || m.from === 0; }).length + 1);
+    MN.models.push(mnMakeModel(nv, MN.today + 1, A, B, Y));
+    mnCompute(); drawMn();
+  }
+  function mnRollback() {
+    mnDropFuture();
+    var v1 = MN.models[0];
+    var rb = {}; for (var k in v1) rb[k] = v1[k];
+    rb.from = MN.today + 1; rb.name = 'v1';
+    MN.models.push(rb);
+    mnCompute(); drawMn();
+  }
+
+  /* ============================================ 19.7 operational checklist */
+  var OP = [
+    ['A named owner', 'One person is accountable for the model in production: its performance, its incidents and its retirement.', 3, 'Name them in the release record. A model owned by “the data team” is owned by nobody at two in the morning.'],
+    ['On-call and an escalation path', 'Someone receives the monitoring alerts, knows what they mean, and has the authority to act on them.', 2, 'Route the alerts from 19.6 to a person, not a mailing list, and write down what they may do without asking.'],
+    ['Rollback tested, recently', 'You have actually rolled back to the previous version on the real target in the last release cycle, and timed it.', 3, 'Rehearse it on the bench. For vehicles, include the OTA path and the time it takes to reach the fleet.'],
+    ['A kill switch and a defined fallback', 'One documented action disables the model, and the system then does something safe and known: the previous rule-based logic, a conservative default, or a person.', 3, 'Define the fallback as behaviour — what the vehicle, station or bench does in the next second — and test it.'],
+    ['Every decision is traceable', 'Each prediction is logged with timestamp, model version, config hash, the input (or its hash) and the output.', 3, 'Add it to the serving code now. Without it you cannot investigate an incident or answer an auditor.'],
+    ['Data, code, model and config versioned together', 'A release record ties the model artefact to the data snapshot, code commit, config and environment that produced it (19.2).', 2, 'Use a model registry and refuse to deploy anything that is not in it.'],
+    ['Monitoring with alert levels', 'Data quality, input drift, prediction drift and labelled performance are tracked, with thresholds agreed before go-live.', 2, 'Agree the thresholds in advance; thresholds chosen during an incident are chosen to fit the story.'],
+    ['A ground-truth pipeline', 'Labels keep arriving after go-live — audits, workshop findings, bench results — so performance can be measured, not assumed.', 2, 'Budget the audit sample. Without it, concept change is invisible until warranty data arrives.'],
+    ['Verified on the real target', 'Latency including the tail, memory and energy measured on the target hardware, with the quantised model that will actually ship.', 2, 'Measure on the target, not the laptop, and re-validate accuracy on the quantised model (19.4).'],
+    ['Release strategy written down', 'Shadow, canary or A/B, with the metric, sample size, duration and promotion criteria fixed in advance.', 2, 'Do the sample-size arithmetic from 19.5 before choosing the canary share.'],
+    ['Retraining has an evaluation gate', 'A retrained model passes the same frozen evaluation set (module 8) and the same release process as the first one.', 2, 'Never let a pipeline promote a model automatically without that gate.'],
+    ['A retirement plan', 'Someone decides when the model is switched off, and it is known what replaces it.', 1, 'Write one paragraph now. Models outlive their builders.']
+  ];
+  function drawOp() {
+    var host = $('opList');
+    if (!host.innerHTML) {
+      host.innerHTML = OP.map(function (r, i) {
+        return '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b><span class="sub">' + r[1] + '</span></span></label>';
+      }).join('');
+      host.addEventListener('change', drawOp);
+    }
+    var got = 0, total = 0, gaps = [];
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      var i = parseInt(cb.getAttribute('data-i'), 10);
+      total += OP[i][2];
+      if (cb.checked) got += OP[i][2]; else gaps.push(OP[i]);
+    });
+    var pct = got / total, v = $('opVerdict');
+    var critical = gaps.filter(function (g) { return g[0] === 'Rollback tested, recently' || g[0] === 'A kill switch and a defined fallback' || g[0] === 'Every decision is traceable'; });
+    if (!got) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nothing ticked yet</span>Work through the list.';
+    } else if (pct >= 0.85 && !critical.length) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Ready to operate — ' + Math.round(pct * 100) + '%</span>The model can be run, watched, explained and switched off. Release it through a staged strategy and re-check this list at every major version.';
+    } else if (pct >= 0.55) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Pilot only — ' + Math.round(pct * 100) + '%</span>' +
+        (critical.length ? 'Missing at least one of rollback, kill switch or traceability. Those three decide how bad an incident can get; close them before the model makes decisions that matter.' :
+          'Workable in shadow mode or a narrow canary while the gaps below are closed.');
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Not ready to operate — ' + Math.round(pct * 100) + '%</span>The model may be good; the system around it is not ready to run it. None of the gaps below is research — they are ordinary engineering, and cheaper now than after an incident.';
+    }
+    var g = '<h4>What to fix first</h4>';
+    if (!gaps.length) g += '<p class="small mb0" style="color:var(--good)">Nothing outstanding. Test the rollback again next quarter.</p>';
+    else {
+      g += '<ul class="small mb0">';
+      gaps.sort(function (a, b) { return b[2] - a[2]; }).slice(0, 5).forEach(function (r) { g += '<li><b>' + r[0] + ':</b> ' + r[3] + '</li>'; });
+      g += '</ul>';
+      if (gaps.length > 5) g += '<p class="small muted mb0 mt1">' + (gaps.length - 5) + ' further gap(s) not shown.</p>';
+    }
+    $('opGaps').innerHTML = g;
+  }
+
+  /* ============================================ init */
+  window.PAGE_INIT = function () {
+    /* 19.1 */
+    AI.qsa('#tdGrid .td').forEach(function (b) { b.addEventListener('click', function () { debtPick(b.getAttribute('data-k')); }); });
+    debtPick('ml');
+
+    /* 19.2 */
+    RP.plot = new AI.Plot($('rpCv'), { dom: [5, 35], ran: [10, 60], pad: { l: 50, r: 14, t: 14, b: 42 } });
+    rpInit();
+    AI.on($('rpRun'), 'click', rpRun);
+    AI.onRedraw(drawRp); drawRp();
+
+    /* 19.3 */
+    LT.plot = new AI.Plot($('ltCv'), { dom: [0, 20], ran: [0, 5], pad: { l: 50, r: 14, t: 14, b: 42 } });
+    LT.lock = true;
+    LT.h.inf = AI.bindRange('ltInf', function (v) { return msFmt(lgMap(v, 0.1, 200)); }, function (v) { LT.inf = lgMap(v, 0.1, 200); ltSim(); });
+    LT.h.jit = AI.bindRange('ltJit', function (v) { return v.toFixed(2) + '×'; }, function (v) { LT.jit = v; ltSim(); });
+    LT.h.tail = AI.bindRange('ltTail', function (v) { return (v * 100).toFixed(2) + '%'; }, function (v) { LT.tail = v; ltSim(); });
+    LT.h.dl = AI.bindRange('ltDl', function (v) { return msFmt(lgMap(v, 1, 1000)); }, function (v) { LT.dl = lgMap(v, 1, 1000); ltSim(); });
+    LT.h.rate = AI.bindRange('ltRate', function (v) { var x = lgMap(v, 1, 1000); return (x >= 10 ? Math.round(x) : x.toFixed(1)) + ' Hz'; }, function (v) { LT.rate = lgMap(v, 1, 1000); ltSim(); });
+    LT.lock = false;
+    AI.segmented($('ltSeg'), function (v) { ltTarget(v); });
+    AI.on($('ltResample'), 'click', function () { LT.seed = (LT.seed * 1103515245 + 12345) % 2147483647; ltSim(); });
+    AI.onRedraw(drawLt);
+    ltTarget('ecu');
+
+    /* 19.4 */
+    QZ.plot = new AI.Plot($('qzCv'), { dom: [-1, 1], ran: [-1, 1], pad: { l: 46, r: 14, t: 14, b: 42 } });
+    QZ.hist = new AI.Plot($('qzHist'), { dom: [-1, 1], ran: [0, 1], pad: { l: 42, r: 14, t: 12, b: 38 } });
+    AI.segmented($('qzBits'), function (v) { QZ.bits = parseInt(v, 10); qzUpdate(); });
+    AI.segmented($('qzGran'), function (v) { QZ.pc = v === 'c'; qzUpdate(); });
+    AI.bindRange('qzPrune', function (v) { return Math.round(v * 100) + '%'; }, function (v) { QZ.prune = v; qzUpdate(); });
+    AI.on($('qzQat'), 'click', qzQat);
+    AI.onRedraw(function () { drawQz(); drawQzHist(); });
+    drawQz(); drawQzHist();
+    qzTrain();
+
+    /* 19.5 */
+    RL.plot = new AI.Plot($('rlCv'), { dom: [0, 14], ran: [0, 1], pad: { l: 54, r: 14, t: 16, b: 42 } });
+    var rlCh = function () { if (RL.plot) rlRun(); };
+    AI.bindRange('rlDelta', function (v) { return '+' + v.toFixed(1) + ' pts (3.0% → ' + (3 + v).toFixed(1) + '%)'; }, function (v) { RL.delta = Math.round(v * 10) / 1000; rlCh(); });
+    AI.bindRange('rlVol', function (v) { return F.c(v); }, function (v) { RL.vol = v; rlCh(); });
+    AI.bindRange('rlAud', function (v) { return Math.round(v * 100) + '%'; }, function (v) { RL.aud = v; rlCh(); });
+    AI.bindRange('rlLag', function (v) { return v + ' h'; }, function (v) { RL.lag = v; rlCh(); });
+    AI.bindRange('rlEnv', function (v) { return '±' + Math.round(v * 100) + '%'; }, function (v) { RL.env = v; rlCh(); });
+    AI.bindRange('rlZ', function (v) { return v.toFixed(1); }, function (v) { RL.z = v; rlCh(); });
+    AI.on($('rlNew'), 'click', function () { RL.seed = RL.seed * 7 % 99991 + 1; rlRun(); });
+    AI.on($('rlMany'), 'click', rlMany);
+    AI.onRedraw(drawRl);
+    rlRun();
+
+    /* 19.6 */
+    MN.p1 = new AI.Plot($('mnCv1'), { dom: [0, 120], ran: [0, 1], pad: { l: 56, r: 12, t: 10, b: 34 } });
+    MN.p2 = new AI.Plot($('mnCv2'), { dom: [0, 120], ran: [0, 1], pad: { l: 56, r: 12, t: 10, b: 34 } });
+    MN.p3 = new AI.Plot($('mnCv3'), { dom: [0, 120], ran: [0, 1], pad: { l: 56, r: 12, t: 10, b: 34 } });
+    mnGen(); mnCompute();
+    AI.segmented($('mnSeg'), function (v) { MN.scen = v; mnReset(); });
+    AI.bindRange('mnToday', function (v) { return 'day ' + v; }, function (v) { MN.today = v; drawMn(); });
+    AI.bindRange('mnLag', function (v) { return v + ' days'; }, function (v) { MN.lag = v; drawMn(); });
+    AI.bindRange('mnPsiTh', function (v) { return v.toFixed(2); }, function (v) { MN.psiTh = v; drawMn(); });
+    AI.bindRange('mnRecTh', function (v) { return Math.round(v * 100) + '%'; }, function (v) { MN.recTh = v; drawMn(); });
+    AI.on($('mnRetrain'), 'click', mnRetrain);
+    AI.on($('mnRollback'), 'click', mnRollback);
+    AI.onRedraw(drawMn);
+    drawMn();
+
+    /* 19.7 */
+    drawOp();
+  };
+})();
+</script>
+</body>
+</html>

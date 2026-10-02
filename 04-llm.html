@@ -102,6 +102,37 @@
   }
   .wordpick button:hover { border-color: var(--accent); color: var(--accent); }
   .wordpick button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* building RAG (4.9) */
+  .rbtab td { vertical-align: top; }
+  .rbtab tbody tr { cursor: pointer; }
+  .rbtab tbody tr.sel { background: var(--accent-soft); }
+  .rbtab tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .rbtab td:first-child { font-size: .84rem; }
+  .rk {
+    display: inline-block; min-width: 2.3em; text-align: center; font-family: var(--mono); font-size: .78rem;
+    font-weight: 700; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-3); color: var(--ink-3);
+  }
+  .rk.ok { background: var(--good-soft); color: var(--good); border-color: color-mix(in srgb, var(--good) 30%, transparent); }
+  .rk.no { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+  .rk.split { background: var(--bad-soft); color: var(--bad); border-color: color-mix(in srgb, var(--bad) 30%, transparent); font-size: .7rem; }
+  .rbchunk {
+    border: 1px solid var(--line); border-left-width: 3px; border-radius: 0 8px 8px 0; padding: 10px 12px;
+    margin-bottom: 7px; font-size: .86rem; background: var(--panel);
+  }
+  .rbchunk.rel { border-left-color: var(--good); }
+  .rbchunk.stale { border-left-color: var(--bad); }
+  .rbchunk .src { font-size: .7rem; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+  .rbchunk .sc { font-family: var(--mono); font-size: .76rem; color: var(--ink-3); }
+  mark.ev, mark.evpart, mark.evstale { color: inherit; padding: 0 1px; border-radius: 3px; }
+  mark.ev { background: var(--good-soft); box-shadow: inset 0 -2px 0 var(--good); }
+  mark.evpart { background: var(--warn-soft); box-shadow: inset 0 -2px 0 var(--warn); }
+  mark.evstale { background: var(--bad-soft); box-shadow: inset 0 -2px 0 var(--bad); }
+  @media (max-width: 600px) { .sbar { grid-template-columns: 110px 1fr 40px; font-size: .8rem; } }
+
+  /* toy diffusion (4.10) */
+  .dfcv { height: 380px; }
+  @media (max-width: 600px) { .dfcv { height: 300px; } }
 </style>
 </head>
 <body data-page="p4">
@@ -241,7 +272,7 @@
     <p class="mb0">Embed your documents once, embed the question, and return the passages whose vectors
     are nearest. A query about “brake judder at low speed” then finds a document that says “vibration
     under light braking” — with no shared keywords. It is also the retrieval engine inside the RAG
-    pattern in section 4.7, and it is the one piece of this module you can deploy on its own next
+    pattern in section 4.8, and it is the one piece of this module you can deploy on its own next
     quarter.</p>
   </div>
 </section>
@@ -540,8 +571,388 @@
 </section>
 
 <!-- ============================================= 4.9 -->
+<section class="chapter" id="ragbuild">
+  <h2>4.9 · Building RAG that works</h2>
+  <p>The simulator in 4.8 retrieves from ten tidy paragraphs. A real deployment retrieves from tens of
+  thousands of PDFs, scanned tables, superseded revisions and documents that half-contradict each other.
+  When a RAG system disappoints, the cause is almost always <strong>retrieval</strong>: the passage that
+  holds the answer never reached the model. The model then does exactly what 4.3 says it will — writes
+  something plausible. So retrieval is where the engineering effort goes, and these are the levers.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4>Lever 1</h4>
+      <h3>Chunking</h3>
+      <p class="small">Documents are cut into pieces before indexing, and a piece is what comes back.
+      <b>Too small</b> and a requirement gets cut in half — the chunk holds “Isolation resistance shall be
+      at least” and the next one holds “500 ohm per volt”. <b>Too large</b> and every chunk is about five
+      things at once, so it matches everything weakly, and each one you send costs a lot of context.</p>
+      <p class="small mb0"><b>In practice:</b> a few hundred tokens, a 10–20% overlap so a sentence on a
+      boundary survives whole, and cut on the document's own structure (clauses, table rows, headings)
+      rather than on a blind word count where you can.</p>
+    </div>
+    <div class="card">
+      <h4>Lever 2</h4>
+      <h3>Hybrid retrieval</h3>
+      <p class="small"><b>Keyword search</b> (BM25, the decades-old workhorse behind most search boxes)
+      finds exact words: part numbers, clause IDs, “SB-23-014”. <b>Embedding search</b> (4.2) finds
+      meaning: “steering wheel shakes” matches “judder through the steering column”. Each fails where the
+      other is strong.</p>
+      <p class="small mb0"><b>In practice:</b> run both and merge the two ranked lists. Reciprocal rank
+      fusion — score each chunk by 1/(60 + rank) in each list and add — is the usual default because it
+      needs no tuning.</p>
+    </div>
+    <div class="card">
+      <h4>Lever 3</h4>
+      <h3>Re-ranking</h3>
+      <p class="small">First-stage search has to be fast over millions of chunks, so it scores each one
+      crudely. A <b>re-ranker</b> takes the top 20–100 candidates and reads each one <em>together with</em>
+      the question, using a slower and more accurate model, then reorders them.</p>
+      <p class="small mb0"><b>In practice:</b> usually the single cheapest large gain once the basics are
+      in place. Retrieve generously, re-rank, send few.</p>
+    </div>
+    <div class="card">
+      <h4>Lever 4</h4>
+      <h3>Metadata filters</h3>
+      <p class="small">Every chunk should carry where it came from: document number, revision, status,
+      vehicle programme, confidentiality class, owner. Then filter <em>before</em> similarity: only
+      released revisions, only this programme, only documents this user may read.</p>
+      <p class="small mb0"><b>In practice:</b> this is how you stop the obsolete rev B from answering, and
+      it is the only robust way to do access control. Text similarity has no idea that a document was
+      superseded.</p>
+    </div>
+    <div class="card">
+      <h4>Lever 5</h4>
+      <h3>Citing sources</h3>
+      <p class="small">Make the model cite the chunk ID for every statement, and show the user the cited
+      passage next to the answer. A citation turns “trust me” into “check me” — a reviewer can verify in
+      seconds what would otherwise take an hour.</p>
+      <p class="small mb0"><b>In practice:</b> check citations mechanically — every cited ID must be one
+      that was actually retrieved, and quoted figures must appear in that chunk. Models do invent
+      citations when pushed.</p>
+    </div>
+    <div class="card">
+      <h4>Lever 6 — the one that matters most</h4>
+      <h3>Measure retrieval on its own</h3>
+      <p class="small">Write 50–200 real questions, and for each one record <b>which passage</b> holds the
+      answer. Then you can ask “did the right chunk come back?” separately from “was the answer right?”,
+      and every change to chunking, search or filters gets a number instead of an opinion.</p>
+      <p class="small mb0"><b>In practice:</b> this set is the most valuable artefact in the project.
+      It outlives the vendor, the model and the vector database.</p>
+    </div>
+  </div>
+
+  <h3 class="mt2">Two questions, two measurements</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Question</th><th>Metric</th><th>How it is measured</th><th>If it is low, fix…</th></tr></thead>
+      <tbody>
+        <tr><td><b>Did the right chunk come back?</b></td><td>Recall@k</td><td>Fraction of questions for which a chunk containing the labelled passage is among the top <i>k</i> retrieved. Fully automatic once the set is labelled.</td><td>Chunking, search method, filters, re-ranking</td></tr>
+        <tr><td></td><td>Precision@k</td><td>Fraction of the <i>k</i> retrieved chunks that are relevant. Low precision means the model wades through noise, and you pay for every token of it.</td><td>Smaller <i>k</i>, re-ranking, filters</td></tr>
+        <tr><td></td><td>MRR</td><td>Mean of 1 / (rank of the first relevant chunk). Rewards putting the right chunk first, which matters because models weight the top of the context more.</td><td>Re-ranking</td></tr>
+        <tr><td><b>Was the answer right?</b></td><td>Correctness, faithfulness</td><td>Is the answer correct, and is every statement supported by the retrieved text? Needs a human or a carefully checked model-as-judge (module 8.7).</td><td>Prompt, model, citation checks — <em>only once retrieval is good</em></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted mt1">The split matters because the two failures need opposite fixes. A wrong
+  answer with the right chunk in context is a prompt or model problem. A wrong answer without it is a
+  retrieval problem, and no amount of prompt tuning or a bigger model will fix it.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Tune a retriever against a labelled question set</h3><span class="tag try">Move the sliders, watch recall@k</span></div>
+    <p class="small">Six short engineering documents and eight questions, each labelled with the passage
+    that answers it. Every change re-chunks the corpus, rebuilds the index, runs all eight questions
+    through all three retrieval methods and recomputes the metrics. Click a question to see what came
+    back for it.</p>
+    <div class="btnrow">
+      <div class="segmented" id="rbMethod">
+        <button data-v="bm25">Keyword (BM25)</button>
+        <button data-v="emb">Embedding</button>
+        <button data-v="hyb" class="on">Hybrid (RRF)</button>
+      </div>
+    </div>
+    <div class="btnrow">
+      <label class="check"><input type="checkbox" id="rbTitle" checked> Prefix each chunk with its document title</label>
+      <label class="check"><input type="checkbox" id="rbCur"> Filter: current revisions only</label>
+      <label class="check"><input type="checkbox" id="rbRr"> Re-rank the top 20</label>
+    </div>
+    <div class="split">
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Chunk size</span><span class="val" id="rbSizeOut"></span></div>
+          <input type="range" id="rbSize" min="15" max="150" step="5" value="60">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Overlap between neighbouring chunks</span><span class="val" id="rbOvOut"></span></div>
+          <input type="range" id="rbOv" min="0" max="0.5" step="0.05" value="0.15">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>k — chunks sent to the model</span><span class="val" id="rbKOut"></span></div>
+          <input type="range" id="rbK" min="1" max="8" step="1" value="3">
+        </div>
+        <div class="readout">
+          <div class="stat hl"><span class="k">recall@k</span><span class="v" id="rbRec">—</span></div>
+          <div class="stat"><span class="k">precision@k</span><span class="v" id="rbPrec">—</span></div>
+          <div class="stat"><span class="k">MRR</span><span class="v" id="rbMrr">—</span></div>
+          <div class="stat"><span class="k">chunks indexed</span><span class="v" id="rbN">—</span></div>
+          <div class="stat"><span class="k">context per question</span><span class="v" id="rbTok">—</span><span class="u">tokens</span></div>
+        </div>
+        <h4 class="mt1">Recall@k, all three methods, same settings</h4>
+        <div id="rbCmp"></div>
+      </div>
+      <div>
+        <div class="tablewrap">
+          <table class="rbtab">
+            <thead><tr><th>Question</th><th class="num">BM25</th><th class="num">Emb.</th><th class="num">Hybrid</th></tr></thead>
+            <tbody id="rbRows"></tbody>
+          </table>
+        </div>
+        <p class="small muted mt1 mb0">Each cell is the rank at which the first chunk containing the
+        labelled passage came back; green if within the top <i>k</i>. <b>split</b> means no chunk holds the
+        whole passage — chunking cut it in two, so no search method can succeed.</p>
+      </div>
+    </div>
+    <div class="card mt1" id="rbNote"></div>
+    <h4 class="mt1">What came back for: <span id="rbSelQ" style="text-transform:none;letter-spacing:0;color:var(--ink)"></span></h4>
+    <div id="rbHits"></div>
+    <details class="reveal">
+      <summary>Show the corpus and the labelled passages</summary>
+      <div class="body" id="rbCorpus"></div>
+    </details>
+    <p class="small muted mt1 mb0"><b>Honesty note:</b> the documents and questions are fictional and
+    authored for the seminar. Everything else is computed live: chunking, the BM25 index (the standard
+    formula, k1 = 1.2, b = 0.75), rank fusion and every metric. The “embedding” is a hand-built
+    bag-of-concepts model — an authored lexicon maps words to 23 engineering concepts, and similarity is the
+    cosine between concept counts. A real embedding model learns hundreds of dimensions and handles
+    paraphrase far better, but shares the weakness shown here: it has no special feeling for part numbers
+    and document codes. The re-ranker is a stand-in for a cross-encoder model: it scores every 20-word
+    window of a candidate against the question and keeps the best. Context tokens assume 1.3 tokens per word.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">What to try</span>
+      <ul class="mb0">
+        <li>Drop the chunk size to 20 with no overlap: passages split and recall collapses for every method. Add 30% overlap and some come back.</li>
+        <li>Untick the title prefix: keyword search loses the document codes and its recall drops. One line of metadata in the chunk text is worth a lot.</li>
+        <li>Compare the three methods question by question: they fail on <em>different</em> questions. That is the whole case for hybrid.</li>
+        <li>Pick the brake fade question: the superseded rev B comes back alongside rev C. Turn the filter on.</li>
+      </ul>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">What eight questions cannot tell you</span>
+      <p class="mb0">With eight questions, one more right answer moves recall by 12.5 points, so small
+      differences here are noise — module 8.6 covers how many cases you actually need. A real evaluation
+      set uses the questions people actually ask (pull them from the help-desk log, not from the authors
+      of the documents), includes questions the corpus <em>cannot</em> answer, and is re-run on every
+      change to the pipeline.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Start on the defaults, then set the chunk size to 20. Watch “split” appear across the table. The
+      point lands quickly: the cleverest model in the world cannot answer from half a requirement.</li>
+      <li>Then go back to 60 and click through the questions on BM25 versus embedding. The audience will
+      spot that each method fails on different questions — let them say it before you do.</li>
+      <li>If someone asks which vector database to buy: it is the least important decision on this
+      page. The labelled question set, the chunking and the metadata matter far more, and they carry over
+      when you change vendor.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 4.10 -->
+<section class="chapter" id="multimodal">
+  <h2>4.10 · Beyond text: images, multimodal and diffusion</h2>
+  <p>Most current assistants accept images as well as text, and image generators produce pictures from
+  a sentence. These are two different mechanisms. The first is the same transformer you have just taken
+  apart, fed a new kind of token. The second works on a different principle entirely.</p>
+
+  <h3>How a vision-language model sees</h3>
+  <p>The image is resized, then cut into a grid of small square <strong>patches</strong>, typically 14
+  or 16 pixels on a side. Each patch is turned into a vector by a learned projection — exactly as a text
+  token is turned into a vector in 4.2 — and those vectors are placed in the sequence next to the text
+  tokens. From there it is <strong>the same transformer</strong>: attention lets a word in your question
+  look at a patch of the picture, and the output is still next-token prediction over text. The model
+  does not “look” at the image the way you do; it reads a sequence of patch-vectors, once, at whatever
+  resolution survived the resize.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · What survives the trip into the model</h3><span class="tag try">Pick a source image</span></div>
+    <div class="btnrow">
+      <div class="segmented" id="vmSrc">
+        <button data-v="0" class="on">A3 drawing, scanned at 300 dpi</button>
+        <button data-v="1">Inspection photo, 12 MP</button>
+        <button data-v="2">Screenshot of a plot</button>
+      </div>
+    </div>
+    <div class="split">
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Height of the smallest text, in source pixels</span><span class="val" id="vmTxtOut"></span></div>
+          <input type="range" id="vmTxt" min="8" max="80" step="1" value="30">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Model's maximum image size (long side)</span><span class="val" id="vmMaxOut"></span></div>
+          <input type="range" id="vmMax" min="512" max="2048" step="64" value="1536">
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">source</span><span class="v" id="vmIn">—</span></div>
+          <div class="stat"><span class="k">as the model sees it</span><span class="v" id="vmOut">—</span></div>
+          <div class="stat hl"><span class="k">image tokens</span><span class="v" id="vmTok">—</span></div>
+          <div class="stat"><span class="k">smallest text after resize</span><span class="v" id="vmGlyph">—</span><span class="u">px tall</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="verdict" id="vmVerdict"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0"><b>Honesty note:</b> the arithmetic is live, but the inputs are
+    illustrative. It assumes 14-pixel patches merged in 2×2 groups, so one token per 28×28 pixels,
+    which lands in the range current models report. Maximum image size, patch size and patch merging
+    differ between vendors and change between versions — check the documentation of the model you
+    actually use. The legibility bands are rules of thumb, not measurements of any particular model.</p>
+  </div>
+
+  <h3 class="mt2">Good at, bad at — on engineering material</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Material</th><th>Usually good at</th><th>Usually bad at</th></tr></thead>
+      <tbody>
+        <tr><td><b>Inspection photos</b></td><td>Describing what is shown, naming the obvious defect type (corrosion, a cracked bracket, a missing clip), writing a first draft of the finding.</td><td>Subtle defects — hairline cracks, early fretting — where it will still describe confidently. Saying something is <em>absent</em>. Any measurement: there is no scale and no perspective correction.</td></tr>
+        <tr><td><b>Drawings</b></td><td>Reading the title block, a parts list, large notes; explaining roughly what a view shows.</td><td>Small dimensions and tolerances, GD&amp;T frames, which dimension belongs to which feature, anything that needs exact geometry. Often below the legible size after resizing.</td></tr>
+        <tr><td><b>Plots and dashboards</b></td><td>Describing trends, spotting the obvious outlier, reading axis labels and legends.</td><td>Reading exact values off a curve, comparing two close lines, log axes. It estimates the shape of the number, as in 4.3. If you have the data behind the plot, send the data instead.</td></tr>
+        <tr><td><b>Anything with counting</b></td><td>Two or three objects.</td><td>Bolts on a flange, welds on a seam, cells in a pack. Counting dozens of similar items is a known weak spot; errors of one or two are common and not flagged.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout caution">
+    <span class="ctitle">Getting usable answers from images</span>
+    <p class="mb0">Crop to the region that matters and send it at full resolution, instead of one
+    shrunken overview. Ask the model to quote what it reads (“the tolerance reads ±0.05”) so you can check
+    it. Prefer the source over the picture — the CAD model, the DXF, the CSV behind the plot. And for
+    anything measured or counted in production, a dedicated vision model — a convolutional network as in
+    module 3.5, trained and validated on your own images as in module 8 — is the right tool, not a general assistant.</p>
+  </div>
+
+  <h3 class="mt2">Image generation: diffusion is a different idea</h3>
+  <p>An LLM builds its output one token at a time, left to right, and never revisits a token once
+  written. A <strong>diffusion</strong> model generates the whole image at once, and gets there by
+  refinement. Training is simple to state: take real images, add a known amount of random noise, and
+  train a network to predict which noise was added. To generate, start from pure noise and apply the
+  network repeatedly, removing a little of the predicted noise at each step, for 20 to 50 steps, until
+  an image remains.</p>
+  <p>Text enters as a <strong>condition</strong>: the prompt is encoded into vectors that the denoising
+  network attends to at every step. The usual trick, <em>classifier-free guidance</em>, runs the
+  network twice per step — once with the prompt, once without — and pushes the result further in the
+  direction the prompt points. Most practical systems also diffuse in a compressed “latent” space
+  rather than on raw pixels, which is what makes them affordable.</p>
+
+  <div class="eqbox">
+    forward (training): &nbsp;x<sub>t</sub> = √ᾱ<sub>t</sub> · x<sub>0</sub> + √(1 − ᾱ<sub>t</sub>) · ε &nbsp;&nbsp;&nbsp;ε = random noise<br>
+    reverse (generating): x<sub>t−1</sub> = ( x<sub>t</sub> + β<sub>t</sub> · <span class="hi">score(x<sub>t</sub>, t, prompt)</span> ) / √(1 − β<sub>t</sub>) + <span class="hi2">a little fresh noise</span>
+    <small>The score is the direction in which the data becomes more likely. In a real image model a neural
+    network with billions of parameters estimates it from millions of training images. In the lab below
+    the target is a mixture of Gaussian blobs written down by hand, so the score can be computed exactly
+    — the update rule is the real one (the standard DDPM sampler with a cosine noise schedule).</small>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · A diffusion model you can see inside</h3><span class="tag try">Drag the step slider, or press Play</span></div>
+    <div class="btnrow">
+      <div class="segmented" id="dfMode">
+        <button data-v="rev" class="on">Generate: denoise from noise</button>
+        <button data-v="fwd">Train: add noise to data</button>
+      </div>
+      <div class="segmented" id="dfShapeSeg">
+        <button data-v="ring" class="on">Ring</button>
+        <button data-v="spiral">Spiral</button>
+        <button data-v="grid">Grid</button>
+      </div>
+    </div>
+    <div class="btnrow">
+      <span class="small muted">Prompt</span>
+      <div class="segmented" id="dfPrompt">
+        <button data-v="none" class="on">none</button>
+        <button data-v="0">“blue”</button>
+        <button data-v="1">“amber”</button>
+      </div>
+      <button class="btn sm" id="dfPlay">Play ▶</button>
+      <button class="btn sm" id="dfSeed">New noise</button>
+      <label class="check"><input type="checkbox" id="dfField" checked> Show the score arrows</label>
+    </div>
+    <div class="split">
+      <div>
+        <canvas id="dfCv" class="cv dfcv"></canvas>
+        <div class="ctrl mt1">
+          <div class="ctrl-label"><span id="dfStepLbl">Denoising steps taken</span><span class="val" id="dfStepOut"></span></div>
+          <input type="range" id="dfStep" min="0" max="50" step="1" value="50">
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Number of sampling steps</span><span class="val" id="dfTOut"></span></div>
+          <input type="range" id="dfT" min="3" max="150" step="1" value="50">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Guidance scale</span><span class="val" id="dfWOut"></span></div>
+          <input type="range" id="dfW" min="0" max="4" step="0.25" value="1">
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">noise level</span><span class="v" id="dfSig">—</span></div>
+          <div class="stat hl"><span class="k">on the shape</span><span class="v" id="dfOn">—</span></div>
+          <div class="stat"><span class="k">blobs covered</span><span class="v" id="dfModes">—</span></div>
+          <div class="stat"><span class="k">match the prompt</span><span class="v" id="dfMatch">—</span></div>
+        </div>
+        <div class="card mt1" id="dfInfo" style="min-height:150px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0"><b>Honesty note:</b> each dot stands for one whole generated
+    “image”, squeezed into two numbers so you can see it. A real image is hundreds of thousands of numbers
+    and its score has to be learned; here the target distribution is known, so the score is exact and the
+    only errors are the ones the sampler itself makes. The two “prompts” simply select which blobs count —
+    a real text condition is a learned embedding of the sentence. 500 points, seeded noise, every step
+    computed in your browser.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Why this matters beyond pictures</span>
+      <p class="mb0">The same machinery generates anything you can write as a vector and have examples
+      of: geometries, microstructures, load cases, trajectories. That is the route by which generative
+      models are entering the <strong>generative design</strong> pattern in module 11.7 — propose many
+      candidates that resemble good past designs, then let a solver judge them. The lab shows the
+      catch: a diffusion model produces things that look like its training data. Novelty and validity
+      are still the solver's and the engineer's job.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">The lines are blurring</span>
+      <p class="mb0">Some image generators now predict image tokens one at a time like an LLM, and some
+      experimental text models generate by diffusion. The distinction that stays useful: next-token
+      models commit left to right and are strong at structure and language; diffusion models refine a
+      whole output in parallel and are strong at continuous, spatial things. Neither checks its output
+      against physics or a drawing standard.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Do the resize lab with the A3 drawing first: at the default size, 2.5 mm text ends up a few pixels
+      tall. That one number explains most “it misread the drawing” complaints you will hear.</li>
+      <li>In the diffusion lab, start in “Train” mode and drag to the end to show the shape dissolving into
+      noise, then switch to “Generate” and drag back. Then set sampling steps to 3 — the shape comes out
+      blurred, which is the real speed/quality trade-off behind “fast mode” in image tools.</li>
+      <li>Turn on the “blue” prompt and raise the guidance scale. The points avoid the amber blobs entirely.
+      That is the honest picture of what a prompt does to a diffusion model: it reshapes where the
+      denoising is pulled, it does not issue instructions.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 4.11 -->
 <section class="chapter" id="fail">
-  <h2>4.9 · Failure modes, and what to do about each</h2>
+  <h2>4.11 · Failure modes, and what to do about each</h2>
   <div class="grid g2">
     <div class="card">
       <h4 style="color:var(--bad)">Hallucination</h4>
@@ -1288,6 +1699,622 @@
     runRag();
   }
 
+  /* ===================================================== 4.9 building RAG */
+  var RB_DOCS = [
+    { id: 'TP-3104 rev C', title: 'TP-3104 rev C · Brake system validation test procedure', type: 'Test procedure', cur: true,
+      text: '1 Scope. This procedure defines the validation tests for the brake system of road vehicles, including bedding, fade and judder assessment. ' +
+        '2 Bedding. New pads and discs shall be bedded with 30 stops from 100 km/h to 30 km/h at 0.4 g, allowing the disc to cool below 150 °C between stops. ' +
+        '3 Fade test. The fade test consists of 15 consecutive stops from 180 km/h to 80 km/h at 0.6 g with a 45 second interval. Pedal force and disc temperature shall be recorded for every stop. The test is failed if pedal force rises by more than 30% between the first and last stop. ' +
+        '4 Judder assessment. Judder felt through the steering column during deceleration from 130 km/h is normally caused by disc thickness variation above 15 µm. Measure thickness variation at eight points with a micrometer before replacing any component. Lateral run-out shall not exceed 0.05 mm. Wheel bolts shall be torqued to 120 Nm before every test session.' },
+    { id: 'TP-3104 rev B', title: 'TP-3104 rev B · Brake fade test procedure (SUPERSEDED)', type: 'Test procedure', cur: false,
+      text: '1 Scope. This revision is superseded by rev C and is retained for traceability only. It defines brake fade testing for road vehicles. ' +
+        '3 Fade test. The fade test consists of 10 consecutive stops from 160 km/h to 60 km/h at 0.5 g with a 60 second interval. Disc temperature shall be recorded for the first and last stop only. The test is failed if pedal force rises by more than 40%.' },
+    { id: 'MS-0412', title: 'MS-0412 · Material specification, aluminium alloy 7075-T6 bar', type: 'Material spec', cur: true,
+      text: '1 Scope. Aluminium alloy 7075-T6 bar for machined suspension uprights. Bar shall be supplied in the T6 condition, solution treated and artificially aged, to EN 755-2 tolerances. ' +
+        '2 Mechanical properties. Minimum tensile strength 540 MPa, minimum 0.2% proof strength 470 MPa and minimum elongation 7% in the longitudinal direction. Hardness shall be between 150 and 175 HB, checked on every heat treatment batch. ' +
+        '3 Surface protection. Finished parts shall be sulphuric acid anodised to a minimum film thickness of 15 µm and sealed in hot deionised water. Machined surfaces shall not be left bare for more than 48 hours. ' +
+        '4 Certification. Each batch requires a 3.1 inspection certificate with chemical analysis and mechanical test results.' },
+    { id: 'SB-23-014', title: 'SB-23-014 · Service bulletin, coolant pump seal weep', type: 'Service bulletin', cur: true,
+      text: 'Symptom. A slow coolant loss with dried pink residue below the water pump, usually without a warning light. ' +
+        'Affected vehicles. Chassis numbers 118200 to 119950 built between March and June 2023. ' +
+        'Action. Replace the seal kit with part 4471-220-B and fit a new pump gasket. Tighten the pump bolts to 12 Nm in a cross pattern. Refill with the approved coolant and bleed the system with the engine at 2000 rpm until the fan cycles twice. ' +
+        'Labour time 1.6 hours. Claims shall quote the bulletin number and the chassis number.' },
+    { id: 'TP-2210', title: 'TP-2210 · Engine dynamometer durability test procedure', type: 'Test procedure', cur: true,
+      text: '1 Cycle. The durability cycle alternates 10 minutes at rated power with 5 minutes at idle and is repeated for 400 hours. ' +
+        '2 Limits. Coolant outlet temperature shall be held at 95 °C ±2 °C. The run is aborted if oil gallery temperature exceeds 148 °C or oil pressure falls below 1.5 bar at rated speed. ' +
+        '3 Data. All channels shall be logged at 10 Hz minimum, and knock sensor channels at 50 kHz. ' +
+        '4 Inspection. After the run the engine is stripped, and bearings, pistons and valve seats are measured against the build record.' },
+    { id: 'WI-0877', title: 'WI-0877 · Work instruction, high-voltage battery isolation check', type: 'Work instruction', cur: true,
+      text: '1 Safety. Only qualified high-voltage technicians may perform this task. Before starting, wear class 0 insulating gloves tested within the last six months, a face shield and flame-resistant clothing, and remove all metal jewellery. ' +
+        '2 Isolation. Disconnect the service plug and wait 10 minutes for the capacitors to discharge. Measure the resistance between each pole and the chassis with a 500 V insulation tester. Isolation resistance shall be at least 500 ohm per volt of nominal pack voltage. ' +
+        'Refit the service plug cover and tighten its screws to 4 Nm. 3 Records. Record the readings in the vehicle history file and attach a lock-out tag to the service plug.' }
+  ];
+  /* labelled question set: d = document index, ev = evidence span that must come back whole */
+  var RB_QS = [
+    { q: 'What is the minimum isolation resistance for the HV battery pack?', d: 5, ev: 'Isolation resistance shall be at least 500 ohm per volt of nominal pack voltage.' },
+    { q: 'Why does the steering wheel shake when the driver slows down from motorway speed?', d: 0, ev: 'caused by disc thickness variation above 15 µm.' },
+    { q: 'What does SB-23-014 tell the technician to replace?', d: 3, ev: 'Replace the seal kit with part 4471-220-B and fit a new pump gasket.' },
+    { q: 'How many stops does the brake fade test consist of?', d: 0, ev: 'The fade test consists of 15 consecutive stops', stale: { d: 1, ev: 'The fade test consists of 10 consecutive stops' } },
+    { q: 'What has to be done within 48 hours?', d: 2, ev: 'Machined surfaces shall not be left bare for more than 48 hours.' },
+    { q: 'At what oil temperature must the dyno durability run be stopped?', d: 4, ev: 'The run is aborted if oil gallery temperature exceeds 148 °C' },
+    { q: 'What protective kit is needed before working on the traction battery?', d: 5, ev: 'wear class 0 insulating gloves tested within the last six months, a face shield and flame-resistant clothing,' },
+    { q: 'How do we stop the uprights corroding?', d: 2, ev: 'sulphuric acid anodised to a minimum film thickness of 15 µm' }
+  ];
+  /* the toy "embedding": an authored lexicon from word stems to concepts */
+  var RB_LEX = {
+    brake: 'brake', pad: 'brake', disc: 'brake', stop: 'brake abort', decelerat: 'brake speed', slow: 'brake speed', pedal: 'brake',
+    judder: 'vibration brake', shak: 'vibration', shake: 'vibration', vibrat: 'vibration', wobbl: 'vibration', 'run-out': 'vibration', thickness: 'vibration measure',
+    speed: 'speed', motorway: 'speed', km: 'speed', rpm: 'speed engine', fast: 'speed',
+    steer: 'steering', wheel: 'steering', column: 'steering',
+    temperatur: 'thermal', heat: 'thermal', hot: 'thermal', cool: 'thermal fluid', therm: 'thermal',
+    coolant: 'fluid thermal', oil: 'fluid engine', fluid: 'fluid', leak: 'fluid seal', weep: 'fluid seal', residue: 'fluid', refill: 'fluid', bleed: 'fluid', pump: 'fluid',
+    seal: 'seal', gasket: 'seal',
+    bolt: 'fastener', torque: 'fastener', tighten: 'fastener', nm: 'fastener', fasten: 'fastener', screw: 'fastener',
+    alumin: 'material', alloy: 'material', '7075': 'material', bar: 'material', metal: 'material', upright: 'material', machin: 'material',
+    tensile: 'strength', strength: 'strength', proof: 'strength', elongat: 'strength', mpa: 'strength', yield: 'strength',
+    hard: 'hardness',
+    corro: 'corrosion', anodis: 'corrosion', anodiz: 'corrosion', rust: 'corrosion', protect: 'corrosion ppe', surface: 'corrosion', bare: 'corrosion', film: 'corrosion',
+    volt: 'electrical', 'high-voltage': 'electrical', hv: 'electrical', battery: 'electrical', traction: 'electrical', capacitor: 'electrical', pole: 'electrical',
+    insulat: 'electrical ppe', isolat: 'electrical', resistance: 'electrical', ohm: 'electrical', electric: 'electrical', plug: 'electrical',
+    glove: 'ppe', technician: 'ppe', shield: 'ppe', cloth: 'ppe', wear: 'ppe', jewel: 'ppe', kit: 'ppe part', safety: 'ppe', qualified: 'ppe',
+    test: 'test', procedur: 'test', validat: 'test', measur: 'measure test', inspect: 'test measure', check: 'test', micrometer: 'measure',
+    abort: 'abort', fail: 'abort', exceed: 'abort', limit: 'abort',
+    log: 'data', data: 'data', channel: 'data', record: 'data', hz: 'data', sensor: 'data',
+    vehicl: 'vehicle', chassis: 'vehicle', vin: 'vehicle', car: 'vehicle', built: 'vehicle',
+    replac: 'part', part: 'part',
+    engine: 'engine', piston: 'engine', bearing: 'engine', valve: 'engine', rated: 'engine', idle: 'engine', power: 'engine',
+    durabil: 'durability', endur: 'durability', cycle: 'durability', hours: 'durability',
+    certif: 'document', batch: 'document', bulletin: 'document', claim: 'document', warrant: 'document'
+  };
+  var RB_STOP = {};
+  ('the a an of for to in is are and or what how who which why when where must be at on it its by with from this that these does do did we our you your there their any all each '
+    + 'shall may can should will not no than more less into per between before after during until without only also usually normally much many '
+    + 'between above below up down out over under new last first').split(' ').forEach(function (w) { RB_STOP[w] = 1; });
+
+  function rbStem(w) {
+    if (w.length > 5 && /ing$/.test(w)) return w.slice(0, -3);
+    if (w.length > 4 && /[^e]ed$/.test(w)) return w.slice(0, -2);
+    if (w.length > 4 && /es$/.test(w)) return w.slice(0, -2);
+    if (w.length > 3 && /s$/.test(w) && !/ss$/.test(w)) return w.slice(0, -1);
+    return w;
+  }
+  function rbTok(text) {
+    var raw = text.toLowerCase().match(/[a-z0-9µ]+(?:[-.][a-z0-9]+)*/g) || [], out = [];
+    raw.forEach(function (w) {
+      if (RB_STOP[w]) return;
+      if (w.length < 2 && !/[0-9]/.test(w)) return;
+      out.push(rbStem(w));
+      if (w.indexOf('-') > 0) w.split('-').forEach(function (p) { if (p.length > 1 && !RB_STOP[p]) out.push(rbStem(p)); });
+    });
+    return out;
+  }
+  var RB_LEXKEYS = Object.keys(RB_LEX).sort(function (a, b) { return b.length - a.length; });
+  var RB_CONCEPTS = [];
+  RB_LEXKEYS.forEach(function (k) { RB_LEX[k].split(' ').forEach(function (c) { if (RB_CONCEPTS.indexOf(c) < 0) RB_CONCEPTS.push(c); }); });
+  var RB_TOKCON = {};
+  function rbConcepts(t) {
+    if (RB_TOKCON[t] !== undefined) return RB_TOKCON[t];
+    var r = null;
+    for (var i = 0; i < RB_LEXKEYS.length; i++) if (t.indexOf(RB_LEXKEYS[i]) === 0) { r = RB_LEX[RB_LEXKEYS[i]].split(' '); break; }
+    RB_TOKCON[t] = r;
+    return r;
+  }
+  function rbVec(toks) {
+    var v = new Array(RB_CONCEPTS.length).fill(0);
+    toks.forEach(function (t) {
+      var cs = rbConcepts(t);
+      if (cs) cs.forEach(function (c) { v[RB_CONCEPTS.indexOf(c)] += 1 / cs.length; });
+    });
+    return v;
+  }
+  function rbCos(a, b) {
+    var d = 0, na = 0, nb = 0;
+    for (var i = 0; i < a.length; i++) { d += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+    return na && nb ? d / Math.sqrt(na * nb) : 0;
+  }
+
+  /* each document as a word array, with every question's evidence located by word index */
+  RB_DOCS.forEach(function (d) { d.words = d.text.split(/\s+/); });
+  function rbFind(di, ev) {
+    var dw = RB_DOCS[di].words, ew = ev.split(/\s+/);
+    for (var i = 0; i + ew.length <= dw.length; i++) {
+      var ok = true;
+      for (var j = 0; j < ew.length; j++) if (dw[i + j] !== ew[j]) { ok = false; break; }
+      if (ok) return { d: di, s: i, e: i + ew.length };
+    }
+    throw new Error('evidence not found: ' + ev);
+  }
+  RB_QS.forEach(function (q) {
+    q.span = rbFind(q.d, q.ev);
+    if (q.stale) q.staleSpan = rbFind(q.stale.d, q.stale.ev);
+    q.toks = rbTok(q.q); q.vec = rbVec(q.toks);
+  });
+
+  function rbChunk(size, overlap, withTitle, curOnly) {
+    var step = Math.max(1, Math.round(size * (1 - overlap))), out = [];
+    RB_DOCS.forEach(function (d, di) {
+      if (curOnly && !d.cur) return;
+      for (var s = 0; s < d.words.length; s += step) {
+        var e = Math.min(d.words.length, s + size), text = d.words.slice(s, e).join(' ');
+        var toks = rbTok((withTitle ? d.title + ' ' : '') + text);
+        out.push({ d: di, s: s, e: e, text: text, toks: toks, vec: rbVec(toks), n: e - s });
+        if (e >= d.words.length) break;
+      }
+    });
+    /* BM25 statistics */
+    var df = {}, avg = 0;
+    out.forEach(function (c) {
+      avg += c.toks.length; c.tf = {};
+      c.toks.forEach(function (t) { c.tf[t] = (c.tf[t] || 0) + 1; });
+      for (var t in c.tf) df[t] = (df[t] || 0) + 1;
+    });
+    return { chunks: out, df: df, avg: avg / (out.length || 1), N: out.length };
+  }
+  function rbBM25(ix, qt) {
+    var k1 = 1.2, b = 0.75;
+    return ix.chunks.map(function (c) {
+      var s = 0, seen = {};
+      qt.forEach(function (t) {
+        if (seen[t] || !c.tf[t]) return; seen[t] = 1;
+        var n = ix.df[t], idf = Math.log(1 + (ix.N - n + 0.5) / (n + 0.5)), f = c.tf[t];
+        s += idf * f * (k1 + 1) / (f + k1 * (1 - b + b * c.toks.length / ix.avg));
+      });
+      return s;
+    });
+  }
+  function rbOrder(sc) {
+    return sc.map(function (s, i) { return i; }).sort(function (a, b) { return sc[b] - sc[a] || a - b; });
+  }
+  /* stand-in re-ranker: reads the query against every 20-word window of a candidate and keeps the best */
+  function rbRerankScore(c, q) {
+    var words = c.text.split(' '), W = 20, best = 0;
+    var qset = {}; q.toks.forEach(function (t) { qset[t] = 1; });
+    var nq = Object.keys(qset).length || 1;
+    for (var s = 0; s < Math.max(1, words.length - W + 1); s += 4) {
+      var wt = rbTok(words.slice(s, s + W).join(' ')), hit = {}, m = 0;
+      wt.forEach(function (t) { if (qset[t] && !hit[t]) { hit[t] = 1; m++; } });
+      var sc = 0.35 * m / nq + 0.65 * rbCos(q.vec, rbVec(wt));
+      if (sc > best) best = sc;
+    }
+    return best;
+  }
+  function rbRetrieve(ix, q, method, rerank) {
+    var order, score;
+    var bm = rbBM25(ix, q.toks), em = ix.chunks.map(function (c) { return rbCos(q.vec, c.vec); });
+    if (method === 'bm25') { score = bm; order = rbOrder(bm); }
+    else if (method === 'emb') { score = em; order = rbOrder(em); }
+    else {
+      var ob = rbOrder(bm), oe = rbOrder(em), rr = new Array(ix.N).fill(0);
+      ob.forEach(function (ci, r) { rr[ci] += 1 / (60 + r + 1); });
+      oe.forEach(function (ci, r) { rr[ci] += 1 / (60 + r + 1); });
+      score = rr; order = rbOrder(rr);
+    }
+    if (rerank) {
+      var cand = order.slice(0, 20), rs = {};
+      cand.forEach(function (ci) { rs[ci] = rbRerankScore(ix.chunks[ci], q); });
+      cand.sort(function (a, b) { return rs[b] - rs[a] || 0; });
+      order = cand.concat(order.slice(20));
+      score = score.slice(); cand.forEach(function (ci) { score[ci] = rs[ci]; });
+    }
+    return { order: order, score: score };
+  }
+  function rbRel(c, sp) { return sp && c.d === sp.d && c.s <= sp.s && c.e >= sp.e; }
+  function rbEval(ix, method, rerank, k) {
+    var res = RB_QS.map(function (q) {
+      var r = rbRetrieve(ix, q, method, rerank), first = null, nrel = 0, stale = false, staleAbove = false;
+      r.order.forEach(function (ci, pos) {
+        var c = ix.chunks[ci];
+        if (rbRel(c, q.span)) { if (first === null) first = pos + 1; if (pos < k) nrel++; }
+        if (pos < k && rbRel(c, q.staleSpan)) { stale = true; if (first === null || first > pos + 1) staleAbove = true; }
+      });
+      return { r: r, first: first, hit: first !== null && first <= k, prec: nrel / k, stale: stale, staleAbove: staleAbove };
+    });
+    var rec = 0, prec = 0, mrr = 0;
+    res.forEach(function (x) { rec += x.hit ? 1 : 0; prec += x.prec; mrr += x.first && x.first <= k ? 1 / x.first : 0; });
+    return { per: res, recall: rec / res.length, prec: prec / res.length, mrr: mrr / res.length };
+  }
+
+  /* ===================================================== 4.10 toy diffusion */
+  function dfRng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function dfGauss(r) {
+    var u = 1 - r(), v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  var DF_S0 = 0.09; /* standard deviation of each blob in the target mixture */
+  function dfShape(name) {
+    var m = [], i;
+    if (name === 'ring') {
+      for (i = 0; i < 8; i++) m.push({ x: 1.6 * Math.cos(i * Math.PI / 4 + Math.PI / 8), y: 1.6 * Math.sin(i * Math.PI / 4 + Math.PI / 8), g: i % 2 });
+    } else if (name === 'spiral') {
+      for (i = 0; i < 14; i++) {
+        var th = 0.6 + i * 0.62, r = 0.35 + i * 0.105;
+        m.push({ x: r * Math.cos(th), y: r * Math.sin(th), g: i < 7 ? 0 : 1 });
+      }
+    } else {
+      for (i = 0; i < 9; i++) m.push({ x: (i % 3 - 1) * 1.3, y: (Math.floor(i / 3) - 1) * 1.3, g: (i % 3 + Math.floor(i / 3)) % 2 });
+    }
+    return m;
+  }
+  /* cosine noise schedule: abar[t] = signal fraction remaining after t noising steps */
+  function dfSchedule(T) {
+    var ab = [], be = [0], s = 0.008, f0 = Math.cos(s / (1 + s) * Math.PI / 2);
+    for (var t = 0; t <= T; t++) {
+      var f = Math.cos((t / T + s) / (1 + s) * Math.PI / 2);
+      ab.push(Math.max(1e-5, (f * f) / (f0 * f0)));
+    }
+    for (t = 1; t <= T; t++) be.push(Math.min(0.999, 1 - ab[t] / ab[t - 1]));
+    return { ab: ab, be: be };
+  }
+  /* exact score of the noised mixture: grad log p_t(x), optionally restricted to one group */
+  function dfScore(x, y, ab, M, grp) {
+    var a = Math.sqrt(ab), v = ab * DF_S0 * DF_S0 + (1 - ab), mx = -1e300, ls = [], i;
+    for (i = 0; i < M.length; i++) {
+      if (grp != null && M[i].g !== grp) { ls.push(-1e300); continue; }
+      var dx = x - a * M[i].x, dy = y - a * M[i].y, l = -(dx * dx + dy * dy) / (2 * v);
+      ls.push(l); if (l > mx) mx = l;
+    }
+    var sw = 0, sx = 0, sy = 0;
+    for (i = 0; i < M.length; i++) {
+      if (ls[i] < -1e299) continue;
+      var w = Math.exp(ls[i] - mx);
+      sw += w; sx += w * (a * M[i].x - x); sy += w * (a * M[i].y - y);
+    }
+    return [sx / sw / v, sy / sw / v];
+  }
+  function dfGuided(x, y, ab, M, prompt, w) {
+    var su = dfScore(x, y, ab, M, null);
+    if (prompt == null) return su;
+    var sc = dfScore(x, y, ab, M, prompt);
+    return [su[0] + w * (sc[0] - su[0]), su[1] + w * (sc[1] - su[1])];
+  }
+  /* run the reverse process: every state from pure noise (t = T) to t = 0 */
+  function dfReverse(M, T, prompt, w, N, seed) {
+    var S = dfSchedule(T), r = dfRng(seed), P = [], states = [], i, t;
+    for (i = 0; i < N; i++) P.push([dfGauss(r), dfGauss(r)]);
+    states.push(P.map(function (p) { return p.slice(); }));
+    for (t = T; t >= 1; t--) {
+      var be = S.be[t], al = 1 - be, pv = t > 1 ? be * (1 - S.ab[t - 1]) / (1 - S.ab[t]) : 0;
+      for (i = 0; i < N; i++) {
+        var s = dfGuided(P[i][0], P[i][1], S.ab[t], M, prompt, w);
+        P[i][0] = (P[i][0] + be * s[0]) / Math.sqrt(al) + Math.sqrt(pv) * dfGauss(r);
+        P[i][1] = (P[i][1] + be * s[1]) / Math.sqrt(al) + Math.sqrt(pv) * dfGauss(r);
+      }
+      states.push(P.map(function (p) { return p.slice(); }));
+    }
+    return { states: states, S: S };
+  }
+  function dfForward(M, T, N, seed) {
+    var S = dfSchedule(T), r = dfRng(seed), X0 = [], E = [], i;
+    for (i = 0; i < N; i++) {
+      var c = M[Math.floor(r() * M.length)];
+      X0.push([c.x + DF_S0 * dfGauss(r), c.y + DF_S0 * dfGauss(r)]);
+      E.push([dfGauss(r), dfGauss(r)]);
+    }
+    return { X0: X0, E: E, S: S };
+  }
+  function dfNearest(p, M) {
+    var bi = 0, bd = 1e9;
+    for (var i = 0; i < M.length; i++) {
+      var d = Math.hypot(p[0] - M[i].x, p[1] - M[i].y);
+      if (d < bd) { bd = d; bi = i; }
+    }
+    return { i: bi, d: bd };
+  }
+
+  var RBS = { method: 'hyb', rr: false, title: true, cur: false, size: 60, ov: 0.15, k: 3, sel: 3 };
+  var RB_MNAME = { bm25: 'Keyword (BM25)', emb: 'Embedding', hyb: 'Hybrid (RRF)' };
+
+  function rbMarkChunk(c, q) {
+    var words = c.text.split(' '), sp = q.span, st = q.staleSpan, h = [];
+    words.forEach(function (w, j) {
+      var gi = c.s + j, cls = '';
+      if (c.d === sp.d && gi >= sp.s && gi < sp.e) cls = rbRel(c, sp) ? 'ev' : 'evpart';
+      else if (st && c.d === st.d && gi >= st.s && gi < st.e) cls = 'evstale';
+      h.push(cls ? '<mark class="' + cls + '">' + esc(w) + '</mark>' : esc(w));
+    });
+    return h.join(' ').replace(/<\/mark> <mark class="(ev|evpart|evstale)">/g, ' ');
+  }
+  function rbCell(x, k) {
+    if (x.first === null) return '<span class="rk split">split</span>';
+    return '<span class="rk ' + (x.first <= k ? 'ok' : 'no') + '">' + x.first + '</span>';
+  }
+  function rbDraw() {
+    var ix = rbChunk(RBS.size, RBS.ov, RBS.title, RBS.cur), k = RBS.k;
+    var EV = { bm25: rbEval(ix, 'bm25', RBS.rr, k), emb: rbEval(ix, 'emb', RBS.rr, k), hyb: rbEval(ix, 'hyb', RBS.rr, k) };
+    var E = EV[RBS.method];
+
+    /* context actually sent, averaged over the eight questions */
+    var words = 0;
+    E.per.forEach(function (x) {
+      x.r.order.slice(0, k).forEach(function (ci) {
+        var c = ix.chunks[ci];
+        words += c.n + (RBS.title ? RB_DOCS[c.d].title.split(/\s+/).length : 0);
+      });
+    });
+    var toks = Math.round(words / E.per.length * 1.3);
+    document.getElementById('rbRec').textContent = F.pct(E.recall);
+    document.getElementById('rbPrec').textContent = F.pct(E.prec);
+    document.getElementById('rbMrr').textContent = E.mrr.toFixed(2);
+    document.getElementById('rbN').textContent = ix.N;
+    document.getElementById('rbTok').textContent = F.n(toks);
+
+    var cmp = '';
+    ['bm25', 'emb', 'hyb'].forEach(function (m) {
+      var col = m === RBS.method ? 'var(--accent)' : 'var(--ink-3)';
+      cmp += '<div class="sbar"><span' + (m === RBS.method ? ' style="font-weight:700;color:var(--accent)"' : '') + '>' + RB_MNAME[m] +
+        (RBS.rr ? ' + re-rank' : '') + '</span><div class="tr"><div class="fi" style="width:' + (EV[m].recall * 100).toFixed(1) +
+        '%;background:' + col + '"></div></div><span class="vv">' + F.pct(EV[m].recall) + '</span></div>';
+    });
+    document.getElementById('rbCmp').innerHTML = cmp;
+
+    var rows = '';
+    RB_QS.forEach(function (q, i) {
+      rows += '<tr data-i="' + i + '"' + (i === RBS.sel ? ' class="sel"' : '') + '><td><b>Q' + (i + 1) + '</b> ' + esc(q.q) +
+        (E.per[i].stale ? ' <span class="pill no" title="a superseded revision is in the top k">stale in top k</span>' : '') + '</td>' +
+        '<td class="num">' + rbCell(EV.bm25.per[i], k) + '</td><td class="num">' + rbCell(EV.emb.per[i], k) +
+        '</td><td class="num">' + rbCell(EV.hyb.per[i], k) + '</td></tr>';
+    });
+    document.getElementById('rbRows').innerHTML = rows;
+
+    /* observations, generated from the numbers */
+    var nSplit = E.per.filter(function (x) { return x.first === null; }).length;
+    var nStale = E.per.filter(function (x) { return x.stale; }).length;
+    var miss = { bm25: [], emb: [] };
+    ['bm25', 'emb'].forEach(function (m) {
+      EV[m].per.forEach(function (x, i) { if (!x.hit) miss[m].push(i + 1); });
+    });
+    var n = '<h4>Reading the result · ' + RB_MNAME[RBS.method] + (RBS.rr ? ' + re-rank' : '') + '</h4><ul class="small mb0">';
+    n += '<li><b>' + Math.round(E.recall * 8) + ' of 8</b> questions got a chunk containing the right passage into the top ' + k +
+      '. On the rest, the model would be answering without the evidence — and would still answer.</li>';
+    if (nSplit) n += '<li style="color:var(--bad)"><b>' + nSplit + ' passage' + (nSplit > 1 ? 's were' : ' was') +
+      ' split</b> by chunk boundaries, so no chunk holds it whole. Increase the chunk size or the overlap.</li>';
+    var only = function (a, b) { return a.filter(function (x) { return b.indexOf(x) < 0; }); };
+    var ob = only(miss.bm25, miss.emb), oe = only(miss.emb, miss.bm25);
+    if (ob.length || oe.length) n += '<li>The two first-stage methods fail on <b>different questions</b>' +
+      (ob.length ? ' — keyword alone misses Q' + ob.join(', Q') : '') + (oe.length ? (ob.length ? '; ' : ' — ') + 'embedding alone misses Q' + oe.join(', Q') : '') +
+      '. Hybrid gets ' + Math.round(EV.hyb.recall * 8) + ' of 8.</li>';
+    if (nStale) n += '<li style="color:var(--warn)"><b>A superseded revision</b> is in the context for ' + nStale +
+      ' question' + (nStale > 1 ? 's' : '') + '. Retrieval “succeeded”, and the model now has two contradictory values to choose from. Turn on the metadata filter.</li>';
+    n += '<li>Precision@' + k + ' is ' + F.pct(E.prec) + ': with one relevant passage per question it cannot exceed ' + F.pct(1 / k) +
+      ' — the price of a larger <i>k</i> is noise and about ' + F.n(toks) + ' tokens per question.</li>';
+    n += '</ul>';
+    document.getElementById('rbNote').innerHTML = n;
+
+    /* the selected question */
+    var q = RB_QS[RBS.sel], x = E.per[RBS.sel];
+    document.getElementById('rbSelQ').textContent = 'Q' + (RBS.sel + 1) + ' · ' + q.q;
+    var h = '';
+    x.r.order.slice(0, k).forEach(function (ci, pos) {
+      var c = ix.chunks[ci], d = RB_DOCS[c.d], rel = rbRel(c, q.span), stl = rbRel(c, q.staleSpan);
+      h += '<div class="rbchunk' + (rel ? ' rel' : stl ? ' stale' : '') + '"><div class="between"><span class="src">#' + (pos + 1) + ' · ' +
+        esc(d.id) + ' · ' + d.type + ' · words ' + (c.s + 1) + '–' + c.e + (d.cur ? '' : ' · <span style="color:var(--bad)">superseded</span>') +
+        '</span><span class="sc">' + (rel ? '<span class="pill ok">right passage</span> ' : stl ? '<span class="pill no">obsolete value</span> ' : '') +
+        'score ' + x.r.score[ci].toFixed(3) + '</span></div><div>' + rbMarkChunk(c, q) + '</div></div>';
+    });
+    if (!x.hit) {
+      h += '<p class="small" style="color:var(--bad)"><b>Missed.</b> ' + (x.first === null
+        ? 'No chunk contains the whole labelled passage — it was split at a chunk boundary.'
+        : 'The first chunk containing the passage came back at rank ' + x.first + ', outside the top ' + k + '.') +
+        ' The model would answer this question without its evidence.</p>';
+    }
+    h += '<p class="small muted mb0">Green highlight: the labelled passage. Amber: part of it, cut off by a chunk boundary. Red: the obsolete value from a superseded revision.</p>';
+    document.getElementById('rbHits').innerHTML = h;
+  }
+  function initRagBuild() {
+    var co = '';
+    RB_DOCS.forEach(function (d, di) {
+      var t = esc(d.text);
+      RB_QS.forEach(function (q, qi) {
+        if (q.d === di) t = t.replace(esc(q.ev), '<mark class="ev" title="Q' + (qi + 1) + '">' + esc(q.ev) + '</mark>');
+        if (q.stale && q.stale.d === di) t = t.replace(esc(q.stale.ev), '<mark class="evstale">' + esc(q.stale.ev) + '</mark>');
+      });
+      co += '<p class="small"><b>' + esc(d.title) + '</b> <span class="pill' + (d.cur ? ' ok' : ' no') + '">' + (d.cur ? 'current' : 'superseded') +
+        '</span><br>' + t + '</p>';
+    });
+    document.getElementById('rbCorpus').innerHTML = co;
+    AI.segmented(document.getElementById('rbMethod'), function (v) { RBS.method = v; rbDraw(); });
+    AI.bindRange('rbSize', function (v) { return v + ' words'; }, function (v) { RBS.size = v; rbDraw(); });
+    AI.bindRange('rbOv', function (v) { return Math.round(v * 100) + '%'; }, function (v) { RBS.ov = v; rbDraw(); });
+    AI.bindRange('rbK', function (v) { return v; }, function (v) { RBS.k = v; rbDraw(); });
+    ['rbTitle', 'rbCur', 'rbRr'].forEach(function (id) {
+      AI.on(document.getElementById(id), 'change', function () {
+        RBS.title = document.getElementById('rbTitle').checked;
+        RBS.cur = document.getElementById('rbCur').checked;
+        RBS.rr = document.getElementById('rbRr').checked;
+        rbDraw();
+      });
+    });
+    document.getElementById('rbRows').addEventListener('click', function (e) {
+      var tr = e.target.closest ? e.target.closest('tr') : null;
+      if (tr && tr.getAttribute('data-i') != null) { RBS.sel = parseInt(tr.getAttribute('data-i'), 10); rbDraw(); }
+    });
+    rbDraw();
+  }
+
+  /* ===================================================== 4.10 image resize */
+  var VM_SRC = [
+    { w: 4961, h: 3508, txt: 30, what: 'A3 drawing at 300 dpi', note: '2.5 mm lettering, the usual size for dimensions on a drawing, is about 30 px tall at 300 dpi.' },
+    { w: 4032, h: 3024, txt: 40, what: '12 MP inspection photo', note: 'A part label or stamped number filling a small corner of the frame.' },
+    { w: 1920, h: 1080, txt: 14, what: 'full-HD screenshot', note: 'Axis tick labels on a dashboard are typically 12–16 px.' }
+  ];
+  var VMS = { src: 0 };
+  function vmDraw() {
+    var s = VM_SRC[VMS.src], mx = parseFloat(document.getElementById('vmMax').value), tx = parseFloat(document.getElementById('vmTxt').value);
+    var sc = Math.min(1, mx / Math.max(s.w, s.h)), w = Math.round(s.w * sc), h = Math.round(s.h * sc);
+    var tok = Math.ceil(w / 28) * Math.ceil(h / 28), g = tx * sc;
+    var tiles = Math.ceil(s.w / mx) * Math.ceil(s.h / mx), ttok = 0, tw = Math.ceil(s.w / Math.ceil(s.w / mx)), th = Math.ceil(s.h / Math.ceil(s.h / mx));
+    ttok = Math.ceil(tw / 28) * Math.ceil(th / 28) * tiles;
+    document.getElementById('vmIn').textContent = s.w + '×' + s.h;
+    document.getElementById('vmOut').textContent = w + '×' + h;
+    document.getElementById('vmTok').textContent = F.n(tok);
+    document.getElementById('vmGlyph').textContent = g.toFixed(1);
+    var lvl, cls;
+    if (g < 8) { lvl = 'Unreadable'; cls = 'hi'; }
+    else if (g < 12) { lvl = 'Unreliable'; cls = 'mid'; }
+    else if (g < 20) { lvl = 'Usually readable'; cls = 'info'; }
+    else { lvl = 'Comfortably readable'; cls = 'ok'; }
+    var v = '<span class="lvl">' + lvl + '</span><p class="small">The ' + s.what + ' is shrunk by a factor of ' +
+      (1 / sc).toFixed(1) + ' to fit, so text that was ' + tx + ' px tall arrives about <b>' + g.toFixed(1) + ' px</b> tall. ' + s.note + '</p>';
+    if (g < 12) v += '<p class="small">At this size the model will often still produce a value — read from a few blurred pixels, ' +
+      'in the same confident tone as everything else. That is the dangerous case: a plausible wrong dimension.</p>';
+    if (tiles > 1) v += '<p class="small mb0"><b>The fix:</b> cut the source into ' + tiles + ' tiles of about ' + tw + '×' + th +
+      ' px and send them at full resolution — roughly ' + F.n(ttok) + ' image tokens instead of ' + F.n(tok) +
+      ', so more cost and more of the context window, but the text stays ' + tx + ' px tall. Or crop to the one view you care about.</p>';
+    else v += '<p class="small mb0">The whole image fits without shrinking, so nothing is lost to the resize — legibility is then down to the source itself.</p>';
+    var el = document.getElementById('vmVerdict');
+    el.className = 'verdict ' + cls; el.innerHTML = v;
+  }
+  function initVm() {
+    AI.segmented(document.getElementById('vmSrc'), function (v) {
+      VMS.src = parseInt(v, 10);
+      var r = AI.qs('#vmTxt'); r.value = VM_SRC[VMS.src].txt;
+      document.getElementById('vmTxtOut').textContent = r.value + ' px';
+      vmDraw();
+    });
+    AI.bindRange('vmTxt', function (v) { return v + ' px'; }, vmDraw);
+    AI.bindRange('vmMax', function (v) { return v + ' px'; }, vmDraw);
+    vmDraw();
+  }
+
+  /* ===================================================== 4.10 diffusion UI */
+  var DFS = { mode: 'rev', shape: 'ring', prompt: null, w: 1, T: 50, step: 50, seed: 11, field: true, run: null, fwd: null, play: null };
+  var dfplot;
+  function dfRecompute() {
+    var M = dfShape(DFS.shape);
+    DFS.M = M;
+    DFS.run = dfReverse(M, DFS.T, DFS.prompt, DFS.w, 500, DFS.seed);
+    DFS.fwd = dfForward(M, DFS.T, 500, DFS.seed + 1);
+  }
+  function dfPoints() {
+    if (DFS.mode === 'rev') return { P: DFS.run.states[DFS.step], t: DFS.T - DFS.step };
+    var S = DFS.fwd.S, t = DFS.step, a = Math.sqrt(S.ab[t]), b = Math.sqrt(1 - S.ab[t]);
+    return { P: DFS.fwd.X0.map(function (x, i) { return [a * x[0] + b * DFS.fwd.E[i][0], a * x[1] + b * DFS.fwd.E[i][1]]; }), t: t };
+  }
+  function dfDraw() {
+    var cv = document.getElementById('dfCv');
+    dfplot.resize();
+    var R = 2.7, asp = dfplot.pw / dfplot.ph;
+    dfplot.ran = [-R, R]; dfplot.dom = [-R * asp, R * asp];
+    dfplot.clear();
+    dfplot.frame({ xticks: 4, yticks: 4, xfmt: function (v) { return v.toFixed(1); }, yfmt: function (v) { return v.toFixed(1); } });
+    var g = dfplot.ctx, M = DFS.M, cur = dfPoints(), P = cur.P, t = cur.t, S = DFS.run.S, ab = S.ab[t];
+    var GC = [C('--accent'), C('--warn')], ink3 = C('--ink-3'), pxu = dfplot.pw / (dfplot.dom[1] - dfplot.dom[0]);
+    var prompt = DFS.mode === 'rev' ? DFS.prompt : null;
+    dfplot.clip(function () {
+      /* target blobs */
+      M.forEach(function (m) {
+        g.beginPath(); g.arc(dfplot.X(m.x), dfplot.Y(m.y), 3 * DF_S0 * pxu, 0, 6.2832);
+        g.setLineDash(prompt != null && m.g !== prompt ? [3, 3] : []);
+        g.strokeStyle = GC[m.g]; g.lineWidth = prompt != null && m.g !== prompt ? 1 : 1.8; g.stroke();
+      });
+      g.setLineDash([]);
+      /* score arrows */
+      if (DFS.field && t > 0) {
+        g.strokeStyle = C('--violet'); g.lineWidth = 1.2; g.globalAlpha = 0.75;
+        var nx = 15, ny = 11;
+        for (var i = 0; i < nx; i++) for (var j = 0; j < ny; j++) {
+          var x = dfplot.dom[0] + (i + 0.5) / nx * (dfplot.dom[1] - dfplot.dom[0]);
+          var y = dfplot.ran[0] + (j + 0.5) / ny * (dfplot.ran[1] - dfplot.ran[0]);
+          var s = dfGuided(x, y, ab, M, prompt, DFS.w), sd = Math.sqrt(1 - ab);
+          var vx = s[0] * sd, vy = s[1] * sd, L = Math.hypot(vx, vy);
+          if (L < 1e-6) continue;
+          var len = Math.min(0.32, 0.16 * L), ux = vx / L, uy = vy / L;
+          var x1 = dfplot.X(x), y1 = dfplot.Y(y), x2 = dfplot.X(x + ux * len), y2 = dfplot.Y(y + uy * len);
+          g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+          var ang = Math.atan2(y2 - y1, x2 - x1);
+          g.beginPath(); g.moveTo(x2, y2);
+          g.lineTo(x2 - 5 * Math.cos(ang - 0.45), y2 - 5 * Math.sin(ang - 0.45));
+          g.moveTo(x2, y2); g.lineTo(x2 - 5 * Math.cos(ang + 0.45), y2 - 5 * Math.sin(ang + 0.45));
+          g.stroke();
+        }
+        g.globalAlpha = 1;
+      }
+      /* points */
+      P.forEach(function (p) {
+        var nn = dfNearest(p, M), on = nn.d < 3 * DF_S0;
+        g.globalAlpha = on ? 0.85 : 0.55;
+        g.beginPath(); g.arc(dfplot.X(p[0]), dfplot.Y(p[1]), 2.1, 0, 6.2832);
+        g.fillStyle = on ? GC[M[nn.i].g] : ink3; g.fill();
+      });
+      g.globalAlpha = 1;
+    });
+
+    var on = 0, match = 0, used = {};
+    P.forEach(function (p) {
+      var nn = dfNearest(p, M);
+      if (nn.d < 3 * DF_S0) { on++; used[nn.i] = 1; if (prompt != null && M[nn.i].g === prompt) match++; }
+    });
+    document.getElementById('dfSig').textContent = Math.sqrt(1 - ab).toFixed(2);
+    document.getElementById('dfOn').textContent = F.pct(on / P.length);
+    document.getElementById('dfModes').textContent = Object.keys(used).length + ' / ' + M.length;
+    document.getElementById('dfMatch').textContent = prompt == null ? '—' : (on ? F.pct(match / on) : '—');
+
+    var n = '';
+    if (DFS.mode === 'fwd') {
+      n += '<h4>Training direction · step ' + t + ' of ' + DFS.T + '</h4><p class="small">Real samples from the shape, with noise mixed in: ' +
+        F.pct(Math.sqrt(ab)) + ' signal, ' + F.pct(Math.sqrt(1 - ab)) + ' noise (as amplitudes). By the last step nothing of the shape is left — just a round cloud of random numbers.</p>' +
+        '<p class="small mb0">Training a real model means showing it millions of noised examples like these and asking it to predict the noise. Its answer, rescaled, is the arrow field: which way is “back towards the data” from here.</p>';
+    } else {
+      n += '<h4>Generating · step ' + DFS.step + ' of ' + DFS.T + '</h4>';
+      if (DFS.step === 0) n += '<p class="small">Pure noise: 500 random starting points. Every generated “image” starts like this.</p>';
+      else if (DFS.step < DFS.T) n += '<p class="small">Each step moves every point a little along the arrows, then adds a smaller dose of fresh noise. Early on the arrows only say “towards the middle”; the detail appears late.</p>';
+      else n += '<p class="small">Done. ' + F.pct(on / P.length) + ' of points landed on a blob, covering ' + Object.keys(used).length + ' of ' + M.length + ' blobs.' +
+        (DFS.T < 10 ? ' <b style="color:var(--warn)">With only ' + DFS.T + ' steps the sampler takes strides too big for the arrows to steer, and many points land off the shape.</b> Fewer steps is faster and worse — the trade-off behind every “fast mode”.' : '') + '</p>';
+      if (prompt != null) n += '<p class="small mb0">Prompt “' + (prompt === 0 ? 'blue' : 'amber') + '”, guidance ' + DFS.w.toFixed(2) + '. ' +
+        (DFS.w === 0 ? 'At zero the prompt is ignored entirely.' : DFS.w < 1 ? 'Below 1 the prompt is only partly followed.' : DFS.w === 1 ? 'At 1 the sampler follows the prompted distribution exactly.' : 'Above 1 the push is exaggerated beyond the prompted distribution — real tools default to 3–8 because it makes images match prompts more obviously, at a cost in variety.') + '</p>';
+      else n += '<p class="small mb0">No prompt: the sampler reproduces the whole training distribution, every blob in proportion. Choose a prompt to steer it.</p>';
+    }
+    document.getElementById('dfInfo').innerHTML = n;
+    document.getElementById('dfStepOut').textContent = DFS.step + ' / ' + DFS.T;
+  }
+  function dfStop() { if (DFS.play) { clearInterval(DFS.play); DFS.play = null; document.getElementById('dfPlay').textContent = 'Play ▶'; } }
+  function dfSetT(T) {
+    DFS.T = T;
+    var st = document.getElementById('dfStep');
+    st.max = T; DFS.step = DFS.mode === 'rev' ? T : 0; st.value = DFS.step;
+  }
+  function initDiff() {
+    dfplot = new AI.Plot(document.getElementById('dfCv'), { pad: { l: 34, r: 10, t: 10, b: 26 } });
+    AI.segmented(document.getElementById('dfMode'), function (v) {
+      dfStop(); DFS.mode = v;
+      document.getElementById('dfStepLbl').textContent = v === 'rev' ? 'Denoising steps taken' : 'Noising steps applied';
+      DFS.step = v === 'rev' ? DFS.T : 0; document.getElementById('dfStep').value = DFS.step; dfDraw();
+    });
+    AI.segmented(document.getElementById('dfShapeSeg'), function (v) { dfStop(); DFS.shape = v; dfRecompute(); dfDraw(); });
+    AI.segmented(document.getElementById('dfPrompt'), function (v) { dfStop(); DFS.prompt = v === 'none' ? null : parseInt(v, 10); dfRecompute(); dfDraw(); });
+    AI.bindRange('dfT', function (v) { return v; }, function (v) {
+      dfStop(); dfSetT(v); if (dfplot) { dfRecompute(); dfDraw(); }
+    });
+    AI.bindRange('dfW', function (v) { return v.toFixed(2); }, function (v) {
+      DFS.w = v; if (dfplot && DFS.M) { dfRecompute(); dfDraw(); }
+    });
+    AI.on(document.getElementById('dfStep'), 'input', function () { dfStop(); DFS.step = parseInt(this.value, 10); dfDraw(); });
+    AI.on(document.getElementById('dfField'), 'change', function () { DFS.field = this.checked; dfDraw(); });
+    AI.on(document.getElementById('dfSeed'), 'click', function () { DFS.seed += 101; dfRecompute(); dfDraw(); });
+    AI.on(document.getElementById('dfPlay'), 'click', function () {
+      if (DFS.play) { dfStop(); return; }
+      DFS.step = 0; dfDraw();
+      document.getElementById('dfPlay').textContent = 'Pause ❚❚';
+      var dt = Math.max(16, Math.min(120, 3000 / DFS.T));
+      DFS.play = setInterval(function () {
+        if (DFS.step >= DFS.T) { dfStop(); return; }
+        DFS.step++; document.getElementById('dfStep').value = DFS.step; dfDraw();
+      }, dt);
+    });
+    dfRecompute();
+    AI.onRedraw(dfDraw);
+    dfDraw();
+  }
+
   window.PAGE_INIT = function () {
     initTok();
     initEmb();
@@ -1297,6 +2324,9 @@
     initStages();
     initCtx();
     initRag();
+    initRagBuild();
+    initVm();
+    initDiff();
   };
 })();
 </script>

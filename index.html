@@ -6,7 +6,7 @@
 <title>AI Foundations — Seminar Series</title>
 <link rel="stylesheet" href="assets/style.css">
 <style>
-  .hero { padding: 3.6rem 0 1.6rem; }
+  .hero { padding-top: 3.6rem; padding-bottom: 1.6rem; }
   .partband {
     display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
     padding: 1.6rem 0 .9rem; border-top: 1px solid var(--line); margin-top: 2rem;
@@ -15,7 +15,7 @@
     font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--accent);
   }
   .partband h2 { margin: 0; font-size: 1.5rem; }
-  .partband .note { display: block; color: var(--ink-3); font-size: .92rem; }
+  .partband .pnote { display: block; color: var(--ink-3); font-size: .92rem; }
   .partband .mins {
     margin-left: auto; font-size: .82rem; color: var(--ink-3); font-weight: 600;
     background: var(--bg-3); border: 1px solid var(--line); padding: 3px 11px; border-radius: 20px;
@@ -56,7 +56,7 @@
 <header class="hero wrap">
   <span class="eyebrow">Internal seminar series</span>
   <h1>AI Foundations</h1>
-  <p class="lead">Fifteen interactive modules that build from a single artificial neuron to a
+  <p class="lead">Twenty-one interactive modules that build from a single artificial neuron to a
   pre-qualified list of use cases from your own work. Written for engineers who are new to machine
   learning: every concept has something you can move, break and put back together, and every number in
   the calculators is computed rather than illustrated.</p>
@@ -66,8 +66,8 @@
 
   <div class="partband">
     <span class="k">I</span>
-    <div><h2>Foundations</h2><span class="note">How it works. Five modules, about three hours.</span></div>
-    <span class="mins">3 h 05</span>
+    <div><h2>Foundations</h2><span class="pnote">How it works. Five modules, about three and a half hours.</span></div>
+    <span class="mins">3 h 40</span>
   </div>
 
   <div class="grid" style="gap:12px">
@@ -101,10 +101,11 @@
     <a class="modcard" href="04-llm.html">
       <span class="n">4</span>
       <div style="flex:1">
-        <div class="between"><h3>How an LLM works</h3><span class="mins">60 min</span></div>
+        <div class="between"><h3>How an LLM works</h3><span class="mins">75 min</span></div>
         <p>Tokens, embeddings, attention, and the one thing the model is actually doing. Then the
-        engineering around it: context windows, RAG, fine-tuning, failure modes.</p>
-        <div class="feats"><span>Tokenizer</span><span>Embedding space</span><span>Be the model</span><span>Attention map</span><span>Context window</span><span>RAG simulator</span></div>
+        engineering around it: context windows, RAG and how to make it retrieve the right thing, fine-tuning,
+        vision models and diffusion, failure modes.</p>
+        <div class="feats"><span>Tokenizer</span><span>Embedding space</span><span>Be the model</span><span>Attention map</span><span>Context window</span><span>RAG simulator</span><span>Retrieval evaluation</span><span>Image tokens</span><span>Toy diffusion</span></div>
       </div>
     </a>
     <a class="modcard" href="05-cost.html">
@@ -120,8 +121,8 @@
 
   <div class="partband">
     <span class="k">II</span>
-    <div><h2>Engineering it</h2><span class="note">How you build something that works and prove it. Five modules, about four hours.</span></div>
-    <span class="mins">3 h 55</span>
+    <div><h2>Engineering it</h2><span class="pnote">How you build something that works and prove it. Five modules, about four and a quarter hours.</span></div>
+    <span class="mins">4 h 15</span>
   </div>
 
   <div class="grid" style="gap:12px">
@@ -137,10 +138,10 @@
     <a class="modcard" href="07-data.html">
       <span class="n">7</span>
       <div style="flex:1">
-        <div class="between"><h3>Data</h3><span class="mins">45 min</span></div>
+        <div class="between"><h3>Data</h3><span class="mins">55 min</span></div>
         <p>The module that decides whether the project works. Label disagreement, the accuracy
-        paradox, leakage, drift, and what labelling will actually cost you.</p>
-        <div class="feats"><span>Labelling exercise</span><span>Imbalance</span><span>Leakage demo</span><span>Drift simulator</span><span>Cost calculator</span><span>Readiness check</span></div>
+        paradox, leakage, drift, why correlation is not a knob, and what labelling will actually cost you.</p>
+        <div class="feats"><span>Labelling exercise</span><span>Imbalance</span><span>Leakage demo</span><span>Drift simulator</span><span>Confounding &amp; Simpson’s paradox</span><span>Cost calculator</span><span>Readiness check</span></div>
       </div>
     </a>
     <a class="modcard" href="08-evaluation.html">
@@ -164,37 +165,39 @@
     <a class="modcard" href="10-governance.html">
       <span class="n">10</span>
       <div style="flex:1">
-        <div class="between"><h3>Governance and the AI Act</h3><span class="mins">45 min</span></div>
-        <p>Risk tiers, the 2026 deferral, provider versus deployer, what may go in a prompt, IP and
-        trade secrets, and an operating model that is not theatre.</p>
-        <div class="feats"><span>Risk-tier tool</span><span>Timeline</span><span>Data-in-prompt tool</span><span>Vendor questions</span><span>Governance check</span></div>
+        <div class="between"><h3>Governance and the AI Act</h3><span class="mins">55 min</span></div>
+        <p>Risk tiers, the 2026 deferral, provider versus deployer, what may go in a prompt, attacks on
+        the model itself, IP and trade secrets, and an operating model that is not theatre.</p>
+        <div class="feats"><span>Risk-tier tool</span><span>Timeline</span><span>Data-in-prompt tool</span><span>Adversarial attack</span><span>Backdoor lab</span><span>Vendor questions</span><span>Governance check</span></div>
       </div>
     </a>
   </div>
 
   <div class="partband">
     <span class="k">III</span>
-    <div><h2>Applying it</h2><span class="note">How it lands in the organisation. Five modules, about four hours.</span></div>
-    <span class="mins">4 h 20</span>
+    <div><h2>Applying it</h2><span class="pnote">How it lands in the organisation. Four modules, about three and a half hours.</span></div>
+    <span class="mins">3 h 25</span>
   </div>
 
   <div class="grid" style="gap:12px">
     <a class="modcard" href="11-engineering.html">
       <span class="n">11</span>
       <div style="flex:1">
-        <div class="between"><h3>AI in engineering and simulation</h3><span class="mins">50 min</span></div>
+        <div class="between"><h3>AI in engineering and simulation</h3><span class="mins">60 min</span></div>
         <p>The module most relevant to the day job. Surrogate models, design of experiments,
-        surrogate-guided optimisation, physics-informed fitting, and the envelope problem.</p>
-        <div class="feats"><span>Surrogate lab</span><span>Sampling plans</span><span>Infill optimisation</span><span>Physics-informed fit</span><span>Extrapolation</span></div>
+        surrogate-guided optimisation, physics-informed fitting, the envelope problem, and the gap
+        between simulated and real data.</p>
+        <div class="feats"><span>Surrogate lab</span><span>Sampling plans</span><span>Infill optimisation</span><span>Physics-informed fit</span><span>Extrapolation</span><span>Sim-to-real gap</span></div>
       </div>
     </a>
     <a class="modcard" href="12-prompting.html">
       <span class="n">12</span>
       <div style="flex:1">
-        <div class="between"><h3>Prompting</h3><span class="mins">60 min</span></div>
+        <div class="between"><h3>Prompting</h3><span class="mins">70 min</span></div>
         <p>A workshop. A prompt builder that produces text you can use, a rewrite gallery, a
-        decomposition exercise, a troubleshooting table, and honest verdicts on the folklore.</p>
-        <div class="feats"><span>Prompt builder</span><span>Before / after</span><span>Decomposition</span><span>Troubleshooting</span><span>Myth-busting</span><span>Exercises</span></div>
+        decomposition exercise, a troubleshooting table, honest verdicts on the folklore, and how to
+        work with AI coding assistants.</p>
+        <div class="feats"><span>Prompt builder</span><span>Before / after</span><span>Decomposition</span><span>Troubleshooting</span><span>Myth-busting</span><span>Code review lab</span><span>Assistant-use check</span><span>Exercises</span></div>
       </div>
     </a>
     <a class="modcard" href="13-human.html">
@@ -215,8 +218,76 @@
         <div class="feats"><span>Compounding calculator</span><span>Interpretability</span><span>Three positions</span><span>Claim assessment</span></div>
       </div>
     </a>
-    <a class="modcard" href="15-capstone.html">
+  </div>
+
+
+  <div class="partband">
+    <span class="k">IV</span>
+    <div><h2>Shipping it</h2><span class="pnote">How it gets into a product and stays safe. Seven modules including the capstone, about five and a half hours.</span></div>
+    <span class="mins">5 h 40</span>
+  </div>
+
+  <div class="grid" style="gap:12px">
+    <a class="modcard" href="15-timeseries.html">
       <span class="n">15</span>
+      <div style="flex:1">
+        <div class="between"><h3>Time series and telemetry</h3><span class="mins">45 min</span></div>
+        <p>Telemetry is not a table of independent rows. Resample without inventing frequencies, fuse a
+        late GPS with a drifting accelerometer, find a bearing fault in the spectrum, and watch a random
+        k-fold score fall apart on a forward split.</p>
+        <div class="feats"><span>Autocorrelation</span><span>Aliasing &amp; sensor fusion</span><span>FFT features</span><span>Naive baselines</span><span>Time leakage</span><span>Anomaly tuning</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="16-uncertainty.html">
+      <span class="n">16</span>
+      <div style="flex:1">
+        <div class="between"><h3>Uncertainty</h3><span class="mins">40 min</span></div>
+        <p>How sure the model is, and how to tell when its error bars are lying: aleatoric versus
+        epistemic, Gaussian-process surrogates, ensembles, conformal intervals and the uncertainty budget.</p>
+        <div class="feats"><span>GP confidence bands</span><span>Ensemble disagreement</span><span>Conformal intervals</span><span>Uncertainty budget</span><span>Softmax trap</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="17-explainability.html">
+      <span class="n">17</span>
+      <div style="flex:1">
+        <div class="between"><h3>Explaining a model’s predictions</h3><span class="mins">40 min</span></div>
+        <p>Permutation importance, partial dependence, ICE curves and exact Shapley values on a brake-wear
+        model whose true equations are on the page — and how every one of them misleads on correlated
+        sensors and cause and effect.</p>
+        <div class="feats"><span>Monotonic constraints</span><span>Permutation importance</span><span>PDP &amp; ICE</span><span>Shapley waterfall</span><span>Correlated-features trap</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="18-adaptation.html">
+      <span class="n">18</span>
+      <div style="flex:1">
+        <div class="between"><h3>Adapting models</h3><span class="mins">45 min</span></div>
+        <p>When to prompt, retrieve, fine-tune or train. Transfer learning and forgetting on a live network,
+        LoRA as a low-rank update, distillation from teacher to student, and a decision calculator.</p>
+        <div class="feats"><span>Sim-to-bench transfer</span><span>Forgetting &amp; replay</span><span>LoRA rank explorer</span><span>Distillation</span><span>Decision calculator</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="19-deployment.html">
+      <span class="n">19</span>
+      <div style="flex:1">
+        <div class="between"><h3>Deploying and running models</h3><span class="mins">45 min</span></div>
+        <p>What happens after the notebook. Rebuild last month’s model, meet a latency deadline, quantise a
+        real network to 2 bits, roll out a slightly worse model four ways, and run a quarter of
+        production monitoring.</p>
+        <div class="feats"><span>Reproducibility</span><span>Latency budget</span><span>Quantisation &amp; pruning</span><span>Shadow / canary / A/B</span><span>Drift monitoring</span><span>Go-live checklist</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="20-safety.html">
+      <span class="n">20</span>
+      <div style="flex:1">
+        <div class="between"><h3>AI in safety-critical vehicle systems</h3><span class="mins">50 min</span></div>
+        <p>Why ML breaks classic functional-safety assumptions, how ISO 26262, SOTIF, ISO/PAS 8800 and type
+        approval fit together, and how an ODD, a doer/checker architecture, test statistics and a safety
+        case get ML onto a vehicle.</p>
+        <div class="feats"><span>SOTIF areas</span><span>ODD builder</span><span>Doer / checker</span><span>Test-distance calculator</span><span>Safety-case builder</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="21-capstone.html">
+      <span class="n">21</span>
       <div style="flex:1">
         <div class="between"><h3>Capstone</h3><span class="mins">75 min</span></div>
         <p>A use-case canvas for your own work, with a computed scorecard, a recommended approach,
@@ -228,11 +299,11 @@
 
   <div class="partband" style="margin-top:2.6rem">
     <span class="k">☰</span>
-    <div><h2>Running the series</h2><span class="note">Tracks, format and practicalities.</span></div>
+    <div><h2>Running the series</h2><span class="pnote">Tracks, format and practicalities.</span></div>
   </div>
 
   <h3>Suggested tracks</h3>
-  <p>The full series is about eleven hours, which is a six- to eight-week programme of weekly
+  <p>The full series is about seventeen hours, which is a ten- to twelve-week programme of weekly
   sessions. These shorter paths work as stand-alone deliveries.</p>
 
   <div class="tracks">
@@ -252,7 +323,7 @@
     </div>
     <div class="track">
       <h4>One day, delivery teams</h4>
-      <div class="seq">7 · 8 · 9 · 13 · 15</div>
+      <div class="seq">7 · 8 · 9 · 13 · 21</div>
       <p>Data, evaluation, agents, human factors, capstone. For people who will actually build or
       own something. Assumes Part I was delivered earlier.</p>
     </div>
@@ -269,10 +340,16 @@
       in 4 explains the failures; 8 makes them measurable; 13 shows why people accept them anyway.</p>
     </div>
     <div class="track">
+      <h4>One day, shipping to the vehicle</h4>
+      <div class="seq">15 · 16 · 19 · 20</div>
+      <p>Telemetry, honest uncertainty, running a model in production, and the safety case. For teams
+      whose model will end up on a test bench, in the plant or on the car. Assumes modules 7 and 8.</p>
+    </div>
+    <div class="track">
       <h4>Before each delivery</h4>
-      <div class="seq">check 5 and 10</div>
-      <p>Module 5's energy and cost figures and module 10's regulatory dates both move quickly, and
-      both are sourced on the page. Ten minutes of checking protects your credibility.</p>
+      <div class="seq">check 5, 10 and 20</div>
+      <p>Module 5's energy and cost figures, module 10's regulatory dates and module 20's standards
+      status all move quickly, and all are sourced on the page. Ten minutes of checking protects your credibility.</p>
     </div>
   </div>
 
@@ -301,7 +378,7 @@
       surrogates really fit, the statistics are really computed. Three things are authored rather than
       live and are labelled as such on the page: the tokenizer in module 4.1, the next-token
       probabilities in 4.3, and the attention maps in 4.4. Module 5's figures are sourced and dated;
-      module 10 is an engineer's orientation and not legal advice.</p>
+      modules 10 and 20 are an engineer's orientation and not legal advice.</p>
     </div>
   </div>
 
@@ -315,10 +392,10 @@
       <li>Module 4.8's RAG demo and module 9.3's poisoned document are the two most persuasive things in
       the series for a management audience. Budget time for both.</li>
       <li>Module 13.1 works only if you do not warn them. Resist explaining first.</li>
-      <li>Module 7's readiness checklist and module 15's canvas are the two artefacts worth collecting.
+      <li>Module 7's readiness checklist and module 21's canvas are the two artefacts worth collecting.
       Together they are the most accurate picture of AI readiness anyone in the organisation will
       produce this year.</li>
-      <li>Record attendance. Under the AI-literacy obligation discussed in module 10.8, this series is a
+      <li>Record attendance. Under the AI-literacy obligation discussed in module 10.9, this series is a
       compliance measure as well as a training one.</li>
     </ul>
   </div>
@@ -329,7 +406,7 @@
   <div class="wrap">
     <div class="footnav"></div>
     <p class="small muted mt2 mb0">Internal training material. Figures in module 5 and regulatory dates
-    in module 10 are sourced and dated on the page — check them before each delivery, as both move
+    in modules 10 and 20 are sourced and dated on the page — check them before each delivery, as both move
     quickly.</p>
   </div>
 </footer>

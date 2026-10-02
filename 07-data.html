@@ -362,8 +362,154 @@
 </section>
 
 <!-- ============================================= 7.6 -->
+<section class="chapter" id="causal">
+  <h2>7.6 · Correlation is not a knob: causality</h2>
+  <p>Everything so far has been about <em>prediction</em>: given what I can see, what should I expect?
+  Engineers mostly want to ask a different question: <strong>if I change this parameter, what will
+  happen?</strong> That is a question about an <em>intervention</em>, and a model trained on logged,
+  observational data cannot answer it in general — however accurate it is. The model learns how things
+  move together in the data you collected. It has no way of knowing <em>why</em> they move together.</p>
+
+  <p>The usual culprit is a <strong>confounder</strong>: a third variable that drives both the thing you
+  would adjust and the outcome you care about. Two examples you will recognise:</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4>Experienced drivers and the setting</h4>
+      <p class="small mb0">The quicker, more experienced drivers prefer a particular setup option. They are
+      also quicker for every other reason. In the logged data, “uses the setting” correlates strongly
+      with “lower lap time”. A model will predict lap time from it very well — and the setting itself may
+      be doing nothing, or even costing time. Give it to a novice and they will not gain what the data
+      promised.</p>
+    </div>
+    <div class="card">
+      <h4>Ambient temperature, tyres and compound</h4>
+      <p class="small mb0">On hot days the tyres run hotter, <em>and</em> the team picks a harder compound.
+      In the data, the harder compound “goes with” high tyre temperatures. Read naively, that says the
+      hard compound runs hot. The ambient temperature is driving both; the compound's own effect is
+      buried underneath and may well point the other way.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · A confounded setup parameter</h3><span class="tag try">Raise the confounder, then split by group</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="caCv" class="cv" style="height:340px"></canvas>
+        <p class="small muted mt1 mb0">Each dot is one logged stint: the knob setting against the lap-time
+        change. Red line: what a model fitted to this data says the knob does. Green dashed: what the knob
+        really does, measured by intervening.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Confounding: how much experience drives the knob</span><span class="val" id="caAOut"></span></div>
+          <input type="range" id="caA" min="0" max="2.5" step="0.05" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>True effect of the knob (authored)</span><span class="val" id="caBOut"></span></div>
+          <input type="range" id="caB" min="-0.5" max="0.5" step="0.01" value="0.25">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>View</span></div>
+          <div class="segmented" id="caViewSeg">
+            <button data-v="pool" class="on">Pooled</button>
+            <button data-v="split">Split by driver group</button>
+          </div>
+        </div>
+        <div class="btnrow"><button class="btn sm" id="caNew">New data sample</button></div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsCaNaive"><span class="n" id="caNaive">—</span><span class="l">naive slope (model)</span></div>
+          <div class="bigstat" id="bsCaAdj"><span class="n" id="caAdj">—</span><span class="l">adjusted for experience</span></div>
+          <div class="bigstat good"><span class="n" id="caDo">—</span><span class="l">do(knob): randomised</span></div>
+          <div class="bigstat"><span class="n" id="caTrue">—</span><span class="l">true effect (set above)</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">within novices</span><span class="v" id="caWN">—</span></div>
+          <div class="m"><span class="k">within experienced</span><span class="v" id="caWE">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="caNote" style="min-height:120px"></div>
+    <p class="small muted mt1 mb0">The data come from a small structural causal model, written out so you
+    can check it: experience <i>Z</i> is two groups of drivers with some spread; the knob is
+    <i>X = a·Z + noise</i>; lap-time change is <i>Y = β·X − 0.8·Z + noise</i>, so more experience means a
+    faster lap. The model coefficients are authored; the 600 stints, every slope and the experiment are
+    sampled and fitted live. Slopes are in seconds per click: negative means faster. The
+    “do(knob)” figure is a separate simulated experiment in which the knob is set at random,
+    independently of the driver — which is exactly what an A/B test does.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Simpson's paradox</span>
+    <p class="mb0">Switch the lab to <b>Split by driver group</b> with the default settings. Within the
+    novices, more knob means a <em>slower</em> lap. Within the experienced drivers, the same. Pool them
+    and more knob means a <em>faster</em> lap. Nothing is wrong with the arithmetic: the experienced group
+    both uses more knob and is faster, and the pooled line is mostly the gap between the two groups. When
+    a trend reverses on splitting, the split is usually telling the truth about the knob — <strong>but only
+    if you split by the right variable</strong>, and the data alone cannot tell you which one that is. That
+    comes from knowing how the system works.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="card">
+      <h3>Prediction is fine for…</h3>
+      <ul class="small mb0">
+        <li>Forecasting what will happen if nothing about the process changes: the lap time of this stint,
+        the failure risk of this part, the warranty cost of this batch.</li>
+        <li>Monitoring, screening, ranking and flagging (modules 6 and 8).</li>
+        <li>Any use where the model's inputs are <em>observed</em>, not <em>set</em> by you.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Intervention needs more</h3>
+      <ul class="small mb0">
+        <li>“Should we change this setting / tolerance / supplier / process step?” is a causal question.</li>
+        <li>A feature with a large importance score (or a large coefficient) is not a lever. Importance
+        measures how useful it is for prediction, not what happens when you move it.</li>
+        <li>As soon as a model's output is used to choose a setting, you are using it causally — whether
+        anyone says so or not.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">How you actually get a causal answer</span>
+    <ul class="mb0">
+      <li><strong>Run a designed experiment.</strong> Set the parameter deliberately, according to a plan,
+      rather than learning from whatever happened to be logged. This is design of experiments — the same
+      discipline as <a href="11-engineering.html#doe">module 11.2</a> — and on a rig or in simulation it is
+      usually affordable.</li>
+      <li><strong>Randomise when people are involved.</strong> An A/B test assigns the change at random, so
+      experience, weather and mood are balanced between the arms by construction. Randomisation is what
+      cuts the arrow from the confounder to the knob; it is the “do(knob)” number in the lab.</li>
+      <li><strong>If you can only observe, adjust — honestly.</strong> Regressing on the confounder (the
+      “adjusted” number) works <em>if</em> you measured every important confounder, measured it well, and
+      did not adjust for something the knob itself causes. That is a strong assumption. Write it down, and
+      treat the result as a hypothesis to confirm with an experiment.</li>
+    </ul>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Start with the lab at confounding 1.0 and true effect +0.25. The model says the knob saves about
+      0.3 s per click; in reality it costs about 0.25. Ask the room which number they would
+      have put in the setup sheet.</li>
+      <li>Then set confounding to zero. The naive slope and the true effect agree: when the knob is not
+      chosen by the driver, observation and experiment give the same answer. That is the whole argument
+      for randomisation in one slider move.</li>
+      <li>“Split by driver group” gets most of the way, not all of it, because experience still varies a
+      little within each group — the adjusted figure, which uses the continuous experience score, gets
+      closer. Coarse adjustment leaves residual confounding; worth saying out loud.</li>
+      <li>Likely question: “Doesn't a big enough model sort this out?” No. More data and more parameters
+      make the <em>prediction</em> better and the confounded slope more precise. They do not make it
+      causal.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 7.7 -->
 <section class="chapter" id="cost">
-  <h2>7.6 · What labelling will actually cost you</h2>
+  <h2>7.7 · What labelling will actually cost you</h2>
   <div class="lab">
     <div class="lab-head"><h3>Lab · Labelling budget</h3><span class="tag try">Try 3 annotators per item</span></div>
     <div class="split-wide">
@@ -415,9 +561,9 @@
   </div>
 </section>
 
-<!-- ============================================= 7.7 -->
+<!-- ============================================= 7.8 -->
 <section class="chapter" id="ready">
-  <h2>7.7 · Is your data ready?</h2>
+  <h2>7.8 · Is your data ready?</h2>
   <p>Tick what is true today, not what is planned.</p>
 
   <div class="lab">
@@ -862,7 +1008,155 @@
     document.getElementById('drNote').innerHTML = n;
   }
 
-  /* ============================================ 7.6 cost */
+  /* ============================================ 7.6 causality */
+  /* seeded generator so a given slider position always shows the same sample */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function gaussR(r) {
+    var u = 0, v = 0;
+    while (!u) u = r();
+    while (!v) v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+  }
+  /* ordinary least squares via normal equations (Gaussian elimination, partial pivoting) */
+  function olsFit(rows, y) {
+    var n = rows[0].length, A = [], b = [], i, j, k;
+    for (i = 0; i < n; i++) { A.push(new Array(n).fill(0)); b.push(0); }
+    for (k = 0; k < rows.length; k++) for (i = 0; i < n; i++) {
+      b[i] += rows[k][i] * y[k];
+      for (j = 0; j < n; j++) A[i][j] += rows[k][i] * rows[k][j];
+    }
+    for (i = 0; i < n; i++) {
+      var p = i;
+      for (k = i + 1; k < n; k++) if (Math.abs(A[k][i]) > Math.abs(A[p][i])) p = k;
+      var t = A[i]; A[i] = A[p]; A[p] = t; var tb = b[i]; b[i] = b[p]; b[p] = tb;
+      if (Math.abs(A[i][i]) < 1e-12) A[i][i] = 1e-12;
+      for (k = i + 1; k < n; k++) {
+        var f = A[k][i] / A[i][i];
+        for (j = i; j < n; j++) A[k][j] -= f * A[i][j];
+        b[k] -= f * b[i];
+      }
+    }
+    var x = new Array(n).fill(0);
+    for (i = n - 1; i >= 0; i--) {
+      var s = b[i];
+      for (j = i + 1; j < n; j++) s -= A[i][j] * x[j];
+      x[i] = s / A[i][i];
+    }
+    return x;
+  }
+  var CA = { a: 1, beta: 0.25, view: 'pool', seed: 11, D: [], fit: null }, caPlot;
+  var CA_N = 600, CA_ZC = -0.8;   /* stints; effect of experience on lap time (s per unit) */
+  function caSim() {
+    var r = mulberry32(CA.seed), D = [], i;
+    for (i = 0; i < CA_N; i++) {
+      var g = r() < 0.5 ? 1 : 0;                       /* 1 = experienced group */
+      var z = (g ? 0.9 : -0.9) + 0.15 * gaussR(r);      /* experience score */
+      var x = CA.a * z + 0.6 * gaussR(r);               /* knob: chosen partly by experience */
+      var y = CA.beta * x + CA_ZC * z + 0.25 * gaussR(r);
+      D.push({ g: g, z: z, x: x, y: y });
+    }
+    CA.D = D;
+    /* fits on the observational log */
+    var naive = olsFit(D.map(function (d) { return [1, d.x]; }), D.map(function (d) { return d.y; }));
+    var adj = olsFit(D.map(function (d) { return [1, d.x, d.z]; }), D.map(function (d) { return d.y; }));
+    var within = [0, 1].map(function (G) {
+      var S = D.filter(function (d) { return d.g === G; });
+      return olsFit(S.map(function (d) { return [1, d.x]; }), S.map(function (d) { return d.y; }));
+    });
+    /* do(knob): a separate simulated experiment, knob set at random, independent of the driver */
+    var R = [];
+    for (i = 0; i < CA_N; i++) {
+      var g2 = r() < 0.5 ? 1 : 0;
+      var z2 = (g2 ? 0.9 : -0.9) + 0.15 * gaussR(r);
+      var x2 = (r() * 2 - 1) * 1.6;
+      R.push([x2, CA.beta * x2 + CA_ZC * z2 + 0.25 * gaussR(r)]);
+    }
+    var rct = olsFit(R.map(function (p) { return [1, p[0]]; }), R.map(function (p) { return p[1]; }));
+    var mx = 0, my = 0;
+    D.forEach(function (d) { mx += d.x; my += d.y; });
+    CA.fit = { naive: naive, adj: adj, within: within, rct: rct[1], mx: mx / CA_N, my: my / CA_N };
+  }
+  function caFmt(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2); }
+  function drawCa() {
+    if (!CA.fit) return;
+    caPlot.resize(); caPlot.clear();
+    var D = CA.D, F2 = CA.fit, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    D.forEach(function (d) { x0 = Math.min(x0, d.x); x1 = Math.max(x1, d.x); y0 = Math.min(y0, d.y); y1 = Math.max(y1, d.y); });
+    var px = (x1 - x0) * 0.06 + 0.1, py = (y1 - y0) * 0.08 + 0.1;
+    caPlot.dom = [x0 - px, x1 + px]; caPlot.ran = [y0 - py, y1 + py];
+    caPlot.frame({ xticks: 4, yticks: 4, xlabel: 'knob setting (clicks from baseline)', ylabel: 'lap-time change (s)',
+      xfmt: function (v) { return v.toFixed(1); }, yfmt: function (v) { return v.toFixed(1); } });
+    var split = CA.view === 'split';
+    var colN = C('--warn'), colE = C('--accent');
+    caPlot.clip(function (g) {
+      D.forEach(function (d) {
+        var col = split ? (d.g ? colE : colN) : C('--ink-3');
+        caPlot.dot(d.x, d.y, 2.6, col + (split ? 'aa' : '77'));
+      });
+      var xa = caPlot.dom[0], xb = caPlot.dom[1];
+      function ln(c, colr, w, dash) { caPlot.line([[xa, c[0] + c[1] * xa], [xb, c[0] + c[1] * xb]], colr, w, dash); }
+      if (split) {
+        [0, 1].forEach(function (G) {
+          var S = D.filter(function (d) { return d.g === G; }), lo = 1e9, hi = -1e9;
+          S.forEach(function (d) { lo = Math.min(lo, d.x); hi = Math.max(hi, d.x); });
+          var c = F2.within[G];
+          caPlot.line([[lo, c[0] + c[1] * lo], [hi, c[0] + c[1] * hi]], G ? colE : colN, 3);
+        });
+      }
+      ln(F2.naive, C('--bad'), split ? 2 : 3, split ? [7, 5] : null);
+      /* true interventional line through the data mean */
+      caPlot.line([[xa, F2.my + CA.beta * (xa - F2.mx)], [xb, F2.my + CA.beta * (xb - F2.mx)]], C('--good'), 2.4, [6, 4]);
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      /* legend in the empty corner: data run top-left to bottom-right when the pooled slope is negative */
+      var nl = split ? 3 : 2, lx = caPlot.pad.l + 8;
+      var ly = F2.naive[1] < 0 ? caPlot.pad.t + caPlot.ph - 10 - (nl - 1) * 15 : caPlot.pad.t + 14;
+      g.fillStyle = C('--bad'); g.fillText('model fitted to the log', lx, ly);
+      g.fillStyle = C('--good'); g.fillText('true effect of turning the knob', lx, ly + 15);
+      if (split) {
+        g.fillStyle = colN; g.fillText('novices', lx, ly + 30);
+        g.fillStyle = colE; g.fillText('experienced', lx + 62, ly + 30);
+      }
+    });
+
+    var naive = F2.naive[1], adj = F2.adj[1];
+    document.getElementById('caNaive').textContent = caFmt(naive);
+    document.getElementById('caAdj').textContent = caFmt(adj);
+    document.getElementById('caDo').textContent = caFmt(F2.rct);
+    document.getElementById('caTrue').textContent = caFmt(CA.beta);
+    document.getElementById('caWN').textContent = caFmt(F2.within[0][1]);
+    document.getElementById('caWE').textContent = caFmt(F2.within[1][1]);
+    var flip = naive * CA.beta < 0 && Math.abs(naive) > 0.04 && Math.abs(CA.beta) > 0.04;
+    var err = Math.abs(naive - CA.beta);
+    document.getElementById('bsCaNaive').className = 'bigstat ' + (flip ? 'bad' : err > 0.1 ? 'warn' : 'good');
+    document.getElementById('bsCaAdj').className = 'bigstat ' + (Math.abs(adj - CA.beta) < 0.06 ? 'good' : 'warn');
+
+    function said(v) { return v < 0 ? 'makes the lap <b>faster</b> by ' + Math.abs(v).toFixed(2) + ' s per click' : 'makes the lap <b>slower</b> by ' + v.toFixed(2) + ' s per click'; }
+    var n = '<h4>Reading it</h4>';
+    if (CA.a < 0.08) {
+      n += '<p class="small mb0"><b style="color:var(--good)">No confounding.</b> The knob is set independently of the driver, so the slope in the log (' +
+        caFmt(naive) + ') matches the experiment (' + caFmt(F2.rct) + ') within sampling noise. Observational data can answer the causal question here — but only because nobody chose the knob based on anything that also affects lap time. In logged real-world data you can almost never assume that.</p>';
+    } else if (flip) {
+      n += '<p class="small mb0"><b style="color:var(--bad)">The sign is wrong.</b> Fitted to the log, the model says the knob ' + said(naive) +
+        '. Setting it deliberately shows it ' + said(F2.rct) + '. The model is not broken — it predicts lap time from the log perfectly well, because in the log high knob settings really do come with fast laps. They come with fast <em>drivers</em>. Adjusting for experience recovers ' +
+        caFmt(adj) + ' s per click, close to the truth, because this experience score is the only confounder and we measured it.</p>';
+    } else {
+      n += '<p class="small mb0"><b style="color:var(--warn)">Right direction, wrong size.</b> The log says ' + caFmt(naive) + ' s per click; the experiment says ' +
+        caFmt(F2.rct) + '. The difference, ' + err.toFixed(2) + ' s per click, is the confounder’s contribution leaking into the knob’s coefficient. A setup decision sized on the naive number would over- or under-shoot by exactly that much.</p>';
+    }
+    if (split) n += '<p class="small mb0 mt1">Split by group: novices ' + caFmt(F2.within[0][1]) + ', experienced ' + caFmt(F2.within[1][1]) +
+      ', pooled ' + caFmt(naive) + '.' + ((F2.within[0][1] * naive < 0 && F2.within[1][1] * naive < 0) ? ' <b>Both groups disagree with the pooled trend — that is Simpson’s paradox.</b>' : '') +
+      (CA.a >= 0.08 ? ' The within-group slopes still lean slightly towards the pooled one, because experience varies a little inside each group too; splitting is a coarse adjustment.' : '') + '</p>';
+    document.getElementById('caNote').innerHTML = n;
+  }
+
+  /* ============================================ 7.7 cost */
   var CO = { n: 20000, sec: 20, red: 1, rate: 65, ppl: 3, hrs: 6 };
   function calcCost() {
     var hours = CO.n * CO.sec * CO.red / 3600;
@@ -889,7 +1183,7 @@
     document.getElementById('costNote').innerHTML = n;
   }
 
-  /* ============================================ 7.7 readiness */
+  /* ============================================ 7.8 readiness */
   var RD = [
     ['The label is written down', 'There is a document that defines exactly what each class means, with borderline examples, that two experts would apply identically.', 3, 'Write it. This is a one-week job that unblocks everything and is usually the reason nothing else works.'],
     ['The data exists already', 'The historical data is retained, retrievable, and covers the conditions you care about — not just the last three months.', 3, 'Find out how far back the retention actually goes before designing anything. This frequently kills or reshapes a project in week one.'],
@@ -981,6 +1275,14 @@
     AI.bindRange('dSh', function (v) { return v.toFixed(2); }, function (v) { DR.sh = v; if (DR.w) drCur(); });
     AI.bindRange('dSp', function (v) { return v.toFixed(2) + '×'; }, function (v) { DR.sp = v; if (DR.w) drCur(); });
     AI.onRedraw(drawDr);
+
+    caPlot = new AI.Plot(document.getElementById('caCv'),
+      { dom: [-3, 3], ran: [-2, 2], pad: { l: 46, r: 14, t: 14, b: 42 } });
+    AI.bindRange('caA', function (v) { return v.toFixed(2); }, function (v) { CA.a = v; caSim(); drawCa(); });
+    AI.bindRange('caB', function (v) { return caFmt(v) + ' s/click'; }, function (v) { CA.beta = v; caSim(); drawCa(); });
+    AI.segmented(document.getElementById('caViewSeg'), function (v) { CA.view = v; drawCa(); });
+    AI.on(document.getElementById('caNew'), 'click', function () { CA.seed += 1; caSim(); drawCa(); });
+    AI.onRedraw(drawCa);
 
     AI.bindRange('nIt', function (v) { return F.c(v); }, function (v) { CO.n = v; calcCost(); });
     AI.bindRange('nSec', function (v) { return v + ' s'; }, function (v) { CO.sec = v; calcCost(); });

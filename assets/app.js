@@ -7,7 +7,8 @@
   var PARTS = [
     { k: 'I',   name: 'Foundations',       note: 'How it works' },
     { k: 'II',  name: 'Engineering it',    note: 'How you build and prove it' },
-    { k: 'III', name: 'Applying it',       note: 'How it lands in the organisation' }
+    { k: 'III', name: 'Applying it',       note: 'How it lands in the organisation' },
+    { k: 'IV',  name: 'Shipping it',       note: 'How it gets into a product and stays safe' }
   ];
 
   var PAGES = [
@@ -16,20 +17,27 @@
     { id: 'p1',  n: '1',  file: '01-history.html',    short: 'History & jargon', title: 'What AI actually is', part: 0, mins: 30 },
     { id: 'p2',  n: '2',  file: '02-perceptron.html', short: 'The perceptron',   title: 'The perceptron', part: 0, mins: 30 },
     { id: 'p3',  n: '3',  file: '03-networks.html',   short: 'Networks',         title: 'From neuron to network', part: 0, mins: 45 },
-    { id: 'p4',  n: '4',  file: '04-llm.html',        short: 'LLMs',             title: 'How an LLM works', part: 0, mins: 60 },
+    { id: 'p4',  n: '4',  file: '04-llm.html',        short: 'LLMs',             title: 'How an LLM works', part: 0, mins: 75 },
     { id: 'p5',  n: '5',  file: '05-cost.html',       short: 'Energy & cost',    title: 'The bill', part: 0, mins: 40 },
 
     { id: 'p6',  n: '6',  file: '06-classical.html',  short: 'Classical ML',     title: 'Beyond neural networks', part: 1, mins: 50 },
-    { id: 'p7',  n: '7',  file: '07-data.html',       short: 'Data',             title: 'Data: where projects are won and lost', part: 1, mins: 45 },
+    { id: 'p7',  n: '7',  file: '07-data.html',       short: 'Data',             title: 'Data: where projects are won and lost', part: 1, mins: 55 },
     { id: 'p8',  n: '8',  file: '08-evaluation.html', short: 'Evaluation',       title: 'Evaluation: proving it works', part: 1, mins: 50 },
     { id: 'p9',  n: '9',  file: '09-agents.html',     short: 'Agents & tools',   title: 'Agents and tool use', part: 1, mins: 45 },
-    { id: 'p10', n: '10', file: '10-governance.html', short: 'Governance',       title: 'Governance, security and the AI Act', part: 1, mins: 45 },
+    { id: 'p10', n: '10', file: '10-governance.html', short: 'Governance',       title: 'Governance, security and the AI Act', part: 1, mins: 55 },
 
-    { id: 'p11', n: '11', file: '11-engineering.html',short: 'Engineering use',  title: 'AI in engineering and simulation', part: 2, mins: 50 },
-    { id: 'p12', n: '12', file: '12-prompting.html',  short: 'Prompting lab',    title: 'Prompting: a working skill', part: 2, mins: 60 },
+    { id: 'p11', n: '11', file: '11-engineering.html',short: 'Engineering use',  title: 'AI in engineering and simulation', part: 2, mins: 60 },
+    { id: 'p12', n: '12', file: '12-prompting.html',  short: 'Prompting lab',    title: 'Prompting: a working skill', part: 2, mins: 70 },
     { id: 'p13', n: '13', file: '13-human.html',      short: 'Human factors',    title: 'Human factors and adoption', part: 2, mins: 40 },
     { id: 'p14', n: '14', file: '14-limits.html',     short: 'Limits',           title: 'Limits and open questions', part: 2, mins: 35 },
-    { id: 'p15', n: '15', file: '15-capstone.html',   short: 'Capstone',         title: 'Capstone: your own use case', part: 2, mins: 75 }
+
+    { id: 'p15', n: '15', file: '15-timeseries.html', short: 'Time series',      title: 'Time series and telemetry', part: 3, mins: 45 },
+    { id: 'p16', n: '16', file: '16-uncertainty.html',short: 'Uncertainty',      title: 'Uncertainty: how sure is the model?', part: 3, mins: 40 },
+    { id: 'p17', n: '17', file: '17-explainability.html', short: 'Explainability', title: 'Explaining a model\'s predictions', part: 3, mins: 40 },
+    { id: 'p18', n: '18', file: '18-adaptation.html', short: 'Adapting models',  title: 'Adapting models: fine-tuning, LoRA, distillation', part: 3, mins: 45 },
+    { id: 'p19', n: '19', file: '19-deployment.html', short: 'Deployment',       title: 'Deploying and running models', part: 3, mins: 45 },
+    { id: 'p20', n: '20', file: '20-safety.html',     short: 'Vehicle safety',   title: 'AI in safety-critical vehicle systems', part: 3, mins: 50 },
+    { id: 'p21', n: '21', file: '21-capstone.html',   short: 'Capstone',         title: 'Capstone: your own use case', part: 3, mins: 75 }
   ];
 
   /* ---------------- theme ---------------- */

@@ -44,6 +44,33 @@
     padding: 13px 16px; margin-bottom: 10px; }
   .ex .t { font-weight: 660; font-size: .95rem; }
   .ex .m { font-size: .74rem; color: var(--ink-3); font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+  /* 12.7 coding assistants */
+  #coding .split-wide > div { min-width: 0; }
+  .codeask { font-size: .86rem; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+    padding: 10px 13px; margin-bottom: 10px; }
+  .codeask b { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); display: block; }
+  .codeview { font-family: var(--mono); font-size: .8rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 6px 0; overflow-x: auto; }
+  .codeview .cl { display: flex; width: 100%; min-width: max-content; text-align: left; font: inherit;
+    background: none; border: none; border-left: 3px solid transparent; padding: 1px 14px 1px 0;
+    color: var(--ink); cursor: pointer; white-space: pre; line-height: 1.65; }
+  .codeview .cl .ln { width: 3em; flex: none; text-align: right; padding-right: 1em; color: var(--ink-3); user-select: none; }
+  .codeview .cl .cm { color: var(--ink-3); }
+  .codeview .cl:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+  .codeview .cl:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .codeview .cl.flag { background: var(--warn-soft); border-left-color: var(--warn); }
+  .codeview .cl.hit { background: var(--good-soft); border-left-color: var(--good); }
+  .codeview .cl.miss { background: var(--bad-soft); border-left-color: var(--bad); }
+  .codeview .cl.wrong { background: var(--bg-2); border-left-color: var(--warn); }
+  .codeview.done .cl { cursor: default; }
+  .rvlist { display: grid; gap: 7px; }
+  .rvlist .ri { border: 1px solid var(--line); border-left-width: 3px; border-radius: 0 8px 8px 0; padding: 9px 12px;
+    background: var(--panel); font-size: .86rem; }
+  .rvlist .ri.hit { border-left-color: var(--good); }
+  .rvlist .ri.miss { border-left-color: var(--bad); }
+  .rvlist .ri.wrong { border-left-color: var(--warn); }
+  .rvlist .ri .lb { font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; display: block; margin-bottom: 2px; }
+  .rvlist .ri.hit .lb { color: var(--good); } .rvlist .ri.miss .lb { color: var(--bad); } .rvlist .ri.wrong .lb { color: var(--warn); }
 </style>
 </head>
 <body data-page="p12">
@@ -256,8 +283,210 @@
 </section>
 
 <!-- ============================================= 12.7 -->
+<section class="chapter" id="coding">
+  <h2>12.7 · AI coding assistants</h2>
+  <p>The most widely used AI tool in most engineering departments is not a chat window — it is the
+  assistant inside the code editor. They range from autocomplete that finishes the line, through chat
+  that writes a function, to agents that edit several files and run commands. Everything in 12.1 about
+  context and format applies. What is different is that the output <em>runs</em>, and it ends up in
+  places where nobody reads it twice.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="color:var(--good)">Where they genuinely save time</h4>
+      <ul class="small mb0">
+        <li><b>Boilerplate</b> — argument parsing, file I/O, plotting, config handling, the fortieth data
+        class.</li>
+        <li><b>Tests</b> — especially the tedious edge cases, once you have said what the function is
+        supposed to do.</li>
+        <li><b>Mechanical refactors</b> — renaming, splitting a long function, moving to a newer API, with
+        the existing tests as the safety net.</li>
+        <li><b>Explaining unfamiliar code</b> — a legacy script, a library you have never used, a language
+        you read once a year.</li>
+        <li><b>Data-wrangling scripts</b> — reshaping a test-rig export, merging two spreadsheets, a
+        one-off conversion. Small, checkable, thrown away afterwards.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">Where they are confidently wrong</h4>
+      <ul class="small mb0">
+        <li><b>Subtle domain logic</b> — your sign conventions, your coordinate frames, the reason that
+        offset is there. The assistant has never seen your system.</li>
+        <li><b>Numerics</b> — units, filter edges, integer overflow, accumulated floating-point error,
+        off-by-one windows. The code looks right and is wrong by a little.</li>
+        <li><b>Safety-relevant embedded code</b> — timing, memory, concurrency, defensive checks, coding
+        standards. Generated from public code, which is mostly not written to that bar.</li>
+        <li><b>Security</b> — it reproduces the insecure patterns common in its training data, and it does
+        so fluently.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid g2 mt1">
+    <div class="card">
+      <h3>How to work with one</h3>
+      <ol class="small mb0">
+        <li><b>Small tasks.</b> One function, one test file, one refactor at a time. A 400-line answer is
+        a 400-line review.</li>
+        <li><b>Give context and constraints.</b> The interface it must fit, the language and library
+        versions, a real sample of the input data, and what it must not do (12.1, “write code”).</li>
+        <li><b>Ask for the tests first.</b> Read them and check they encode what <em>you</em> mean, with a
+        known value worked out by hand. A test written from the same misunderstanding as the code will
+        pass.</li>
+        <li><b>Read every line.</b> Especially the lines that look like boilerplate — that is where the
+        <code>verify=False</code> hides.</li>
+        <li><b>Run it,</b> on real input and on input you know the answer for. Code that has not run has
+        not been reviewed.</li>
+      </ol>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">The review obligation</span>
+      <p><strong>Generated code is your code.</strong> Your name is on the commit, and “the assistant wrote
+      it” is not a defence in a code review, an incident report or an audit. Review it as you would a
+      capable new colleague's first pull request — with more care if anything, because it is fluent,
+      consistently formatted and never hesitant, and none of those things correlates with being
+      correct.</p>
+      <p class="mb0">The time saved writing code is partly spent reading it. Measured results vary widely:
+      large gains on small, well-defined tasks, and at least one controlled study in which experienced
+      developers were slower on their own mature codebases while believing they were faster. Measure it
+      on your own work before planning around it.</p>
+    </div>
+  </div>
+
+  <h3 class="mt2">The risks that are specific to code</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Secrets and proprietary code in the prompt</h4>
+      <p class="small mb0">The assistant sends your open files — and an agent may send much of the
+      repository — to wherever the model runs. Keys in a <code>.env</code> file, credentials in a test
+      fixture and unreleased control code all travel with it. Module 10.5 is the rule for
+      what may go where; exclusion lists in the tool settings are how it is enforced.</p>
+    </div>
+    <div class="card">
+      <h4>Licence contamination</h4>
+      <p class="small mb0">A model can reproduce training code verbatim, including copyleft code, which
+      then sits in a commercial product without its licence. Switch on the vendor's filter for verbatim
+      matches, and run licence scanning in CI (module 10.7).</p>
+    </div>
+    <div class="card">
+      <h4>Hallucinated packages and typosquatting</h4>
+      <p class="small mb0">Assistants invent plausible package names. Attackers register the names that
+      models commonly invent, and the names one typo away from popular packages, and fill them with
+      malware. One <code>pip install</code> of a suggested name is code execution on your machine
+      (module 10.6, supply chain). Install only from your internal mirror, and check that a package exists,
+      who publishes it and how long it has been around.</p>
+    </div>
+    <div class="card">
+      <h4>Insecure patterns</h4>
+      <p class="small mb0"><code>eval</code> on input, SQL built by string concatenation, TLS
+      verification switched off, hard-coded credentials, outdated cryptography, permissive file
+      permissions. All common in public code, so all common in generated code. Static analysis and secret
+      scanning in CI catch most of them; a reviewer who knows to look catches the rest.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Review the assistant's code</h3><span class="tag warn">Authored snippets, deliberately flawed</span></div>
+    <p class="small">Four short snippets of the kind an assistant produces in seconds. Each was written for
+    this exercise with one or more planted defects, and each also contains correct lines that look
+    suspicious. Click every line you would reject in review, then press <b>Check my review</b>. Package,
+    host and token names are invented.</p>
+    <div class="btnrow">
+      <div class="segmented" id="rvSeg">
+        <button data-v="0" class="on">Unit conversion</button>
+        <button data-v="1">Moving average (C)</button>
+        <button data-v="2">Rig log parser</button>
+        <button data-v="3">Upload script</button>
+      </div>
+    </div>
+    <div class="split-wide">
+      <div>
+        <div class="codeask" id="rvAsk"></div>
+        <div class="codeview" id="rvCode"></div>
+        <div class="btnrow">
+          <button class="btn primary" id="rvCheck">Check my review</button>
+          <button class="btn sm" id="rvReset">Clear this snippet</button>
+          <span class="small muted" id="rvCount"></span>
+        </div>
+      </div>
+      <div>
+        <div class="verdict info" id="rvVerdict"><span class="lvl">Click the lines you would reject</span>Then check your review.</div>
+        <div class="metrics mt1" id="rvTotals"></div>
+        <div class="rvlist mt1" id="rvOut"></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Team policy: what to settle before people need it</h3>
+  <div class="grid g2">
+    <div class="card">
+      <ul class="small mb0">
+        <li><b>Which tools are approved</b>, on which tenant, with no-training terms — and which personal
+        accounts and browser plug-ins are not. If there is no approved tool, people will use an
+        unapproved one (module 10.5, shadow AI).</li>
+        <li><b>What code may be sent</b>: by repository or classification, not by individual judgement.
+        Typical exclusions are calibration data, unreleased control software, customer data and code
+        received from third parties under NDA.</li>
+        <li><b>Agent permissions</b>: whether an agent may run commands, install packages or push, and on
+        which machines (module 9.5).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <ul class="small mb0">
+        <li><b>Safety-related software.</b> Where code is developed under ISO 26262, the tools used to
+        develop it fall under the standard's tool-confidence requirements (part 8), and the code must meet
+        your coding guidelines — typically MISRA — with traceable review. An assistant is not allowed in
+        that workflow until your functional-safety process says how it is qualified and reviewed. In many
+        organisations today the answer is simply no.</li>
+        <li><b>CI controls</b>: secret scanning, licence scanning, static analysis and a dependency
+        allow-list. These catch what review misses, whoever wrote the code.</li>
+        <li><b>Disclosure</b>: whether AI-assisted changes are marked in commits or pull requests. Cheap to
+        decide early, and useful evidence later.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · May I use an assistant for this task?</h3><span class="tag try">Try an ECU task, then a data script</span></div>
+    <div class="btnrow">
+      <span class="small muted">Load an example:</span>
+      <button class="btn sm" data-ua="script">Plot a rig export</button>
+      <button class="btn sm" data-ua="ecu">ASIL-B torque monitor</button>
+      <button class="btn sm" data-ua="tool">Internal tool, personal account</button>
+      <button class="btn sm" data-ua="key">Debug a script with the API key in it</button>
+      <button class="btn sm" id="uaClear">Clear</button>
+    </div>
+    <div class="split-wide">
+      <div id="uaHost"></div>
+      <div>
+        <div class="verdict info" id="uaVerdict"><span class="lvl">Answer the questions</span>A verdict and the conditions attached will appear here.</div>
+        <div class="card mt1" id="uaWhy" style="min-height:220px"></div>
+      </div>
+    </div>
+    <p class="srcnote">Orientation built from the points above. Your team's written policy and your
+    functional-safety process take precedence over this tool.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Run the review lab on the projector with the room calling out line numbers. Expect the unit
+      conversion to go fast and the moving average to split the room — that is the point: the off-by-one
+      in a filter window is exactly the defect that survives review because the code looks idiomatic.</li>
+      <li>On the power line in snippet 1, someone will flag 9549. Let them, then show the explanation.
+      Flagging correct code costs review time too, which is the real trade-off: reviewing generated code
+      well is a skill, and it takes the time it takes.</li>
+      <li>If anyone from embedded or functional safety is in the room, ask them what their process says
+      about assistants today. Usually the honest answer is “nothing yet”, which is itself the action
+      item.</li>
+      <li>Do not frame this as anti-assistant. The engineers who get the most from these tools are the
+      ones who review hardest, give the most context, and keep the tasks small.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 12.8 -->
 <section class="chapter" id="workshop">
-  <h2>12.7 · Run the workshop</h2>
+  <h2>12.8 · Run the workshop</h2>
   <p>Five exercises, about fifty minutes. People work on their own laptops with whatever approved tool
   you have; the value is in comparing results out loud after each one.</p>
 
@@ -380,7 +609,7 @@
       aud: '',
       check: '',
       must: ['ctx', 'cons', 'idk', 'think'],
-      why: 'This is the task most vulnerable to sycophancy (module 4.9). Asking for objections rather than an opinion, and explicitly inviting disagreement with your framing, is how you get something other than agreement. Never ask "is this a good idea?" — ask "what is wrong with it?"'
+      why: 'This is the task most vulnerable to sycophancy (module 4.11). Asking for objections rather than an opinion, and explicitly inviting disagreement with your framing, is how you get something other than agreement. Never ask "is this a good idea?" — ask "what is wrong with it?"'
     },
     code: {
       name: 'Write code',
@@ -572,7 +801,7 @@
     ['Ask for the three strongest concerns, with evidence from the table only', true, 'Now the analysis step, working from verified facts rather than raw documents. Constrain it to the table so every claim is traceable.'],
     ['Ask what additional information would change the conclusion', true, 'Optional and high value. It produces the committee’s question list and exposes where your data is thin.'],
     ['Draft the two-page brief from the concerns, in the committee template', true, 'Writing last, from verified inputs. This is the step people start with and it should be nearly the final one.'],
-    ['Ask the model to confirm the brief is accurate', false, 'Worthless. It will agree — see sycophancy in module 4.9. Verification has to come from the sources or from a person, never from the same model that wrote the text.'],
+    ['Ask the model to confirm the brief is accurate', false, 'Worthless. It will agree — see sycophancy in module 4.11. Verification has to come from the sources or from a person, never from the same model that wrote the text.'],
     ['Have a human review against the sources before it goes out', true, 'Non-negotiable for anything that carries your name to a committee.']
   ];
   var picked = [];
@@ -668,7 +897,321 @@
     }).join('');
   }
 
-  /* ============================================ 12.7 exercises */
+  /* ============================================ 12.7 coding assistants */
+  /* Authored snippets with planted defects. d = defects (any listed line credits it),
+     ok = correct lines with a specific explanation, soft = arguable lines (no penalty). */
+  var SNIPS = [
+    {
+      ask: 'Write helper functions to convert our logged channels to SI: vehicle speed km/h → m/s, coolant temperature °C → K, engine power in kW from torque (N·m) and crank speed (rpm), and pressure kPa → bar.',
+      code: [
+        '# Convert logged channels to SI units.',
+        'KMH_PER_MS = 3.6',
+        '',
+        'def speed_ms(v_kmh: float) -> float:',
+        '    """Vehicle speed, km/h -> m/s."""',
+        '    return v_kmh * KMH_PER_MS',
+        '',
+        'def coolant_k(t_c: float) -> float:',
+        '    """Coolant temperature, degC -> K."""',
+        '    return t_c + 273.15',
+        '',
+        'def power_kw(torque_nm: float, rpm: float) -> float:',
+        '    """Engine power in kW from torque and crank speed."""',
+        '    return torque_nm * rpm / 9549.3',
+        '',
+        'def pressure_bar(p_kpa: float) -> float:',
+        '    """Pressure, kPa -> bar."""',
+        '    return p_kpa / 100.0'
+      ],
+      d: [
+        { l: [6], t: 'Wrong units: multiplies by 3.6', w: 'km/h to m/s <b>divides</b> by 3.6, so 100 km/h comes out as 360 “m/s” instead of 27.8. The constant is correctly named and then used the wrong way round, which is exactly why it reads as plausible. One known-value test — <code>speed_ms(36) == 10</code> — catches it.' }
+      ],
+      ok: {
+        14: 'Correct. P[kW] = T × n × 2π / 60 / 1000 = T × n / 9549.3. A magic number deserves a comment or a named constant, but this one is right.',
+        10: 'Correct: 0 °C is 273.15 K.',
+        18: 'Correct: 1 bar is 100 kPa.'
+      },
+      soft: { 2: 'The constant is right (1 m/s = 3.6 km/h). The defect is how it is used on line 6 — no penalty for looking here.' }
+    },
+    {
+      ask: 'Write a C function for our ECU logging code: trailing moving average of the last w samples of x[] into y[]. For the first samples, average over what is available.',
+      code: [
+        '/* Trailing moving average over the last w samples. */',
+        'void moving_average(const float *x, float *y, int n, int w)',
+        '{',
+        '    for (int i = 0; i < n; i++) {',
+        '        float sum = 0.0f;',
+        '        int start = i - w;',
+        '        if (start < 0) {',
+        '            start = 0;',
+        '        }',
+        '        for (int j = start; j <= i; j++) {',
+        '            sum += x[j];',
+        '        }',
+        '        y[i] = sum / (float)w;',
+        '    }',
+        '}'
+      ],
+      d: [
+        { l: [6], t: 'Off-by-one: the window is w + 1 samples', w: 'From <code>i - w</code> to <code>i</code> inclusive is w + 1 samples. It should be <code>i - w + 1</code>. On a smooth signal the output looks entirely reasonable, which is why this survives review; a test with a step input and w = 4 shows it at once.' },
+        { l: [13], t: 'Wrong divisor at the start of the record', w: 'For the first w − 1 outputs fewer than w samples are summed, but the sum is still divided by w, so the start of every record is biased towards zero — the opposite of “average over what is available”. Divide by <code>(i - start + 1)</code>.' }
+      ],
+      ok: {
+        10: 'This bound is right: the window includes the current sample i. The off-by-one is on line 6.',
+        11: 'Fine. Float accumulation error is negligible for short windows; for long ones you would use a running sum with care.'
+      },
+      soft: { 2: 'Arguable: there is no check that w > 0 or that the pointers are valid. Under MISRA and most defensive-coding rules you would want one — a good review comment, not the planted defect.' }
+    },
+    {
+      ask: 'Write a function that reads our test-rig CSV log into a list of dicts with numeric values.',
+      code: [
+        'import csv',
+        '',
+        'def load_rig_log(path):',
+        '    """Read a test-rig CSV export into a list of dicts of numbers."""',
+        '    rows = []',
+        '    with open(path, newline="") as f:',
+        '        for rec in csv.DictReader(f):',
+        '            try:',
+        '                rows.append({k: eval(v) for k, v in rec.items()})',
+        '            except Exception:',
+        '                continue',
+        '    return rows'
+      ],
+      d: [
+        { l: [9], t: 'eval() on file contents: arbitrary code execution', w: '<code>eval</code> runs any Python expression, so a cell containing <code>__import__("os").system(...)</code> runs a command with your permissions. Log files get copied, shared and edited; treat them as untrusted input. Use <code>float(v)</code> and handle the non-numeric columns explicitly.' },
+        { l: [10, 11], t: 'Silently drops rows that fail to parse', w: 'Any malformed row disappears without a trace, so a truncated or corrupted log returns as a shorter, clean-looking one. Raise with the line number, or at least count and report the rejects. Partial data that looks complete is worse than an error.' }
+      ],
+      ok: {
+        6: 'Correct: <code>newline=""</code> is what the csv module documentation asks for.',
+        7: 'Fine. DictReader takes the column names from the header row.'
+      },
+      soft: {}
+    },
+    {
+      ask: 'Write a script that decodes a CAN log with our DBC file and uploads the decoded signals to the telemetry service.',
+      code: [
+        'import pandas as pd',
+        'import requests',
+        'from vehicle_signal_toolkit import decode_can_log',
+        '',
+        'API_URL = "https://telemetry.example.internal/api/v2/upload"',
+        'API_TOKEN = "tk_live_7f3a9c2e41d84b6f0a"',
+        '',
+        'def upload(log_path: str) -> None:',
+        '    df: pd.DataFrame = decode_can_log(log_path, dbc="powertrain.dbc")',
+        '    df = df.dropna()',
+        '    r = requests.post(',
+        '        API_URL,',
+        '        json=df.to_dict(orient="records"),',
+        '        headers={"Authorization": f"Bearer {API_TOKEN}"},',
+        '        verify=False,',
+        '        timeout=30,',
+        '    )',
+        '    r.raise_for_status()'
+      ],
+      d: [
+        { l: [3], t: 'A package the assistant invented', w: 'No such package is in your approved dependencies; the assistant produced a plausible name. If someone has registered that name on a public index, <code>pip install</code> runs their code on your machine — the supply-chain risk from module 10.6. Check every new import exists in your internal mirror, who publishes it and since when.' },
+        { l: [6], t: 'Hard-coded credential', w: 'Once committed, the token is in the repository history for good, and in every clone and every prompt that includes this file. Load it from the environment or a secret store, add secret scanning to CI, and rotate any token that has been committed.' },
+        { l: [15], t: 'TLS certificate verification switched off', w: '<code>verify=False</code> accepts any certificate, so anyone on the network path can read or alter the upload. Assistants add it because it makes a corporate-proxy certificate error go away. The fix is to point requests at the company CA bundle.' }
+      ],
+      ok: {
+        16: 'Good practice: without a timeout, requests can wait forever.',
+        18: 'Good practice: fail loudly on an HTTP error.',
+        14: 'Fine: the header format is standard. The problem is where the token came from (line 6).'
+      },
+      soft: { 10: 'Arguable: <code>dropna()</code> drops every row with any missing channel. CAN signals arrive at different rates, so that may be most rows. A good question in review, not the planted defect.' }
+    }
+  ];
+  var RV = { i: 0, st: SNIPS.map(function () { return { flags: {}, checked: false }; }) };
+  function hlLine(s) {
+    var t = s.replace(/^\s+/, '');
+    var isCm = t.indexOf('#') === 0 || t.indexOf('/*') === 0 || t.indexOf('//') === 0 || t.indexOf('"""') === 0;
+    return isCm ? '<span class="cm">' + esc(s) + '</span>' : esc(s);
+  }
+  function defectAt(S, ln) {
+    for (var k = 0; k < S.d.length; k++) if (S.d[k].l.indexOf(ln) >= 0) return k;
+    return -1;
+  }
+  function rvScore(S, st) {
+    var found = S.d.map(function (d) { return d.l.some(function (l) { return !!st.flags[l]; }); });
+    var wrong = Object.keys(st.flags).map(Number).filter(function (l) {
+      return defectAt(S, l) < 0 && !S.soft[l];
+    });
+    return { found: found, nFound: found.filter(Boolean).length, wrong: wrong };
+  }
+  function drawRv() {
+    var S = SNIPS[RV.i], st = RV.st[RV.i], h = '', n;
+    document.getElementById('rvAsk').innerHTML = '<b>What the assistant was asked</b>' + esc(S.ask);
+    var sc = rvScore(S, st);
+    for (n = 1; n <= S.code.length; n++) {
+      var cls = '', di = defectAt(S, n);
+      if (st.checked) {
+        if (di >= 0) cls = st.flags[n] ? 'hit' : (sc.found[di] ? '' : 'miss');
+        else if (st.flags[n]) cls = S.soft[n] ? 'flag' : 'wrong';
+      } else if (st.flags[n]) cls = 'flag';
+      h += '<button class="cl ' + cls + '" data-l="' + n + '"' + (st.checked ? ' tabindex="-1"' : '') +
+        ' aria-pressed="' + (st.flags[n] ? 'true' : 'false') + '"><span class="ln">' + n + '</span><span class="tx">' +
+        (hlLine(S.code[n - 1]) || ' ') + '</span></button>';
+    }
+    var cv = document.getElementById('rvCode');
+    cv.innerHTML = h;
+    cv.classList.toggle('done', st.checked);
+    var nfl = Object.keys(st.flags).length;
+    document.getElementById('rvCount').textContent = st.checked ? '' : nfl + ' line' + (nfl === 1 ? '' : 's') + ' flagged';
+    document.getElementById('rvCheck').disabled = st.checked;
+
+    var v = document.getElementById('rvVerdict'), out = '';
+    if (!st.checked) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Click the lines you would reject</span>' + S.d.length + ' planted defect' + (S.d.length > 1 ? 's' : '') + ' in this snippet. Then check your review.';
+    } else {
+      var miss = S.d.length - sc.nFound;
+      if (!miss && !sc.wrong.length) { v.className = 'verdict ok'; v.innerHTML = '<span class="lvl">Clean review — ' + (S.d.length > 1 ? 'all ' + S.d.length + ' defects' : 'the defect') + ' found</span>No false alarms.'; }
+      else if (!miss) { v.className = 'verdict mid'; v.innerHTML = '<span class="lvl">' + (S.d.length > 1 ? 'All ' + S.d.length + ' defects' : 'The defect') + ' found, ' + sc.wrong.length + ' false alarm' + (sc.wrong.length > 1 ? 's' : '') + '</span>Nothing shipped, and some review time went on correct lines.'; }
+      else { v.className = 'verdict hi'; v.innerHTML = '<span class="lvl">' + miss + ' defect' + (miss > 1 ? 's' : '') + ' would have shipped</span>Found ' + sc.nFound + ' of ' + S.d.length + (sc.wrong.length ? ', with ' + sc.wrong.length + ' false alarm' + (sc.wrong.length > 1 ? 's' : '') : '') + '.'; }
+      S.d.forEach(function (d, k) {
+        out += '<div class="ri ' + (sc.found[k] ? 'hit' : 'miss') + '"><span class="lb">' + (sc.found[k] ? 'Found' : 'Missed') +
+          ' · line ' + d.l.join('–') + '</span><b>' + d.t + '.</b> ' + d.w + '</div>';
+      });
+      Object.keys(st.flags).map(Number).sort(function (a, b) { return a - b; }).forEach(function (l) {
+        if (defectAt(S, l) >= 0) return;
+        if (S.soft[l]) out += '<div class="ri"><span class="lb">Arguable · line ' + l + '</span>' + S.soft[l] + '</div>';
+        else out += '<div class="ri wrong"><span class="lb">False alarm · line ' + l + '</span>' + (S.ok[l] || 'This line is fine as written.') + '</div>';
+      });
+      Object.keys(S.soft).map(Number).forEach(function (l) {
+        if (!st.flags[l]) out += '<div class="ri"><span class="lb">Also worth a comment · line ' + l + '</span>' + S.soft[l] + '</div>';
+      });
+    }
+    document.getElementById('rvOut').innerHTML = out;
+
+    /* totals across every checked snippet */
+    var tf = 0, td = 0, tw = 0, nc = 0;
+    SNIPS.forEach(function (S2, k) {
+      if (!RV.st[k].checked) return;
+      var s2 = rvScore(S2, RV.st[k]);
+      nc++; tf += s2.nFound; td += S2.d.length; tw += s2.wrong.length;
+    });
+    document.getElementById('rvTotals').innerHTML =
+      '<div class="m"><span class="k">Snippets checked</span><span class="v">' + nc + '/' + SNIPS.length + '</span></div>' +
+      '<div class="m"><span class="k">Defects found</span><span class="v">' + (nc ? tf + '/' + td : '—') + '</span></div>' +
+      '<div class="m"><span class="k">False alarms</span><span class="v">' + (nc ? tw : '—') + '</span></div>';
+  }
+  function initRv() {
+    var cv = document.getElementById('rvCode');
+    cv.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.cl') : null;
+      var st = RV.st[RV.i];
+      if (!b || st.checked) return;
+      var l = parseInt(b.getAttribute('data-l'), 10);
+      if (st.flags[l]) delete st.flags[l]; else st.flags[l] = true;
+      drawRv();
+    });
+    AI.segmented(document.getElementById('rvSeg'), function (v) { RV.i = parseInt(v, 10); drawRv(); });
+    AI.on(document.getElementById('rvCheck'), 'click', function () { RV.st[RV.i].checked = true; drawRv(); });
+    AI.on(document.getElementById('rvReset'), 'click', function () { RV.st[RV.i] = { flags: {}, checked: false }; drawRv(); });
+    drawRv();
+  }
+
+  /* may I use an assistant for this task? */
+  var UAQ = [
+    { id: 'tool', q: 'Which tool?', opts: [
+        ['approved', 'Approved assistant on our enterprise tenant'], ['selfhost', 'Approved self-hosted model'],
+        ['personal', 'A personal or free account'], ['unknown', 'Not sure — a plug-in, a new tool, a colleague’s account']],
+      hint: 'Approval is about the terms: no training on your code, defined retention, a data-processing agreement.' },
+    { id: 'data', q: 'What will the assistant see?', opts: [
+        ['public', 'Only public or open-source code'], ['internal', 'Ordinary internal code'],
+        ['restricted', 'Restricted code: unreleased control software, calibration, third-party code under NDA'],
+        ['secrets', 'Anything containing credentials, keys or personal data']],
+      hint: 'Count everything in context: open files, the files an agent reads, pasted logs and configuration.' },
+    { id: 'dest', q: 'Where will the result end up?', opts: [
+        ['throw', 'A throwaway script or a one-off analysis'], ['internal', 'An internal tool other people will use'],
+        ['product', 'Shipped software, not safety-related'], ['safety', 'Safety-related software (ISO 26262 / ASIL, MISRA)']],
+      hint: 'Answer for the specific task. A test-data script for an ECU project is not ECU code.' },
+    { id: 'review', q: 'How will it be checked?', opts: [
+        ['full', 'I read every line, test it, and it goes through normal code review'],
+        ['self', 'I read and run it myself, no second reviewer'], ['none', 'It will be used largely as generated']],
+      hint: 'Section 12.7: generated code is your code.' },
+    { id: 'agent', q: 'Will it act as an agent — run commands, install packages, edit files?', opts: [
+        ['no', 'No — suggestions and chat only'], ['sandbox', 'Yes, inside a container or sandbox'],
+        ['host', 'Yes, on my workstation with my credentials']],
+      hint: 'An agent that reads a malicious file can be steered by it (module 9.4).' }
+  ];
+  var UA = {};
+  var UAEX = {
+    script: { tool: 'approved', data: 'internal', dest: 'throw', review: 'self', agent: 'no' },
+    ecu: { tool: 'approved', data: 'restricted', dest: 'safety', review: 'full', agent: 'no' },
+    tool: { tool: 'personal', data: 'internal', dest: 'internal', review: 'self', agent: 'no' },
+    key: { tool: 'approved', data: 'secrets', dest: 'throw', review: 'self', agent: 'host' }
+  };
+  function drawUaQs() {
+    var host = document.getElementById('uaHost');
+    if (!host.dataset.built) {
+      host.innerHTML = UAQ.map(function (q, i) {
+        return '<div class="qrow"><div class="q">' + (i + 1) + ' · ' + q.q + '</div><div class="chips" data-q="' + q.id + '">' +
+          q.opts.map(function (o) { return '<button data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') +
+          '</div><div class="hint">' + q.hint + '</div></div>';
+      }).join('');
+      host.dataset.built = '1';
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        UA[e.target.parentNode.getAttribute('data-q')] = e.target.getAttribute('data-v');
+        drawUaQs(); uaVerdict();
+      });
+    }
+    AI.qsa('.chips', host).forEach(function (w) {
+      var q = w.getAttribute('data-q');
+      AI.qsa('button', w).forEach(function (b) { b.classList.toggle('on', UA[q] === b.getAttribute('data-v')); });
+    });
+  }
+  function uaVerdict() {
+    var v = document.getElementById('uaVerdict'), why = document.getElementById('uaWhy');
+    var done = UAQ.every(function (q) { return !!UA[q.id]; });
+    if (!done) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Answer the questions</span>A verdict and the conditions attached will appear here.';
+      why.innerHTML = '<p class="small muted mb0">Five questions, or load an example.</p>';
+      return;
+    }
+    var R = [], RANK = { ok: 0, mid: 1, hi: 2 };
+    function add(l, head, txt) { R.push({ l: l, h: head, t: txt }); }
+    var approved = UA.tool === 'approved' || UA.tool === 'selfhost';
+    if (UA.data === 'secrets') add('hi', 'No — take the secrets out first', 'Credentials, keys and personal data do not go into any assistant. Move secrets to the environment or a secret store, use synthetic or pseudonymised data, and <b>rotate any key that has already been sent</b>.');
+    if (!approved && UA.data !== 'public') add('hi', 'No — not with this tool', 'Internal code into a personal or unvetted account is a disclosure to a third party on terms nobody has reviewed (module 10.5). Use the approved tool; if there is none, raise that rather than working around it.');
+    if (!approved && UA.data === 'public') add('mid', 'Acceptable for public code only', 'Nothing confidential is exposed, but nothing generated here should flow into internal repositories without the usual licence and review checks. The approved tool is still the better habit.');
+    if (UA.dest === 'safety') add('hi', 'Not without a defined process', 'Safety-related code is developed under ISO 26262, which requires confidence in the tools used (part 8) and code that meets your coding guidelines, typically MISRA, with traceable review. Until your functional-safety process says how an assistant is qualified and its output reviewed, the answer is no — ask your functional-safety manager. Supporting work around the project (test-data scripts, log analysis, documentation drafts) is a separate question: answer for that task instead.');
+    if (UA.data === 'restricted') add(UA.tool === 'selfhost' ? 'mid' : 'hi', UA.tool === 'selfhost' ? 'Only if this repository is in scope' : 'Only if the policy explicitly allows this repository', 'Restricted code needs an explicit decision by repository, not individual judgement. Third-party NDA code may not be shareable with any external service at all — check the agreement.' + (UA.tool === 'selfhost' ? ' A self-hosted model removes the external disclosure; access control and logging are still yours to get right.' : ''));
+    if (UA.review === 'none') {
+      if (UA.dest === 'throw') add('mid', 'Fine for a throwaway — if you check the result', 'Unreviewed code is acceptable only where its output is checked: compare against a known value or a hand calculation before you believe the numbers. And it stays throwaway — the moment someone else uses it, it needs review.');
+      else add('hi', 'No — unreviewed generated code', 'Code other people rely on, or that ships, must be read, tested and reviewed like any other. Generated code is your code.');
+    }
+    if (UA.review === 'self' && (UA.dest === 'product' || UA.dest === 'internal')) add('mid', 'Yes, with a second reviewer', 'Shared or shipped code needs the normal code-review path. Tell the reviewer it was AI-assisted, so they read the boring lines too.');
+    if (UA.dest === 'product') add('mid', 'Yes, with licence and dependency checks', 'Shipped code needs licence scanning (verbatim reproduction of copyleft code, module 10.7) and a check that every new dependency is real and approved (module 10.6).');
+    if (UA.agent === 'host') add('mid', 'Yes, but sandbox the agent', 'An agent with your credentials can do anything you can, and it can be steered by text in the files it reads (module 9.4). Run it in a container, without push rights or production credentials, and do not let it install packages unreviewed (module 9.5).');
+    if (!R.length) add('ok', 'Yes — with the usual conditions', 'Approved tool, appropriate code, a destination where the risks are contained, and a review step. This is the case assistants are good for.');
+    var top = R.reduce(function (a, b) { return RANK[b.l] > RANK[a.l] ? b : a; });
+    v.className = 'verdict ' + top.l;
+    v.innerHTML = '<span class="lvl">' + top.h + '</span>' +
+      (top.l === 'hi' ? 'Do not proceed as described.' : top.l === 'mid' ? 'Possible, with the conditions listed.' : 'Go ahead.');
+    var h = '<h4>Why, and what is attached</h4><ul class="small">';
+    R.sort(function (a, b) { return RANK[b.l] - RANK[a.l]; }).forEach(function (r) {
+      h += '<li><b style="color:var(' + (r.l === 'hi' ? '--bad' : r.l === 'mid' ? '--warn' : '--good') + ')">' + r.h + '.</b> ' + r.t + '</li>';
+    });
+    h += '</ul><p class="small muted mb0">Always: read every line, run it on input you know the answer for, and keep secrets out of the context window.</p>';
+    why.innerHTML = h;
+  }
+  function initUa() {
+    drawUaQs(); uaVerdict();
+    AI.qsa('[data-ua]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        UA = JSON.parse(JSON.stringify(UAEX[b.getAttribute('data-ua')]));
+        drawUaQs(); uaVerdict();
+      });
+    });
+    AI.on(document.getElementById('uaClear'), 'click', function () { UA = {}; drawUaQs(); uaVerdict(); });
+  }
+
+  /* ============================================ 12.8 exercises */
   var EXS = [
     ['8 min', 'Fix a bad prompt', 'Take something you asked an AI tool this month that disappointed you. Rewrite it with the three 80/20 additions: context, exact output format, permission to say “I don’t know”. Run both. Compare.'],
     ['10 min', 'Extraction with a schema', 'Take a real document from your own work. Write an extraction prompt with a fixed table schema, a ban on inference, and a page or clause reference per row. Check five rows against the source. Count the errors — this number is your first evaluation datapoint (module 8).'],
@@ -692,6 +1235,8 @@
     AI.on(document.getElementById('stReveal'), 'click', revealSteps);
     initSym();
     drawMyths();
+    initRv();
+    initUa();
     drawEx();
   };
 })();

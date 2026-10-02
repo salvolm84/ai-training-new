@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>17 · Explainability — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 330px; }
+  .cv-tall { width: 100%; height: 360px; }
+  .cv-sm { width: 100%; height: 250px; }
+  .bigstat { text-align: center; padding: 13px 10px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.45rem; font-weight: 700; display: block; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .bigstat .l { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.warn .n { color: var(--warn); }
+  .bigstat.acc .n { color: var(--accent); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .8rem; color: var(--ink-3); margin-top: .6rem; }
+  .legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .legend i.dash { background: repeating-linear-gradient(90deg, currentColor 0 5px, transparent 5px 9px) !important; height: 2px; }
+  .legend i.dot { width: 9px; height: 9px; border-radius: 50%; }
+  .qmap { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 760px) { .qmap { grid-template-columns: 1fr; } }
+  .qmap .card { border-top: 3px solid var(--accent); }
+  .qmap .card.loc { border-top-color: var(--warn); }
+  .qmap .card h4 { margin-bottom: .3em; }
+  .qmap .card .q { font-weight: 650; font-size: 1.02rem; margin-bottom: .5em; }
+  .gen {
+    font-family: var(--mono); font-size: .8rem; line-height: 1.75; background: var(--bg-3);
+    border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; overflow-x: auto; white-space: pre;
+  }
+  .gen .c { color: var(--ink-3); }
+  .rowdesc { font-family: var(--mono); font-size: .8rem; color: var(--ink-2); line-height: 1.7; }
+  .rowdesc b { color: var(--ink); }
+  .rev { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 760px) { .rev { grid-template-columns: 1fr; } }
+  .rev .card { border-left: 4px solid var(--good); }
+  .rev .card.no { border-left-color: var(--bad); }
+  .rev .card li { font-size: .89rem; }
+  .ctrlrow { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+</style>
+</head>
+<body data-page="p17">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 17 · Part IV — Shipping it</span>
+  <h1>Explaining a model's predictions</h1>
+  <p class="lead">Sooner or later someone in a design review points at a prediction and asks “why?”.
+  This module is the practical toolkit for answering that about tabular and engineering models: what
+  the standard methods compute, how to read them, and the specific ways they mislead people who
+  trust them too much.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">The claim this module defends</span>
+  <p class="mb0">Every method here explains <strong>the model</strong>, not the physics. Used that way —
+  to find bugs, leakage and nonsense before a model ships — they are among the most useful tools in
+  the subject. Used as evidence that the model has learned how brakes work, they will eventually
+  embarrass you. Every lab below is trained and computed live in your browser on synthetic data whose
+  true equations we know, so you can see exactly where each explanation is right and where it is not.
+  Module 14.3 covered the research on looking inside language models; this one is for the models you
+  are more likely to put into a product.</p>
+</div>
+
+<!-- ============================================= 17.1 -->
+<section class="chapter" id="questions">
+  <h2>17.1 · Two different questions</h2>
+  <p>“Explain the model” is two requests that people run together. The tools for each are different, and
+  so are the mistakes.</p>
+
+  <div class="qmap">
+    <div class="card">
+      <h4 style="color:var(--accent)">Global</h4>
+      <p class="q">“What has this model learned, across all the data?”</p>
+      <p class="small">Which inputs matter overall, and what shape the relationship has. This is the
+      question a design review asks of a model before it is trusted.</p>
+      <p class="small mb0"><b>Tools:</b> permutation importance (17.3), partial dependence (17.4), or
+      a model simple enough to read directly (17.2).</p>
+    </div>
+    <div class="card loc">
+      <h4 style="color:var(--warn)">Local</h4>
+      <p class="q">“Why did it say <em>this</em> for <em>this</em> case?”</p>
+      <p class="small">Which inputs pushed one prediction up or down, and by how much. This is the
+      question asked when a single part is rejected or a single forecast looks wrong.</p>
+      <p class="small mb0"><b>Tools:</b> individual conditional expectation curves (17.4), Shapley
+      values (17.5).</p>
+    </div>
+  </div>
+
+  <p class="mt2">One dataset runs through most of the module. It is <strong>synthetic</strong> and the
+  equations below were written for teaching: they have a plausible shape, and they are not calibrated
+  to any real brake system. The point of using invented data is that we know the true answer, so we can
+  mark each explanation method's homework.</p>
+
+  <div class="gen"><span class="c">// AUTHORED — the data-generating process for one track session (n = 900, seeded)</span>
+pressure   ~ uniform 25–85 bar          ambient ~ uniform 5–38 °C
+duct       ~ uniform 0–100 % open       laps    ~ integer 5–30
+compound   = road or track, 50/50       severity ~ normal(0, 1)   <span class="c">// circuit braking severity, not recorded</span>
+disc temp  = 330 + 3.4·pressure − 1.5·duct + 2.5·ambient + 40·severity + noise
+wear (mm)  = laps × 0.03 × (0.5 + pressure/60) × g(disc temp, compound) × noise
+g          = road:  exp((T − 500)/150)
+             track: 0.75·exp((T − 560)/220) + 0.6·max(0, (450 − T)/80)   <span class="c">// track pads also suffer when cold</span></div>
+
+  <p class="small muted">Read it once and remember three things: <b>ambient temperature and duct
+  opening affect wear only through disc temperature</b>; the two pad compounds respond to heat
+  differently (an interaction); and wear is proportional to laps. The model is a gradient-boosted
+  tree ensemble — 200 trees of depth 3, the method from module 6.3 — trained on 600 sessions and tested
+  on the other 300.</p>
+
+  <div class="note">
+    <ul>
+      <li>About 4 minutes. Put the generator on screen and leave it there for a moment — the whole
+      module is “compare the explanation with what we know is true”, which you can never do on real data.
+      Say that out loud.</li>
+      <li>Expect: “why synthetic, why not our data?” Because on real data you cannot tell whether an
+      explanation is right. Run these methods on your own data afterwards, knowing how they fail.</li>
+      <li>Timing for the module: 17.1 four minutes, 17.2 six, 17.3–17.6 about seven each, 17.7 and
+      17.8 three each.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.2 -->
+<section class="chapter" id="interpretable">
+  <h2>17.2 · Interpretable by construction, or explained afterwards</h2>
+  <p>There are two routes. Build a model whose structure <em>is</em> the explanation, or build whatever
+  predicts best and explain it afterwards with the methods in 17.3–17.5. The second route is more
+  common. The first deserves to be tried first, more often than it is.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <h4>Linear and logistic models</h4>
+      <p class="small mb0">The coefficient <em>is</em> the explanation: one more bar of pressure adds
+      this many millimetres of wear. Exactly right if the relationship is linear; confidently wrong if
+      it is not, and the model does not warn you.</p>
+    </div>
+    <div class="card">
+      <h4>Shallow trees and rule lists</h4>
+      <p class="small mb0">Three or four levels of if-then rules can be printed on one page and checked
+      by a domain expert line by line (module 6.2). Accuracy usually costs a little; reviewability is
+      excellent.</p>
+    </div>
+    <div class="card">
+      <h4>Constrained models</h4>
+      <p class="small mb0">Keep a flexible model and forbid shapes you know are physically wrong.
+      <strong>Monotonic constraints</strong> — “wear may not fall as disc temperature rises” — are
+      supported by XGBoost, LightGBM and CatBoost, cost one line of configuration, and are underused.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · A constraint you can sign off</h3><span class="tag try">Raise the noise, then count the reversals</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="moCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--ink-3)"></i>training sessions</span>
+          <span style="color:var(--ink-3)"><i class="dash"></i>true curve (we wrote it)</span>
+          <span><i style="background:var(--violet)"></i>straight line</span>
+          <span><i style="background:var(--warn)"></i>boosted stumps, unconstrained</span>
+          <span><i style="background:var(--good)"></i>boosted stumps, monotonic</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Training sessions</span><span class="val" id="moNOut"></span></div>
+          <input type="range" id="moN" min="15" max="300" step="5" value="40">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Measurement noise</span><span class="val" id="moNoiseOut"></span></div>
+          <input type="range" id="moNoise" min="0.05" max="0.8" step="0.01" value="0.3">
+        </div>
+        <div class="btnrow"><button class="btn sm" id="moSeed">New sample</button></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Model</th><th class="num">test RMSE</th><th class="num">reversals</th></tr></thead>
+            <tbody>
+              <tr><td style="color:var(--violet)">Straight line</td><td class="num" id="moRL">—</td><td class="num" id="moVL">—</td></tr>
+              <tr><td style="color:var(--warn)">Unconstrained</td><td class="num" id="moRU">—</td><td class="num" id="moVU">—</td></tr>
+              <tr><td style="color:var(--good)">Monotonic</td><td class="num" id="moRM">—</td><td class="num" id="moVM">—</td></tr>
+              <tr><td class="muted">True curve</td><td class="num muted" id="moRT">—</td><td class="num muted">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card mt1" id="moNote" style="min-height:130px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Both tree models are 150 boosted stumps (one-split trees), learning rate
+    0.3, trained here. The monotonic one rejects any split whose right-hand side would predict less wear
+    than its left. Test RMSE is measured on 400 fresh sessions from the same generator; a
+    <em>reversal</em> is a place where predicted wear goes down as temperature goes up, counted on a
+    1 °C grid.</p>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">What the constraint buys</span>
+    <p class="mb0">Usually almost no accuracy, sometimes a little more — and a property you can state
+    in a review without a single plot: <strong>the model's wear prediction never decreases with disc
+    temperature, for any input.</strong> That is a guarantee about the model, not a description of a
+    test set, and it is the kind of sentence certification engineers like. Use constraints where the
+    physics is not in doubt; do not use them to impose a belief you have not checked.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 6 minutes. Start at 40 sessions and noise 0.3: the unconstrained curve has small
+      backwards steps. Then drop to 15 sessions — the steps get worse. Then raise to 300 — they shrink
+      but rarely vanish.</li>
+      <li>The straight line is there to make the point that “interpretable” is not the same as
+      “right”: it has zero reversals and the worst error, because the truth is curved.</li>
+      <li>Expected question: “is a reversal always wrong?” No — some physics genuinely is
+      non-monotonic (the track compound in 17.4 is). The constraint is a claim you make; make it only
+      when you would defend it.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.3 -->
+<section class="chapter" id="permutation">
+  <h2>17.3 · Permutation importance: break a column, see what breaks</h2>
+  <p>The most honest global importance measure is also the simplest. Take the test set, shuffle one
+  column so it no longer lines up with the rest of the row, and measure how much worse the predictions
+  get. A feature the model relies on hurts a lot when scrambled; one it ignores does not hurt at all.
+  It works for any model, because it only needs predictions.</p>
+
+  <div class="eqbox">importance(feature) = <span class="hi">error with that column shuffled</span> − error on the real data
+    <small>Here the error is root-mean-square error in millimetres of wear, so importance is in
+    millimetres too. Repeat with several shuffles and report the spread.</small></div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · What does the model rely on?</h3><span class="tag try">Compare train with test, then push the depth to 6</span></div>
+    <div class="ctrlrow">
+      <div class="segmented" id="piEvalSeg">
+        <button data-v="test" class="on">Measured on test set</button>
+        <button data-v="train">Measured on training set</button>
+      </div>
+      <button class="btn sm" id="piSeed">Retrain with new seed</button>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="piCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent);height:9px"></i>permutation importance (mm), whisker = range over shuffles</span>
+          <span><i style="background:var(--ink-3);height:4px"></i>split-gain importance, scaled to the same maximum</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Tree depth (1 = no interactions)</span><span class="val" id="piDepOut"></span></div>
+          <input type="range" id="piDep" min="1" max="6" step="1" value="3">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Shuffles per feature</span><span class="val" id="piRepOut"></span></div>
+          <input type="range" id="piRep" min="1" max="20" step="1" value="5">
+        </div>
+        <div class="metrics">
+          <div class="m"><span class="k">train RMSE</span><span class="v" id="piTr">—</span></div>
+          <div class="m"><span class="k">test RMSE</span><span class="v" id="piTe">—</span></div>
+          <div class="m"><span class="k">test R²</span><span class="v" id="piR2">—</span></div>
+          <div class="m"><span class="k">predict-the-mean RMSE</span><span class="v" id="piBase">—</span></div>
+        </div>
+        <div class="card mt1" id="piNote" style="min-height:170px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Measure it on held-out data</span>
+      <p class="mb0">On the training set, importance measures what the model <em>memorised</em>. On
+      the test set it measures what the model relies on <em>and that generalises</em>. Increase the
+      depth and watch the two diverge. Importance on training data is a common and quiet error in
+      reports.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Be wary of the built-in importance</span>
+      <p class="mb0">The grey bars are the “feature importance” most libraries print by default: total
+      split gain. On this clean synthetic data it broadly agrees with the permutation result — say so
+      when you see it. In general it is computed on <em>training</em> data, so it cannot separate signal
+      from memorisation, and it is known to favour features with many distinct values, such as IDs and
+      timestamps. Where the two disagree, believe the permutation on held-out data.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 7 minutes. Point out first that the ranking matches the generator: disc temperature,
+      laps and compound at the top; duct and ambient near zero, because they act only through disc
+      temperature, which the model can see directly.</li>
+      <li>Then depth 1: the model can no longer represent the compound × temperature interaction,
+      test error rises, and compound's importance changes. Importance describes <em>this</em> model,
+      not the problem.</li>
+      <li>Expected question: “a small negative importance?” Shuffling happened to help slightly by
+      chance; read it as zero. That is why we repeat the shuffles and show the range.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.4 -->
+<section class="chapter" id="pdp">
+  <h2>17.4 · Partial dependence and ICE: the shape of a relationship</h2>
+  <p>Importance tells you <em>how much</em> a feature matters; it does not tell you <em>which way</em>.
+  For that, take one session, sweep one input across its range while holding the other inputs where
+  they are, and plot the prediction. That curve is an <strong>ICE curve</strong> (individual
+  conditional expectation). Do it for many sessions and average them: that average is the
+  <strong>partial dependence</strong> curve.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Sweep one input</h3><span class="tag try">Pick disc temperature, then colour by compound</span></div>
+    <div class="ctrlrow">
+      <div class="segmented" id="pdFeatSeg">
+        <button data-v="0" class="on">Disc temp</button>
+        <button data-v="1">Pressure</button>
+        <button data-v="2">Duct</button>
+        <button data-v="3">Ambient</button>
+        <button data-v="4">Compound</button>
+        <button data-v="5">Laps</button>
+      </div>
+    </div>
+    <div class="ctrlrow">
+      <label class="check"><input type="checkbox" id="pdColour"> Colour curves by pad compound</label>
+      <label class="check"><input type="checkbox" id="pdCentre"> Centre the curves at the left edge</label>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="pdCv" class="cv-tall"></canvas>
+        <div class="legend" id="pdLegend"></div>
+      </div>
+      <div>
+        <div class="metrics">
+          <div class="m"><span class="k">PD range</span><span class="v" id="pdRange">—</span></div>
+          <div class="m"><span class="k">ICE spread at right</span><span class="v" id="pdSpread">—</span></div>
+          <div class="m"><span class="k">curves against the average</span><span class="v" id="pdDisagree">—</span></div>
+        </div>
+        <div class="card mt1" id="pdNote" style="min-height:230px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">60 test sessions, each swept over 40 grid points between the 1st and
+    99th percentile of the training data. Every point is a real prediction of the trained model. Ticks
+    along the bottom show where the training data actually lies.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Two traps in one picture</span>
+    <p><strong>The average hides the cases.</strong> Partial dependence is one line; the population
+    underneath may be two groups going in opposite directions. Always plot the ICE curves behind
+    it.</p>
+    <p class="mb0"><strong>The sweep invents sessions.</strong> Sweeping disc temperature to 680 °C
+    on a session with the duct fully open and low pressure produces a combination that never occurred,
+    and the model is extrapolating there. Partial dependence treats the features as if they were
+    independent; when they are not, part of the curve is the model's guess about impossible
+    conditions. Section 17.6 returns to this.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 7 minutes. Disc temperature first, uncoloured: one rising curve. Tick the compound box
+      and it splits into two families — road pads climb steeply, track pads climb slowly and rise again
+      at the cold end. The partial dependence is the average of two behaviours that neither compound
+      actually has.</li>
+      <li>Then laps: fan-shaped ICE curves, all rising, with very different slopes. Centring makes the
+      fan obvious. That fan is the multiplicative structure in the generator.</li>
+      <li>Then duct: nearly flat. Hold that thought for 17.7 — it is the most important line in the
+      module, and it is misleading.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.5 -->
+<section class="chapter" id="shap">
+  <h2>17.5 · Shapley values: sharing out one prediction</h2>
+  <p>For a single session the model predicts, say, 2 mm of wear, and the average session is about
+  0.8 mm. The question “why 1.2 mm more than average?” is a fair-division problem: six features
+  co-operated to produce the difference, and we want to share it between them. Game theory answered
+  this in 1953. The <strong>Shapley value</strong> of a feature is its marginal contribution averaged
+  over every order in which the features could have been revealed to the model. It is the only way of
+  sharing that satisfies a short list of fairness properties, one of which matters a lot in
+  practice: <strong>the contributions add up exactly to the prediction minus the baseline</strong>.</p>
+
+  <div class="eqbox">φ<sub>i</sub> = Σ<sub>S ⊆ others</sub> <span class="hi">|S|! (p − |S| − 1)! / p!</span> · [ v(S ∪ {i}) − v(S) ]
+    <small>v(S) is the model's average prediction when the features in S are fixed to this session's
+    values and the rest are taken from a background set of real sessions. With p = 6 features there
+    are 2⁶ = 64 coalitions, so this page computes every one of them: <b>exact enumeration, no
+    sampling and no approximation</b>. The popular SHAP library uses faster algorithms that
+    approximate this quantity, or compute it exactly for trees.</small></div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Why this session?</h3><span class="tag try">Pick the highest-wear session, then change the background</span></div>
+    <div class="ctrlrow">
+      <button class="btn sm" id="shHigh">Highest predicted wear</button>
+      <button class="btn sm" id="shTyp">A typical session</button>
+      <button class="btn sm" id="shLow">Lowest predicted wear</button>
+      <button class="btn sm" id="shRand">Random session</button>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="shCv" class="cv-tall"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--bad);height:9px"></i>pushes wear up</span>
+          <span><i style="background:var(--accent);height:9px"></i>pushes wear down</span>
+          <span><i style="background:var(--ink-3);height:9px"></i>baseline and prediction</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Test session</span><span class="val" id="shRowOut"></span></div>
+          <input type="range" id="shRow" min="0" max="299" step="1" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Compare against</span><span class="val" id="shBgName"></span></div>
+          <div class="segmented" id="shBgSeg">
+            <button data-v="all" class="on">All sessions</button>
+            <button data-v="road">Road pads only</button>
+            <button data-v="cool">Cool discs (&lt; 450 °C)</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Background sessions</span><span class="val" id="shBgNOut"></span></div>
+          <input type="range" id="shBgN" min="10" max="200" step="10" value="100">
+        </div>
+        <div class="rowdesc card flat" id="shRowDesc" style="padding:12px 14px"></div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">f(x) prediction</span><span class="v" id="shFx">—</span></div>
+          <div class="m"><span class="k">baseline E[f]</span><span class="v" id="shBase">—</span></div>
+          <div class="m"><span class="k">Σ φ</span><span class="v" id="shSum">—</span></div>
+          <div class="m"><span class="k">Σ φ − (f − E[f])</span><span class="v" id="shErr">—</span></div>
+          <div class="m"><span class="k">model calls</span><span class="v" id="shEvals">—</span></div>
+          <div class="m"><span class="k">time</span><span class="v" id="shTime">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="shNote" style="min-height:90px"></div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">An explanation relative to something</span>
+      <p class="mb0">Change the background and the explanation changes — sometimes the sign of a
+      contribution flips. That is not a bug. A Shapley value answers <em>“why is this session different
+      from that group?”</em>, and the group is a choice you must state. “Compared with all sessions in
+      the 2025 test programme” is a complete explanation; a bare waterfall is not.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Additive, so it smears interactions</span>
+      <p class="mb0">The model's compound × temperature interaction has to be credited to one feature or
+      the other, and the Shapley rule splits it between them. Nothing in the chart tells you that an
+      interaction exists. Read a waterfall as an accounting of one prediction, not as a description of
+      mechanism.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 7 minutes. Show the check figures first: Σφ matches f − E[f] to around 10⁻¹⁶. That
+      is the property people rely on, and here it is computed rather than asserted.</li>
+      <li>Highest-wear session (road pads), background “all”: disc temperature and laps dominate. Switch
+      to “road pads only”: the compound bar drops to exactly zero, because every reference session has
+      road pads too, and the baseline moves up. Same model, same session, different question.</li>
+      <li>Expected question: “is this what the SHAP library does?” Same quantity (interventional
+      Shapley values against a background set). The library avoids enumerating 2<sup>p</sup>
+      coalitions, which matters at 50 features and does not at 6.</li>
+      <li>Model calls: 64 coalitions × background size. That is why background size is a cost knob,
+      and why small backgrounds make noisier explanations.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.6 -->
+<section class="chapter" id="correlated">
+  <h2>17.6 · The correlated-features trap</h2>
+  <p>A new dataset with the same physics and a twist that every real telemetry set has: <strong>two
+  sensors measuring nearly the same thing</strong>. Disc temperature and pad temperature both respond
+  to the same heat load; wear depends on that heat load, which neither sensor measures perfectly.
+  Pressure and laps are also present. The slider sets how closely the two sensors agree.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Twins</h3><span class="tag warn">Drag the correlation to 0.99 and compare the seeds</span></div>
+    <div class="ctrlrow">
+      <div style="flex:1;min-width:240px" class="ctrl mb0">
+        <div class="ctrl-label"><span>Correlation between disc and pad temperature</span><span class="val" id="trRhoOut"></span></div>
+        <input type="range" id="trRho" min="0.3" max="0.995" step="0.005" value="0.95">
+      </div>
+      <button class="btn sm" id="trSeeds">Ten new retrains</button>
+    </div>
+    <div class="grid g2">
+      <div>
+        <canvas id="trCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent);height:9px"></i>disc temp</span>
+          <span><i style="background:var(--warn);height:9px"></i>pad temp</span>
+          <span><i style="background:var(--good);height:9px"></i>both shuffled together</span>
+          <span style="color:var(--ink-3)"><i class="dash"></i>laps, for scale</span>
+        </div>
+        <p class="small muted mb0">Permutation importance on the same test set, for ten models each
+        retrained on a bootstrap resample of the same 500 sessions — as if the data had been collected
+        on a slightly different set of days.</p>
+      </div>
+      <div>
+        <canvas id="trSc" class="cv"></canvas>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--ink-3)"></i>real test sessions</span>
+          <span><i class="dot" style="background:var(--bad)"></i>after shuffling disc temp</span>
+          <span style="color:var(--ink-3)"><i></i>99% envelope of real data</span>
+        </div>
+        <p class="small muted mb0">What the model is asked to predict on when disc temperature is
+        shuffled for the importance calculation.</p>
+      </div>
+    </div>
+    <div class="grid g4 mt1" style="gap:10px">
+      <div class="bigstat"><span class="n" id="trCorr">—</span><span class="l">measured correlation</span></div>
+      <div class="bigstat warn"><span class="n" id="trShare">—</span><span class="l">disc's share of the pair, across retrains</span></div>
+      <div class="bigstat good"><span class="n" id="trGroup">—</span><span class="l">grouped importance (mm)</span></div>
+      <div class="bigstat bad"><span class="n" id="trOut">—</span><span class="l">shuffled rows outside the envelope</span></div>
+    </div>
+    <div class="card mt1" id="trNote" style="min-height:110px"></div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Importance gets shared out</span>
+      <p class="mb0">With two near-copies, the model can use either. Each one, scrambled alone, barely
+      hurts — the other covers for it. So the strongest physical driver in the data can rank
+      <em>below</em> a weaker one simply because it was measured twice.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">The split is arbitrary</span>
+      <p class="mb0">Which twin gets the credit depends on details of the training run. A report that
+      says “disc temperature is twice as important as pad temperature” may be describing the random
+      seed. Retrain before you quote a ratio.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">What to do instead</span>
+      <p class="mb0">Shuffle correlated features <strong>as a group</strong> and report the group
+      (the green bars, which are stable). Or drop one twin and retrain. Or measure the dependence first
+      — a correlation matrix takes a minute and tells you which importances not to trust.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 7 minutes. Start at 0.95. Point at the green bars: steady across retrains and above
+      the laps line. Then the blue and orange: each well below laps, and the ratio between them moving
+      around from one retrain to the next.</li>
+      <li>Then the scatter. Every red dot is a session with, say, a 650 °C disc and a 330 °C pad. No
+      such session exists, the model has never seen one, and the importance number is partly a
+      measurement of how the model behaves there. The same is true of partial dependence (17.4) and of
+      Shapley values with an independent background (17.5).</li>
+      <li>Drag down to 0.3: the red cloud is no longer distinguishable from the real one, and the twins
+      are no longer twins. The trap needs correlation, which real sensor data almost always has.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.7 -->
+<section class="chapter" id="causation">
+  <h2>17.7 · An explanation is not a cause</h2>
+  <p>Back to the brake data and to the flat line for duct opening in 17.4. The model is right: given
+  disc temperature, the duct tells it nothing more, because in our generator the duct acts
+  <em>only</em> by cooling the disc. Every explanation method above correctly reports that the
+  <strong>model</strong> does not use the duct. An engineer who reads that as “the duct does not affect
+  wear” has drawn the wrong conclusion from a correct chart: opening the duct is a strong lever.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Ask the model about the brake duct</h3><span class="tag warn">Switch to “set by engineers”, then lower the cooling effect</span></div>
+    <div class="ctrlrow">
+      <div class="segmented" id="caSeg">
+        <button data-v="rand" class="on">Duct set randomly (a designed test)</button>
+        <button data-v="conf">Duct set by engineers per circuit</button>
+      </div>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="caCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>model A, all features: partial dependence</span>
+          <span><i style="background:var(--warn)"></i>model B, without disc temp: partial dependence</span>
+          <span style="color:var(--good)"><i class="dash"></i>what actually happens if you set the duct (from the generator)</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>True cooling effect of the duct</span><span class="val" id="caKOut"></span></div>
+          <input type="range" id="caK" min="0" max="2.5" step="0.1" value="1.5">
+        </div>
+        <div class="grid g3" style="gap:8px">
+          <div class="bigstat acc"><span class="n" id="caA">—</span><span class="l">model A says</span></div>
+          <div class="bigstat warn"><span class="n" id="caB">—</span><span class="l">model B says</span></div>
+          <div class="bigstat good"><span class="n" id="caT">—</span><span class="l">truth</span></div>
+        </div>
+        <p class="small muted mt1">Change in average predicted wear when the duct goes from closed to
+        fully open, in mm per session. Both models are retrained live (200 trees each) whenever you
+        change a setting.</p>
+        <div class="card" id="caNote" style="min-height:170px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">The general rule</span>
+    <p class="mb0">Explanation methods describe how the prediction depends on the inputs <em>as the
+    model sees them</em>. Whether changing an input in the world changes the outcome is a causal
+    question, and it depends on how the data came about — designed experiment or operating history — and
+    on which variables were recorded. No amount of explanation tooling on observational data replaces
+    a designed test. <a href="07-data.html#causal">Module 7.6</a> covers causality properly — confounders,
+    and why correlation is not a knob; module 11.2, on where to put the samples, is the constructive
+    answer.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 3 minutes, and possibly the most important three in the module. With randomised duct
+      settings, model B (which cannot see disc temperature) recovers the true effect reasonably well,
+      because randomisation removes confounding. That is exactly why designed experiments exist.</li>
+      <li>Switch to “set by engineers”: engineers open the duct at severe circuits, which run hotter.
+      Model B now sees open ducts alongside high wear and reports little or no benefit — at low cooling
+      effect, it says opening the duct <em>increases</em> wear. Every number on screen is an honest
+      computation; the conclusion is still wrong.</li>
+      <li>Expected question: “so which model is right?” Both, about different questions. A is right
+      about prediction; neither answers “what if we open the duct?” without the causal structure.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.8 -->
+<section class="chapter" id="review">
+  <h2>17.8 · What to put in front of a design review</h2>
+  <p>Explanations are debugging tools. They are very good at finding a model that is right for the
+  wrong reason — a leaked timestamp (module 7.4), a sensor ID standing in for a test rig, a
+  relationship with the wrong sign. They are poor evidence that a model is right for the right reason,
+  because each method has the blind spots this module has just demonstrated.</p>
+
+  <div class="rev">
+    <div class="card">
+      <h3>Bring</h3>
+      <ul class="mb0">
+        <li>Permutation importance <strong>on held-out data</strong>, with the spread over shuffles and
+        over retrains, and correlated features grouped.</li>
+        <li>Partial dependence <strong>with ICE curves behind it</strong>, restricted to the range where
+        data exists, and a note of which features are correlated.</li>
+        <li>For every relationship whose direction the physics fixes, a check that the model agrees —
+        or a monotonic constraint that makes it agree by construction.</li>
+        <li>A handful of local explanations for the worst errors and the most consequential
+        predictions, each with its background set stated.</li>
+        <li>The things you found and fixed using these tools. That list is the most persuasive evidence
+        that the tools were used seriously.</li>
+      </ul>
+    </div>
+    <div class="card no">
+      <h3>Do not claim</h3>
+      <ul class="mb0">
+        <li>“The model has learned the physics.” It has learned a function that fits the data; the
+        explanation is of that function.</li>
+        <li>“Feature X does not matter.” It does not matter <em>to this model, given the other
+        inputs</em> — see 17.7.</li>
+        <li>“X is twice as important as Y” when X and Y are correlated — see 17.6.</li>
+        <li>Any explanation as a substitute for the validation evidence of module 8 and module 11.8.
+        Accuracy on a representative, held-out test set is the evidence; the explanation is how you
+        decide whether you believe it.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Key takeaway</span>
+    <p class="mb0">Ask of every explanation: <strong>relative to what, on which data, and would it
+    survive a retrain?</strong> Prefer models that are constrained or simple enough not to need much
+    explaining, where you can afford to. Where you cannot, use the post-hoc tools as instruments for
+    finding faults — and remember that for safety-relevant functions the argument rests on validation,
+    bounded operating conditions and monitoring, which is where module 20 picks up.</p>
+  </div>
+
+  <details class="reveal deeper">
+    <summary>Go deeper · the original sources</summary>
+    <div class="body">
+      <ul class="sources">
+        <li>L. S. Shapley, “A value for n-person games”, 1953 — the fair-division result.</li>
+        <li>S. Lundberg and S.-I. Lee, “A unified approach to interpreting model predictions”, NeurIPS
+        2017 — Shapley values as SHAP.</li>
+        <li>L. Breiman, “Random forests”, Machine Learning, 2001 — permutation importance.</li>
+        <li>J. H. Friedman, “Greedy function approximation: a gradient boosting machine”, Annals of
+        Statistics, 2001 — gradient boosting and partial dependence.</li>
+        <li>A. Goldstein et al., “Peeking inside the black box: visualizing statistical learning with
+        plots of individual conditional expectation”, 2015 — ICE curves.</li>
+        <li>C. Molnar, <em>Interpretable Machine Learning</em> — a free, careful book-length treatment of
+        everything in this module.</li>
+      </ul>
+    </div>
+  </details>
+
+  <div class="note">
+    <ul>
+      <li>About 3 minutes. The phrase to leave the room with: “explanations are for debugging, not for
+      proof”.</li>
+      <li>If someone raises regulation: the AI Act's transparency requirements for high-risk systems
+      (module 10) concern being able to interpret and use the output appropriately; they do not make a
+      SHAP chart into a safety argument. Do not over-promise what these plots demonstrate.</li>
+      <li>A good closing exercise if time allows: ask the room for one model they run today and which
+      of the “do not claim” lines its last review contained.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>You can now interrogate a model you have trained. Most teams will not train from scratch: they
+  will start from someone else's model and adapt it to their data, which brings its own trade-offs
+  between cost, accuracy and what you can still explain.</p>
+  <p><a href="18-adaptation.html"><strong>Module 18 · Adapting models: fine-tuning, LoRA, distillation →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+
+  /* ================================================== seeded random numbers */
+  function rng(seed) {
+    var a = (seed >>> 0) || 1;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) {
+    var u = 0; while (u === 0) u = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r());
+  }
+  function permutation(n, r) {
+    var p = [], i, j, t;
+    for (i = 0; i < n; i++) p.push(i);
+    for (i = n - 1; i > 0; i--) { j = Math.floor(r() * (i + 1)); t = p[i]; p[i] = p[j]; p[j] = t; }
+    return p;
+  }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }
+  function quantile(a, q) {
+    var s = a.slice().sort(function (x, y) { return x - y; });
+    var k = (s.length - 1) * q, lo = Math.floor(k), hi = Math.ceil(k);
+    return s[lo] + (s[hi] - s[lo]) * (k - lo);
+  }
+
+  /* ================================================== gradient-boosted trees
+     Squared-error boosting with histogram splits (at most 32 quantile bins per
+     feature), row subsampling and per-tree column subsampling — the recipe of
+     XGBoost / LightGBM, minus the engineering. */
+  function GBM(X, y, o) {
+    o = o || {};
+    var nT = o.trees || 200, lr = o.lr || 0.08, maxD = o.depth || 3, minLeaf = o.minLeaf || 8,
+      sub = o.subsample || 0.8, colf = o.colsample || 1, r = rng(o.seed || 1);
+    var n = X.length, p = X[0].length, i, f, t, k;
+    /* bin edges: every distinct value if there are few, otherwise quantiles */
+    var thr = [], B = [];
+    for (f = 0; f < p; f++) {
+      var v = X.map(function (row) { return row[f]; }).sort(function (a, b) { return a - b; });
+      var uq = [v[0]], edges = [];
+      for (k = 1; k < n; k++) if (v[k] > uq[uq.length - 1]) uq.push(v[k]);
+      if (uq.length <= 32) {
+        for (k = 1; k < uq.length; k++) edges.push((uq[k - 1] + uq[k]) / 2);
+      } else {
+        for (k = 1; k < 32; k++) {
+          var c = v[Math.floor(k * n / 32)], lo2 = 0, hi2 = uq.length - 1;
+          while (lo2 < hi2) { var md = (lo2 + hi2) >> 1; if (uq[md] < c) lo2 = md + 1; else hi2 = md; }
+          if (lo2 + 1 < uq.length) {
+            var e = (uq[lo2] + uq[lo2 + 1]) / 2;
+            if (!edges.length || e > edges[edges.length - 1]) edges.push(e);
+          }
+        }
+      }
+      thr.push(edges);
+    }
+    for (i = 0; i < n; i++) {
+      var br = new Array(p);
+      for (f = 0; f < p; f++) {
+        var ed = thr[f], lo = 0, hi = ed.length;          /* first edge >= x */
+        while (lo < hi) { var mid = (lo + hi) >> 1; if (X[i][f] <= ed[mid]) hi = mid; else lo = mid + 1; }
+        br[f] = lo;
+      }
+      B.push(br);
+    }
+    this.base = mean(y);
+    this.trees = []; this.gain = []; for (f = 0; f < p; f++) this.gain.push(0);
+    this.p = p;
+    var Fv = new Float64Array(n), g = new Float64Array(n), self = this;
+    for (i = 0; i < n; i++) Fv[i] = this.base;
+
+    function grow(rows, d, feats) {
+      var m = rows.length, S = 0, j;
+      for (j = 0; j < m; j++) S += g[rows[j]];
+      var node = { v: lr * S / m };
+      if (d >= maxD || m < 2 * minLeaf) return node;
+      var best = null;
+      for (var q = 0; q < feats.length; q++) {
+        var ff = feats[q], nb = thr[ff].length + 1;
+        var hs = new Float64Array(nb), hc = new Int32Array(nb);
+        for (j = 0; j < m; j++) { var bb = B[rows[j]][ff]; hs[bb] += g[rows[j]]; hc[bb]++; }
+        var sl = 0, cl = 0;
+        for (var tt = 0; tt < nb - 1; tt++) {
+          sl += hs[tt]; cl += hc[tt];
+          var cr = m - cl;
+          if (cl < minLeaf) continue;
+          if (cr < minLeaf) break;
+          var sr = S - sl, gn = sl * sl / cl + sr * sr / cr - S * S / m;
+          if (!best || gn > best.gn) best = { gn: gn, f: ff, t: tt };
+        }
+      }
+      if (!best || best.gn <= 1e-12) return node;
+      var L = [], R = [];
+      for (j = 0; j < m; j++) (B[rows[j]][best.f] <= best.t ? L : R).push(rows[j]);
+      self.gain[best.f] += best.gn;
+      node.f = best.f; node.t = thr[best.f][best.t];
+      node.l = grow(L, d + 1, feats); node.r = grow(R, d + 1, feats);
+      return node;
+    }
+
+    for (t = 0; t < nT; t++) {
+      for (i = 0; i < n; i++) g[i] = y[i] - Fv[i];
+      var perm = permutation(n, r), rows = perm.slice(0, Math.max(2 * minLeaf, Math.round(n * sub)));
+      var fp = permutation(p, r), feats = fp.slice(0, Math.max(1, Math.round(p * colf)));
+      var tree = grow(rows, 0, feats);
+      this.trees.push(tree);
+      for (i = 0; i < n; i++) Fv[i] += treeVal(tree, X[i]);
+    }
+  }
+  function treeVal(nd, x) { while (nd.l) nd = x[nd.f] <= nd.t ? nd.l : nd.r; return nd.v; }
+  GBM.prototype.predict = function (x) {
+    var s = this.base, T = this.trees;
+    for (var k = 0; k < T.length; k++) s += treeVal(T[k], x);
+    return s;
+  };
+  function rmse(model, X, y) {
+    var s = 0;
+    for (var i = 0; i < X.length; i++) { var e = model.predict(X[i]) - y[i]; s += e * e; }
+    return Math.sqrt(s / X.length);
+  }
+  /* permutation importance: rise in RMSE when a column (or a group of columns,
+     moved together with the same shuffle) is scrambled; R repeats */
+  function permImp(model, X, y, groups, R, seed) {
+    var r = rng(seed), base = rmse(model, X, y), out = [];
+    groups.forEach(function (grp) {
+      var vals = [];
+      for (var k = 0; k < R; k++) {
+        var pm = permutation(X.length, r);
+        var Xp = X.map(function (row, i) {
+          var c = row.slice();
+          for (var q = 0; q < grp.length; q++) c[grp[q]] = X[pm[i]][grp[q]];
+          return c;
+        });
+        vals.push(rmse(model, Xp, y) - base);
+      }
+      out.push({ mean: mean(vals), lo: Math.min.apply(null, vals), hi: Math.max.apply(null, vals) });
+    });
+    return { base: base, imp: out };
+  }
+
+  /* exact interventional Shapley values by enumerating all 2^p coalitions.
+     v(S) = the model's average output when the features in S are fixed to this
+     row's values and the others are taken from each background row in turn. */
+  function shapExact(model, x, bg) {
+    var p = x.length, nS = 1 << p, v = new Float64Array(nS), z = new Array(p), mask, j, k;
+    for (mask = 0; mask < nS; mask++) {
+      var s = 0;
+      for (k = 0; k < bg.length; k++) {
+        for (j = 0; j < p; j++) z[j] = (mask >> j) & 1 ? x[j] : bg[k][j];
+        s += model.predict(z);
+      }
+      v[mask] = s / bg.length;
+    }
+    var fact = [1]; for (j = 1; j <= p; j++) fact.push(fact[j - 1] * j);
+    var phi = [];
+    for (j = 0; j < p; j++) {
+      var acc = 0;
+      for (mask = 0; mask < nS; mask++) {
+        if ((mask >> j) & 1) continue;
+        var sz = 0, mm2 = mask; while (mm2) { sz += mm2 & 1; mm2 >>= 1; }
+        acc += fact[sz] * fact[p - sz - 1] / fact[p] * (v[mask | (1 << j)] - v[mask]);
+      }
+      phi.push(acc);
+    }
+    return { phi: phi, base: v[0], full: v[nS - 1], evals: nS * bg.length };
+  }
+
+  /* ================================================== the synthetic brake data
+     AUTHORED: these structural equations are invented for teaching (they are
+     printed in 17.1). Plausible in shape, not calibrated to any real system. */
+  function wearMean(T, pr, comp, laps) {
+    var g = comp < 0.5 ? Math.exp((T - 500) / 150)
+      : 0.75 * Math.exp((T - 560) / 220) + 0.6 * Math.max(0, (450 - T) / 80);
+    return laps * 0.03 * (0.5 + pr / 60) * g;
+  }
+  function discTemp(pr, duct, amb, eT, k) { return clamp(330 + 3.4 * pr - k * duct + 2.5 * amb + eT, 280, 800); }
+  var NOISE_MEAN = Math.exp(0.1 * 0.1 / 2);   /* mean of the multiplicative log-normal noise */
+  function genBrake(n, seed, k, confounded) {
+    var r = rng(seed), X = [], y = [], ex = [];
+    for (var i = 0; i < n; i++) {
+      var pr = 25 + 60 * r(), amb = 5 + 33 * r(), comp = r() < 0.5 ? 0 : 1, laps = 5 + Math.floor(26 * r());
+      var sev = gauss(r), eT = 40 * sev + 15 * gauss(r);
+      var duct = confounded ? clamp(50 + 35 * sev + 12 * gauss(r), 0, 100) : 100 * r();
+      var T = discTemp(pr, duct, amb, eT, k);
+      var w = wearMean(T, pr, comp, laps) * Math.exp(0.1 * gauss(r));
+      X.push([T, pr, duct, amb, comp, laps]); y.push(w);
+      ex.push({ pr: pr, amb: amb, comp: comp, laps: laps, eT: eT });
+    }
+    return { X: X, y: y, ex: ex };
+  }
+
+  /* two sensors on the same hidden heat load H; corr(disc, pad) = rho by construction */
+  function genTrap(n, rho, seed) {
+    var r = rng(seed), X = [], y = [], s = Math.sqrt(1 / rho - 1), nz = Math.sqrt(1 + s * s);
+    for (var i = 0; i < n; i++) {
+      var H = gauss(r), D = 520 + 80 * (H + s * gauss(r)) / nz, P = 400 + 60 * (H + s * gauss(r)) / nz;
+      var pr = 25 + 60 * r(), laps = 5 + Math.floor(26 * r());
+      X.push([D, P, pr, laps]);
+      y.push(laps * 0.03 * (0.5 + pr / 60) * Math.exp(0.6 * H) * Math.exp(0.1 * gauss(r)));
+    }
+    return { X: X, y: y };
+  }
+  /* ================================================== 17.2 one-feature models */
+  function monoTrue(T) { return 0.25 * Math.exp((T - 480) / 110); }
+  function genMono(n, noise, seed) {
+    var r = rng(seed), x = [], y = [];
+    for (var i = 0; i < n; i++) { var T = 350 + 400 * r(); x.push(T); y.push(monoTrue(T) + noise * gauss(r)); }
+    return { x: x, y: y };
+  }
+  /* boosted stumps on one feature; with mono = true every stump must step up,
+     and a sum of non-decreasing steps is non-decreasing */
+  function fitStumps(x, y, M, lr, minLeaf, mono) {
+    var n = x.length, ord = [], i, m;
+    for (i = 0; i < n; i++) ord.push(i);
+    ord.sort(function (a, b) { return x[a] - x[b]; });
+    var xs = ord.map(function (i) { return x[i]; }), ys = ord.map(function (i) { return y[i]; });
+    var base = mean(ys), Fv = ys.map(function () { return base; }), st = [];
+    for (m = 0; m < M; m++) {
+      var res = [], S = 0;
+      for (i = 0; i < n; i++) { res.push(ys[i] - Fv[i]); S += res[i]; }
+      var sl = 0, best = null;
+      for (i = 1; i < n; i++) {
+        sl += res[i - 1];
+        if (i < minLeaf || n - i < minLeaf || xs[i] === xs[i - 1]) continue;
+        var mL = sl / i, mR = (S - sl) / (n - i);
+        if (mono && mL > mR) continue;
+        var gn = sl * sl / i + (S - sl) * (S - sl) / (n - i) - S * S / n;
+        if (!best || gn > best.gn) best = { gn: gn, t: (xs[i - 1] + xs[i]) / 2, a: lr * mL, b: lr * mR };
+      }
+      if (!best || best.gn < 1e-12) break;
+      st.push(best);
+      for (i = 0; i < n; i++) Fv[i] += xs[i] <= best.t ? best.a : best.b;
+    }
+    return function (v) { var s = base; for (var k = 0; k < st.length; k++) s += v <= st[k].t ? st[k].a : st[k].b; return s; };
+  }
+  function fitLine(x, y) {
+    var mx = mean(x), my = mean(y), sxy = 0, sxx = 0;
+    for (var i = 0; i < x.length; i++) { sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) * (x[i] - mx); }
+    var b = sxx ? sxy / sxx : 0, a = my - b * mx;
+    return function (v) { return a + b * v; };
+  }
+
+  /* ================================================== shared helpers */
+  function $(id) { return document.getElementById(id); }
+  function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+  function proj(X, cols) { return X.map(function (r) { return cols.map(function (c) { return r[c]; }); }); }
+  function mm(v, d) { return (v >= 0 ? '' : '−') + Math.abs(v).toFixed(d == null ? 2 : d); }
+  function smm(v, d) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d == null ? 2 : d); }
+  function sd(a) { var m = mean(a), s = 0; for (var i = 0; i < a.length; i++) s += (a[i] - m) * (a[i] - m); return Math.sqrt(s / a.length); }
+  function corr(a, b) {
+    var ma = mean(a), mb = mean(b), s = 0, sa = 0, sb = 0;
+    for (var i = 0; i < a.length; i++) { s += (a[i] - ma) * (b[i] - mb); sa += (a[i] - ma) * (a[i] - ma); sb += (b[i] - mb) * (b[i] - mb); }
+    return s / Math.sqrt(sa * sb);
+  }
+  function col(X, f) { return X.map(function (r) { return r[f]; }); }
+
+  var FEATS = [
+    { name: 'Disc temp',      fmt: function (v) { return v.toFixed(0) + ' °C'; } },
+    { name: 'Brake pressure', fmt: function (v) { return v.toFixed(0) + ' bar'; } },
+    { name: 'Duct opening',   fmt: function (v) { return v.toFixed(0) + ' %'; } },
+    { name: 'Ambient temp',   fmt: function (v) { return v.toFixed(0) + ' °C'; } },
+    { name: 'Pad compound',   fmt: function (v) { return v < 0.5 ? 'road' : 'track'; } },
+    { name: 'Laps',           fmt: function (v) { return v.toFixed(0); } }
+  ];
+
+  /* horizontal bar frame: rows top to bottom, value axis along x */
+  function hFrame(p, n, lo, hi, labels, xlabel, fmt, lfont) {
+    p.resize(); p.clear();
+    p.dom = [lo, hi]; p.ran = [0, n];
+    var g = p.ctx, i;
+    g.font = '11px ui-monospace, monospace'; g.fillStyle = C('--ink-3');
+    g.textAlign = 'center'; g.textBaseline = 'top';
+    for (i = 0; i <= 4; i++) {
+      var xv = lo + (hi - lo) * i / 4, px = p.X(xv);
+      g.strokeStyle = C('--line-2'); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(px, p.pad.t); g.lineTo(px, p.pad.t + p.ph); g.stroke();
+      g.fillText(fmt ? fmt(xv) : xv.toFixed(2), px, p.pad.t + p.ph + 6);
+    }
+    if (lo < 0 && hi > 0) {
+      g.strokeStyle = C('--ink-3'); g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(p.X(0), p.pad.t); g.lineTo(p.X(0), p.pad.t + p.ph); g.stroke();
+    }
+    g.strokeStyle = C('--line'); g.lineWidth = 1.2; g.strokeRect(p.pad.l, p.pad.t, p.pw, p.ph);
+    g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillStyle = C('--ink-2');
+    g.font = lfont || '600 12px system-ui, sans-serif';
+    for (i = 0; i < labels.length; i++) g.fillText(labels[i], p.pad.l - 8, rowY(p, n, i));
+    if (xlabel) {
+      g.fillStyle = C('--ink-3'); g.textAlign = 'center'; g.textBaseline = 'bottom';
+      g.font = '600 11px system-ui, sans-serif'; g.fillText(xlabel, p.pad.l + p.pw / 2, p.h - 1);
+    }
+  }
+  function rowY(p, n, i) { return p.Y(n - i - 0.5); }
+  function rowH(p, n) { return p.ph / n; }
+  function hRect(p, a, b, y, h, color) {
+    var g = p.ctx, x0 = p.X(Math.min(a, b)), x1 = p.X(Math.max(a, b));
+    g.fillStyle = color; g.fillRect(x0, y - h / 2, Math.max(1, x1 - x0), h);
+  }
+
+  /* ================================================== the main brake model */
+  var M = {};
+  function buildMain() {
+    var d = genBrake(900, 23, 1.5, false);
+    M.trX = d.X.slice(0, 600); M.trY = d.y.slice(0, 600);
+    M.teX = d.X.slice(600); M.teY = d.y.slice(600);
+    M.model = new GBM(M.trX, M.trY, { trees: 200, depth: 3, lr: 0.08, minLeaf: 8, seed: 3 });
+    M.pred = M.teX.map(function (x) { return M.model.predict(x); });
+  }
+
+  /* ================================================== 17.2 monotonic constraint */
+  var MO = { n: 40, noise: 0.3, seed: 4 }, moPlot;
+  function moFit() {
+    var d = genMono(MO.n, MO.noise, MO.seed), te = genMono(400, MO.noise, MO.seed + 9001);
+    MO.d = d;
+    MO.f = {
+      L: fitLine(d.x, d.y),
+      U: fitStumps(d.x, d.y, 150, 0.3, 2, false),
+      M: fitStumps(d.x, d.y, 150, 0.3, 2, true),
+      T: monoTrue
+    };
+    function r(f) { var s = 0; te.x.forEach(function (v, i) { var e = f(v) - te.y[i]; s += e * e; }); return Math.sqrt(s / te.x.length); }
+    function rev(f) { var c = 0, worst = 0, p = f(350); for (var k = 1; k <= 400; k++) { var q = f(350 + k); if (q < p - 1e-9) { c++; worst = Math.max(worst, p - q); } p = q; } return { c: c, w: worst }; }
+    MO.r = { L: r(MO.f.L), U: r(MO.f.U), M: r(MO.f.M), T: r(MO.f.T) };
+    MO.v = { L: rev(MO.f.L), U: rev(MO.f.U), M: rev(MO.f.M) };
+    drawMono();
+  }
+  function drawMono() {
+    var ymax = 0; MO.d.y.forEach(function (v) { ymax = Math.max(ymax, v); });
+    ymax = Math.max(ymax, monoTrue(750)) * 1.05;
+    var ymin = Math.min(-0.2, Math.min.apply(null, MO.d.y) - 0.05);
+    moPlot.dom = [350, 750]; moPlot.ran = [ymin, ymax];
+    moPlot.resize(); moPlot.clear();
+    moPlot.frame({ xticks: 4, yticks: 5, xlabel: 'peak disc temperature (°C)', ylabel: 'pad wear (mm)',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(1); } });
+    function curve(f) { var pts = []; for (var t = 350; t <= 750; t += 1) pts.push([t, f(t)]); return pts; }
+    moPlot.clip(function () {
+      for (var i = 0; i < MO.d.x.length; i++) moPlot.dot(MO.d.x[i], MO.d.y[i], 3.4, C('--ink-3'));
+      moPlot.line(curve(monoTrue), C('--ink-3'), 1.6, [6, 5]);
+      moPlot.line(curve(MO.f.L), C('--violet'), 2);
+      moPlot.line(curve(MO.f.U), C('--warn'), 2.2);
+      moPlot.line(curve(MO.f.M), C('--good'), 2.6);
+    });
+    $('moRL').textContent = MO.r.L.toFixed(3); $('moRU').textContent = MO.r.U.toFixed(3);
+    $('moRM').textContent = MO.r.M.toFixed(3); $('moRT').textContent = MO.r.T.toFixed(3);
+    $('moVL').textContent = MO.v.L.c; $('moVU').textContent = MO.v.U.c; $('moVM').textContent = MO.v.M.c;
+    var dif = MO.r.U - MO.r.M, s = '<h4>What the fit did</h4>';
+    if (MO.v.U.c > 0) {
+      s += '<p class="small">The unconstrained model has <b>' + MO.v.U.c + ' places</b> where hotter means less wear, the largest a drop of <b>' +
+        MO.v.U.w.toFixed(2) + ' mm</b>. Each is the model fitting noise in ' + MO.n + ' sessions, and each is a claim about brakes that no engineer would sign.</p>';
+    } else {
+      s += '<p class="small">This time the unconstrained model happens to have no reversals. Press <b>New sample</b> a few times, or reduce the number of sessions — it rarely lasts.</p>';
+    }
+    s += '<p class="small mb0">The monotonic model has none, by construction, and its test error is ' +
+      (Math.abs(dif) < 0.004 ? '<b>essentially the same</b>' : dif > 0 ? '<b>' + dif.toFixed(3) + ' mm better</b>' : '<b>' + (-dif).toFixed(3) + ' mm worse</b>') +
+      '. The straight line never reverses either, and has the largest error (' + MO.r.L.toFixed(3) + ' mm), because the truth is curved: simple is not the same as correct.</p>';
+    $('moNote').innerHTML = s;
+  }
+  function initMono() {
+    moPlot = new AI.Plot($('moCv'), { pad: { l: 50, r: 14, t: 14, b: 42 } });
+    var go = debounce(moFit, 30);
+    AI.bindRange('moN', function (v) { return v; }, function (v) { MO.n = v; go(); });
+    AI.bindRange('moNoise', function (v) { return v.toFixed(2) + ' mm'; }, function (v) { MO.noise = v; go(); });
+    AI.on($('moSeed'), 'click', function () { MO.seed += 1; moFit(); });
+    AI.onRedraw(function () { if (MO.d) drawMono(); });
+    moFit();
+  }
+
+  /* ================================================== 17.3 permutation importance */
+  var PI = { depth: 3, R: 5, on: 'test', seed: 3 }, piPlot;
+  function piTrain() {
+    PI.model = new GBM(M.trX, M.trY, { trees: 200, depth: PI.depth, lr: 0.08, minLeaf: 4, seed: PI.seed });
+    piCompute();
+  }
+  function piCompute() {
+    var X = PI.on === 'test' ? M.teX : M.trX, y = PI.on === 'test' ? M.teY : M.trY;
+    PI.res = permImp(PI.model, X, y, [[0], [1], [2], [3], [4], [5]], PI.R, PI.seed * 13 + 1);
+    PI.trR = rmse(PI.model, M.trX, M.trY); PI.teR = rmse(PI.model, M.teX, M.teY);
+    PI.sdY = sd(M.teY);
+    drawPI();
+  }
+  function drawPI() {
+    var imp = PI.res.imp, order = [0, 1, 2, 3, 4, 5].sort(function (a, b) { return imp[b].mean - imp[a].mean; });
+    var hi = 0, lo = 0, gmax = 0;
+    imp.forEach(function (o) { hi = Math.max(hi, o.hi); lo = Math.min(lo, o.lo); });
+    PI.model.gain.forEach(function (gv) { gmax = Math.max(gmax, gv); });
+    hi = hi * 1.08 || 0.1; lo = Math.min(0, lo * 1.2);
+    var labels = order.map(function (f) { return FEATS[f].name; });
+    hFrame(piPlot, 6, lo, hi, labels, 'rise in RMSE when shuffled (mm)', function (v) { return v.toFixed(2); });
+    var bh = rowH(piPlot, 6), g = piPlot.ctx;
+    order.forEach(function (f, i) {
+      var y = rowY(piPlot, 6, i), o = imp[f];
+      hRect(piPlot, 0, o.mean, y - bh * 0.08, bh * 0.42, C('--accent'));
+      g.strokeStyle = C('--ink'); g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(piPlot.X(o.lo), y - bh * 0.08); g.lineTo(piPlot.X(o.hi), y - bh * 0.08); g.stroke();
+      g.beginPath(); g.moveTo(piPlot.X(o.lo), y - bh * 0.2); g.lineTo(piPlot.X(o.lo), y + bh * 0.04);
+      g.moveTo(piPlot.X(o.hi), y - bh * 0.2); g.lineTo(piPlot.X(o.hi), y + bh * 0.04); g.stroke();
+      var gs = gmax ? PI.model.gain[f] / gmax * (hi * 0.97) : 0;
+      hRect(piPlot, 0, gs, y + bh * 0.27, bh * 0.1, C('--ink-3'));
+      g.fillStyle = C('--ink-2'); g.font = '11px ui-monospace, monospace'; g.textAlign = 'left'; g.textBaseline = 'middle';
+      var tx = piPlot.X(Math.max(o.hi, 0)) + 6;
+      if (tx > piPlot.pad.l + piPlot.pw - 40) tx = piPlot.pad.l + piPlot.pw - 40;
+      g.fillText(o.mean.toFixed(3), tx, y - bh * 0.08);
+    });
+    $('piTr').textContent = PI.trR.toFixed(3); $('piTe').textContent = PI.teR.toFixed(3);
+    $('piR2').textContent = (1 - (PI.teR * PI.teR) / (PI.sdY * PI.sdY)).toFixed(2);
+    $('piBase').textContent = PI.sdY.toFixed(3);
+
+    /* largest disagreement between gain share and permutation share */
+    var ps = 0, gs2 = 0, worst = -1, wf = 0;
+    imp.forEach(function (o) { ps += Math.max(0, o.mean); });
+    PI.model.gain.forEach(function (gv) { gs2 += gv; });
+    for (var f = 0; f < 6; f++) {
+      var dshare = PI.model.gain[f] / gs2 - Math.max(0, imp[f].mean) / ps;
+      if (dshare > worst) { worst = dshare; wf = f; }
+    }
+    var top = order[0], s = '<h4>Reading this run</h4>';
+    s += '<p class="small">Top of the list: <b>' + FEATS[top].name + '</b> (' + imp[top].mean.toFixed(3) + ' mm), then <b>' +
+      FEATS[order[1]].name + '</b> and <b>' + FEATS[order[2]].name + '</b>. Duct opening (' + imp[2].mean.toFixed(3) +
+      ' mm) and ambient (' + imp[3].mean.toFixed(3) + ' mm) are near zero: they matter to wear only through disc temperature, which the model sees directly.</p>';
+    if (PI.on === 'train') {
+      s += '<p class="small">Measured on the <b>training</b> set, where train RMSE is ' + PI.trR.toFixed(3) + ' against ' + PI.teR.toFixed(3) +
+        ' on test. ' + (PI.depth >= 5 ? 'At this depth the model has memorised a lot, and these bars include the memorisation.' : 'Increase the depth to see the gap open.') + '</p>';
+    } else if (PI.depth === 1) {
+      s += '<p class="small">At depth 1 each tree uses a single feature, so the model is a sum of one-feature curves and cannot represent the compound × temperature interaction. Test RMSE is ' +
+        PI.teR.toFixed(3) + ' mm. The importances describe this weaker model, not the problem.</p>';
+    } else {
+      s += '<p class="small">Test RMSE ' + PI.teR.toFixed(3) + ' mm against ' + PI.sdY.toFixed(3) + ' mm for always predicting the average.</p>';
+    }
+    s += '<p class="small mb0">Largest gap between the two measures: <b>' + FEATS[wf].name + '</b> gets ' +
+      (PI.model.gain[wf] / gs2 * 100).toFixed(0) + '% of the split gain but ' + (Math.max(0, imp[wf].mean) / ps * 100).toFixed(0) +
+      '% of the permutation importance.</p>';
+    $('piNote').innerHTML = s;
+  }
+  function initPI() {
+    piPlot = new AI.Plot($('piCv'), { pad: { l: 112, r: 16, t: 10, b: 40 } });
+    var go = debounce(piTrain, 40), goC = debounce(piCompute, 30), ready = false;
+    AI.bindRange('piDep', function (v) { return v; }, function (v) { PI.depth = v; if (ready) go(); });
+    AI.bindRange('piRep', function (v) { return v; }, function (v) { PI.R = v; if (ready) goC(); });
+    AI.segmented($('piEvalSeg'), function (v) { PI.on = v; piCompute(); });
+    AI.on($('piSeed'), 'click', function () { PI.seed += 1; piTrain(); });
+    AI.onRedraw(function () { if (PI.res) drawPI(); });
+    ready = true; piTrain();
+  }
+
+  /* ================================================== 17.4 PDP and ICE */
+  var PD = { f: 0, colour: false, centre: false }, pdPlot;
+  function pdCompute() {
+    var f = PD.f, vals = col(M.trX, f), grid = [], k;
+    if (f === 4) grid = [0, 1];
+    else {
+      var a = quantile(vals, 0.01), b = quantile(vals, 0.99);
+      for (k = 0; k < 40; k++) grid.push(a + (b - a) * k / 39);
+    }
+    var rows = M.teX.slice(0, 60), ice = rows.map(function (x) {
+      var z = x.slice();
+      return grid.map(function (gv) { z[f] = gv; return M.model.predict(z); });
+    });
+    var pd = grid.map(function (gv, j) { var s = 0; ice.forEach(function (c) { s += c[j]; }); return s / ice.length; });
+    PD.grid = grid; PD.ice = ice; PD.pd = pd; PD.rows = rows; PD.vals = vals;
+    drawPD();
+  }
+  function drawPD() {
+    var f = PD.f, grid = PD.grid, last = grid.length - 1;
+    var ice = PD.centre ? PD.ice.map(function (c) { return c.map(function (v) { return v - c[0]; }); }) : PD.ice;
+    var pd = PD.centre ? PD.pd.map(function (v) { return v - PD.pd[0]; }) : PD.pd;
+    var lo = Infinity, hi = -Infinity;
+    ice.forEach(function (c) { c.forEach(function (v) { lo = Math.min(lo, v); hi = Math.max(hi, v); }); });
+    var padv = (hi - lo) * 0.06 || 0.1;
+    pdPlot.dom = f === 4 ? [-0.15, 1.15] : [grid[0], grid[last]];
+    pdPlot.ran = [Math.min(0, lo - padv), hi + padv];
+    pdPlot.resize(); pdPlot.clear();
+    pdPlot.frame({ xticks: f === 4 ? 1 : 4, yticks: 5, xlabel: FEATS[f].name.toLowerCase(),
+      ylabel: PD.centre ? 'change in predicted wear (mm)' : 'predicted wear (mm)',
+      xfmt: f === 4 ? function () { return ''; } : function (v) { return v.toFixed(0); },
+      yfmt: function (v) { return v.toFixed(1); } });
+    var g = pdPlot.ctx;
+    if (f === 4) {
+      g.fillStyle = C('--ink-3'); g.font = '11px ui-monospace, monospace'; g.textAlign = 'center'; g.textBaseline = 'top';
+      g.fillText('road', pdPlot.X(0), pdPlot.pad.t + pdPlot.ph + 6); g.fillText('track', pdPlot.X(1), pdPlot.pad.t + pdPlot.ph + 6);
+    }
+    pdPlot.clip(function (ctx) {
+      ctx.globalAlpha = PD.colour ? 0.5 : 0.32;
+      ice.forEach(function (c, i) {
+        var colr = PD.colour ? (PD.rows[i][4] < 0.5 ? C('--accent') : C('--warn')) : C('--ink-3');
+        pdPlot.line(c.map(function (v, j) { return [grid[j], v]; }), colr, 1.2);
+      });
+      ctx.globalAlpha = 1;
+      pdPlot.line(pd.map(function (v, j) { return [grid[j], v]; }), C('--ink'), 3.6);
+      if (f === 4) { pdPlot.dot(0, pd[0], 5, C('--ink')); pdPlot.dot(1, pd[1], 5, C('--ink')); }
+      /* rug */
+      ctx.strokeStyle = C('--ink-3'); ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+      var yb = pdPlot.pad.t + pdPlot.ph;
+      for (var k = 0; k < PD.vals.length; k += 3) {
+        var px = pdPlot.X(PD.vals[k] + (f === 4 ? (k % 7 - 3) * 0.012 : 0));
+        ctx.beginPath(); ctx.moveTo(px, yb); ctx.lineTo(px, yb - 7); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    });
+    $('pdLegend').innerHTML = PD.colour
+      ? '<span><i style="background:var(--accent)"></i>ICE, road pads</span><span><i style="background:var(--warn)"></i>ICE, track pads</span><span><i style="background:var(--ink);height:4px"></i>partial dependence (the average)</span>'
+      : '<span><i style="background:var(--ink-3)"></i>ICE, one per session</span><span><i style="background:var(--ink);height:4px"></i>partial dependence (the average)</span>';
+
+    var rng0 = Math.max.apply(null, PD.pd) - Math.min.apply(null, PD.pd);
+    var ends = PD.ice.map(function (c) { return c[last] - c[0]; });
+    var pdDir = PD.pd[last] - PD.pd[0], against = 0;
+    ends.forEach(function (e) { if (Math.abs(pdDir) > 0.05 && Math.abs(e) > 0.02 && (e > 0) !== (pdDir > 0)) against++; });
+    $('pdRange').textContent = rng0.toFixed(2) + ' mm';
+    $('pdSpread').textContent = sd(ends).toFixed(2) + ' mm';
+    $('pdDisagree').textContent = against + ' / ' + ends.length;
+
+    /* road vs track average change, for the note */
+    var rd = [], tk = [];
+    PD.rows.forEach(function (x, i) { (x[4] < 0.5 ? rd : tk).push(ends[i]); });
+    var NOTES = [
+      'Averaged, wear rises steadily with disc temperature by ' + rng0.toFixed(2) + ' mm. Tick <b>colour by compound</b>: road-pad sessions rise by ' +
+        smm(mean(rd)) + ' mm on average across the sweep, track-pad sessions by ' + smm(mean(tk)) +
+        ' mm, and the track curves turn up again at the cold end. The thick line is the average of two behaviours that neither compound actually has.',
+      'Pressure has a direct effect (the 0.5 + pressure/60 term) but, holding disc temperature fixed, a modest one. In the real world more pressure also means a hotter disc; the sweep deliberately ignores that.',
+      'Nearly flat: the sweep changes only the duct and holds disc temperature where it was, so the model sees no reason for wear to change. That is a correct description of the model, and a misleading one about brakes — section 17.7.',
+      'Flat, for the same reason as the duct: ambient temperature only matters through the disc temperature, which is held fixed in the sweep.',
+      'Two points per curve. Switching to track pads changes wear by ' + smm(PD.pd[1] - PD.pd[0]) + ' mm on average, but <b>' + against + ' of the ' + ends.length +
+        '</b> sessions move the other way: track pads wear less when hot and more when cold, so for cool sessions the switch makes things worse. The average says little about any individual session.',
+      'Every curve rises, and the fan shape shows the multiplicative structure — an extra lap costs more on a hot, high-pressure session. Tick <b>centre</b> to see the fan clearly. ICE spread of ' + sd(ends).toFixed(2) + ' mm at the right edge is interaction the average hides.'
+    ];
+    $('pdNote').innerHTML = '<h4>' + FEATS[f].name + '</h4><p class="small">' + NOTES[f] + '</p>' +
+      '<p class="small mb0 muted">Commentary is authored; every number and curve is computed from the trained model.</p>';
+  }
+  function initPD() {
+    pdPlot = new AI.Plot($('pdCv'), { pad: { l: 50, r: 14, t: 14, b: 42 } });
+    AI.segmented($('pdFeatSeg'), function (v) { PD.f = parseInt(v, 10); pdCompute(); });
+    AI.on($('pdColour'), 'change', function () { PD.colour = $('pdColour').checked; drawPD(); });
+    AI.on($('pdCentre'), 'change', function () { PD.centre = $('pdCentre').checked; drawPD(); });
+    AI.onRedraw(function () { if (PD.ice) drawPD(); });
+    pdCompute();
+  }
+
+  /* ================================================== 17.5 exact Shapley values */
+  var SH = { row: 0, bg: 'all', bgN: 100, r: rng(77) }, shPlot, shRowR;
+  function shBackground() {
+    var pool = M.trX.filter(function (x) {
+      return SH.bg === 'all' ? true : SH.bg === 'road' ? x[4] < 0.5 : x[0] < 450;
+    });
+    var pm = permutation(pool.length, rng(4242));
+    return pm.slice(0, Math.min(SH.bgN, pool.length)).map(function (i) { return pool[i]; });
+  }
+  function shCompute() {
+    var x = M.teX[SH.row], bg = shBackground(), t0 = (window.performance ? performance.now() : Date.now());
+    var res = shapExact(M.model, x, bg), t1 = (window.performance ? performance.now() : Date.now());
+    SH.res = res; SH.x = x; SH.fx = M.model.predict(x); SH.ms = t1 - t0; SH.nbg = bg.length;
+    drawSH();
+  }
+  function drawSH() {
+    var res = SH.res, x = SH.x, phi = res.phi;
+    var order = [0, 1, 2, 3, 4, 5].sort(function (a, b) { return Math.abs(phi[b]) - Math.abs(phi[a]); });
+    var labels = ['average (baseline)'].concat(order.map(function (f) { return FEATS[f].name + ' = ' + FEATS[f].fmt(x[f]); })).concat(['this prediction']);
+    var cum = res.base, mn = Math.min(0, res.base), mx = res.base, steps = [];
+    order.forEach(function (f) { var a = cum; cum += phi[f]; steps.push([a, cum, f]); mn = Math.min(mn, cum); mx = Math.max(mx, cum); });
+    mx = Math.max(mx, SH.fx);
+    var span = mx - mn || 0.1;
+    var narrow = shPlot.c.clientWidth < 520;
+    shPlot.pad.l = narrow ? 150 : 178;
+    hFrame(shPlot, 8, mn, mx + span * 0.16, labels, 'predicted wear (mm)', function (v) { return v.toFixed(2); },
+      narrow ? '600 10.5px system-ui, sans-serif' : '600 12px system-ui, sans-serif');
+    var g = shPlot.ctx, bh = rowH(shPlot, 8) * 0.56;
+    hRect(shPlot, 0, res.base, rowY(shPlot, 8, 0), bh, C('--ink-3'));
+    steps.forEach(function (s, i) {
+      var y = rowY(shPlot, 8, i + 1);
+      hRect(shPlot, s[0], s[1], y, bh, s[1] >= s[0] ? C('--bad') : C('--accent'));
+      g.strokeStyle = C('--ink-3'); g.lineWidth = 1; g.setLineDash([3, 3]);
+      g.beginPath(); g.moveTo(shPlot.X(s[0]), y - rowH(shPlot, 8) + bh / 2); g.lineTo(shPlot.X(s[0]), y - bh / 2); g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = C('--ink-2'); g.font = '11px ui-monospace, monospace'; g.textBaseline = 'middle';
+      g.textAlign = 'left'; g.fillText(smm(phi[s[2]], 3), shPlot.X(Math.max(s[0], s[1])) + 5, y);
+    });
+    var yl = rowY(shPlot, 8, 7);
+    hRect(shPlot, 0, SH.fx, yl, bh, C('--ink-3'));
+    g.strokeStyle = C('--ink-3'); g.setLineDash([3, 3]);
+    g.beginPath(); g.moveTo(shPlot.X(cum), yl - rowH(shPlot, 8) + bh / 2); g.lineTo(shPlot.X(cum), yl - bh / 2); g.stroke(); g.setLineDash([]);
+    g.fillStyle = C('--ink'); g.font = '700 11px ui-monospace, monospace'; g.textAlign = 'left';
+    g.fillText(SH.fx.toFixed(3), shPlot.X(SH.fx) + 5, yl);
+    g.fillText(res.base.toFixed(3), shPlot.X(res.base) + 5, rowY(shPlot, 8, 0));
+
+    var sum = phi.reduce(function (a, b) { return a + b; }, 0), err = sum - (SH.fx - res.base);
+    $('shFx').textContent = SH.fx.toFixed(3); $('shBase').textContent = res.base.toFixed(3);
+    $('shSum').textContent = smm(sum, 3);
+    $('shErr').textContent = Math.abs(err) < 1e-300 ? '0' : err.toExponential(1);
+    $('shEvals').textContent = AI.F.n(res.evals);
+    $('shTime').textContent = SH.ms.toFixed(0) + ' ms';
+    var bgName = { all: 'all sessions', road: 'road-pad sessions', cool: 'sessions with disc below 450 °C' }[SH.bg];
+    $('shBgName').textContent = SH.nbg + ' rows';
+    $('shRowDesc').innerHTML = FEATS.map(function (F, i) { return F.name + ' <b>' + F.fmt(x[i]) + '</b>'; }).join(' · ') +
+      '<br>measured wear <b>' + M.teY[SH.row].toFixed(3) + ' mm</b> · predicted <b>' + SH.fx.toFixed(3) + ' mm</b>';
+    var top = order[0];
+    $('shNote').innerHTML = '<p class="small mb0">Compared with <b>' + bgName + '</b> (' + SH.nbg + ' background rows, average prediction ' +
+      res.base.toFixed(3) + ' mm), this session is predicted ' + smm(SH.fx - res.base, 3) + ' mm. The largest single contribution is <b>' +
+      FEATS[top].name + ' = ' + FEATS[top].fmt(x[top]) + '</b> at ' + smm(phi[top], 3) + ' mm. The six contributions sum to ' + smm(sum, 3) +
+      ' mm, which matches the gap ' + (err === 0 ? 'exactly' : 'to within ' + Math.abs(err).toExponential(0) + ' mm — floating-point rounding, nothing more') + '. That additivity is a mathematical property of Shapley values, checked here rather than assumed.</p>';
+  }
+  function shPick(i) { shRowR.set(i); }
+  function initSH() {
+    shPlot = new AI.Plot($('shCv'), { pad: { l: 178, r: 16, t: 10, b: 40 } });
+    var go = debounce(shCompute, 30), ready = false;
+    shRowR = AI.bindRange('shRow', function (v) { return '#' + (v + 1) + ' of 300'; }, function (v) { SH.row = v; if (ready) go(); });
+    AI.bindRange('shBgN', function (v) { return v; }, function (v) { SH.bgN = v; if (ready) go(); });
+    AI.segmented($('shBgSeg'), function (v) { SH.bg = v; shCompute(); });
+    function argBy(cmp) { var b = 0; for (var i = 1; i < M.pred.length; i++) if (cmp(M.pred[i], M.pred[b])) b = i; return b; }
+    AI.on($('shHigh'), 'click', function () { shPick(argBy(function (a, b) { return a > b; })); });
+    AI.on($('shLow'), 'click', function () { shPick(argBy(function (a, b) { return a < b; })); });
+    AI.on($('shTyp'), 'click', function () {
+      var med = quantile(M.pred, 0.5), b = 0;
+      for (var i = 1; i < M.pred.length; i++) if (Math.abs(M.pred[i] - med) < Math.abs(M.pred[b] - med)) b = i;
+      shPick(b);
+    });
+    AI.on($('shRand'), 'click', function () { shPick(Math.floor(SH.r() * M.teX.length)); });
+    AI.onRedraw(function () { if (SH.res) drawSH(); });
+    ready = true;
+    SH.row = argBy(function (a, b) { return a > b; });
+    shRowR.set(SH.row);
+  }
+
+  /* ================================================== 17.6 correlated twins */
+  var TR = { rho: 0.95, batch: 0 }, trPlot, trScat;
+  function trCompute() {
+    var d = genTrap(800, TR.rho, 5), teX = d.X.slice(500), teY = d.y.slice(500);
+    var runs = [];
+    for (var s = 1; s <= 10; s++) {
+      var rr = rng(s * 31337 + TR.batch * 977), bx = [], by = [];
+      for (var i = 0; i < 500; i++) { var j = Math.floor(rr() * 500); bx.push(d.X[j]); by.push(d.y[j]); }
+      var m = new GBM(bx, by, { trees: 60, depth: 3, lr: 0.2, minLeaf: 8, subsample: 0.5, colsample: 0.5, seed: s * 7919 + TR.batch * 31 });
+      var pi = permImp(m, teX, teY, [[0], [1], [0, 1], [3]], 3, s + TR.batch * 100);
+      runs.push({ D: pi.imp[0].mean, P: pi.imp[1].mean, G: pi.imp[2].mean, L: pi.imp[3].mean, rmse: pi.base });
+    }
+    /* scatter: one shuffle of disc temp, and the 99% envelope of the real pairs */
+    var D = col(teX, 0), P = col(teX, 1), pm = permutation(teX.length, rng(99 + TR.batch));
+    var mD = mean(D), mP = mean(P), a = 0, b = 0, c = 0, n = D.length, k;
+    for (k = 0; k < n; k++) { a += (D[k] - mD) * (D[k] - mD); b += (D[k] - mD) * (P[k] - mP); c += (P[k] - mP) * (P[k] - mP); }
+    a /= n; b /= n; c /= n;
+    var det = a * c - b * b;
+    function d2(x, y) { var dx = x - mD, dy = y - mP; return (c * dx * dx - 2 * b * dx * dy + a * dy * dy) / det; }
+    var outR = 0, outS = 0, sh = [];
+    for (k = 0; k < n; k++) {
+      if (d2(D[k], P[k]) > 9.21) outR++;
+      var ds = D[pm[k]]; sh.push([ds, P[k]]);
+      if (d2(ds, P[k]) > 9.21) outS++;
+    }
+    TR.runs = runs; TR.D = D; TR.P = P; TR.sh = sh;
+    TR.env = { mD: mD, mP: mP, a: a, b: b, c: c };
+    TR.outR = outR / n; TR.outS = outS / n; TR.corr = corr(D, P);
+    drawTR();
+  }
+  function drawTR() {
+    var runs = TR.runs, mx = 0;
+    runs.forEach(function (r) { mx = Math.max(mx, r.D, r.P, r.G, r.L); });
+    mx *= 1.1;
+    trPlot.dom = [0.5, 10.5]; trPlot.ran = [0, mx];
+    trPlot.resize(); trPlot.clear();
+    trPlot.frame({ xticks: 10, yticks: 4, xlabel: 'retrain', ylabel: 'importance (mm)',
+      xfmt: function (v) { return ''; }, yfmt: function (v) { return v.toFixed(2); } });
+    var g = trPlot.ctx, w = trPlot.pw / 10, y0 = trPlot.Y(0);
+    g.font = '11px ui-monospace, monospace'; g.fillStyle = C('--ink-3'); g.textAlign = 'center'; g.textBaseline = 'top';
+    runs.forEach(function (r, i) {
+      var cx = trPlot.X(i + 1), bw = Math.max(3, w * 0.24);
+      g.fillStyle = C('--accent'); g.fillRect(cx - bw * 1.5, trPlot.Y(r.D), bw, y0 - trPlot.Y(r.D));
+      g.fillStyle = C('--warn'); g.fillRect(cx - bw * 0.5, trPlot.Y(r.P), bw, y0 - trPlot.Y(r.P));
+      g.fillStyle = C('--good'); g.fillRect(cx + bw * 0.5, trPlot.Y(r.G), bw, y0 - trPlot.Y(r.G));
+      g.fillStyle = C('--ink-3'); g.fillText(String(i + 1), cx, trPlot.pad.t + trPlot.ph + 6);
+    });
+    var Lm = mean(runs.map(function (r) { return r.L; }));
+    trPlot.line([[0.5, Lm], [10.5, Lm]], C('--ink-3'), 1.5, [6, 5]);
+    g.fillStyle = C('--ink-3'); g.textAlign = 'right'; g.textBaseline = 'bottom'; g.font = '600 10px system-ui, sans-serif';
+    g.fillText('laps', trPlot.pad.l + trPlot.pw - 4, trPlot.Y(Lm) - 2);
+
+    /* scatter */
+    var D = TR.D, P = TR.P, e = TR.env;
+    var dlo = Math.min.apply(null, D), dhi = Math.max.apply(null, D), plo = Math.min.apply(null, P), phi = Math.max.apply(null, P);
+    trScat.dom = [dlo - 10, dhi + 10]; trScat.ran = [plo - 10, phi + 10];
+    trScat.resize(); trScat.clear();
+    trScat.frame({ xticks: 4, yticks: 4, xlabel: 'disc temperature (°C)', ylabel: 'pad temperature (°C)',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(0); } });
+    trScat.clip(function (ctx) {
+      var k;
+      for (k = 0; k < TR.sh.length; k++) trScat.dot(TR.sh[k][0], TR.sh[k][1], 2.6, C('--bad'));
+      ctx.globalAlpha = 0.85;
+      for (k = 0; k < D.length; k++) trScat.dot(D[k], P[k], 2.6, C('--ink-3'));
+      ctx.globalAlpha = 1;
+      var l11 = Math.sqrt(e.a), l21 = e.b / l11, l22 = Math.sqrt(Math.max(1e-9, e.c - l21 * l21)), rr = Math.sqrt(9.21), pts = [];
+      for (k = 0; k <= 80; k++) {
+        var t = k / 80 * 2 * Math.PI, u = rr * Math.cos(t), v = rr * Math.sin(t);
+        pts.push([e.mD + l11 * u, e.mP + l21 * u + l22 * v]);
+      }
+      trScat.line(pts, C('--ink'), 1.6);
+    });
+
+    var shares = runs.map(function (r) { var s = Math.max(0, r.D) + Math.max(0, r.P); return s ? Math.max(0, r.D) / s : 0.5; });
+    var G = runs.map(function (r) { return r.G; }), ind = runs.map(function (r) { return Math.max(r.D, r.P); });
+    var smin = Math.min.apply(null, shares), smax = Math.max.apply(null, shares);
+    $('trCorr').textContent = TR.corr.toFixed(3);
+    $('trShare').textContent = (smin * 100).toFixed(0) + '–' + (smax * 100).toFixed(0) + '%';
+    $('trGroup').textContent = mean(G).toFixed(2) + ' ± ' + sd(G).toFixed(2);
+    $('trOut').textContent = (TR.outS * 100).toFixed(0) + '%';
+    var below = 0; runs.forEach(function (r) { if (r.D < r.L && r.P < r.L) below++; });
+    var s = '<p class="small">Grouped, the heat measured by the two sensors is worth <b>' + mean(G).toFixed(2) + ' mm</b> — ' +
+      (mean(G) > Lm ? 'more than' : 'comparable to') + ' laps (' + Lm.toFixed(2) + ' mm). Individually, the larger twin averages only <b>' +
+      mean(ind).toFixed(2) + ' mm</b>, and in <b>' + below + ' of 10</b> retrains both twins rank below laps. Disc temperature’s share of the pair ranges from <b>' +
+      (smin * 100).toFixed(0) + '% to ' + (smax * 100).toFixed(0) + '%</b> across retrains of the same data.</p>';
+    if (TR.corr < 0.6) s += '<p class="small">At this correlation the two are not really twins: each sensor carries information the other lacks, so neither can fully cover for the other.</p>';
+    s += '<p class="small mb0">Shuffling disc temperature puts <b>' + (TR.outS * 100).toFixed(0) + '%</b> of the test rows outside the region where 99% of real sessions lie (' +
+      (TR.outR * 100).toFixed(1) + '% of the real rows fall outside it). ' +
+      (TR.outS > 0.25 ? 'The model is being scored on sessions that cannot happen.' : 'At this correlation the shuffled rows still look broadly like real ones; raise the slider.') + '</p>';
+    $('trNote').innerHTML = s;
+  }
+  function initTR() {
+    trPlot = new AI.Plot($('trCv'), { pad: { l: 48, r: 12, t: 12, b: 40 } });
+    trScat = new AI.Plot($('trSc'), { pad: { l: 50, r: 12, t: 12, b: 40 } });
+    var go = debounce(trCompute, 90), ready = false;
+    AI.bindRange('trRho', function (v) { return v.toFixed(3); }, function (v) { TR.rho = v; if (ready) go(); });
+    AI.on($('trSeeds'), 'click', function () { TR.batch += 1; trCompute(); });
+    AI.onRedraw(function () { if (TR.runs) drawTR(); });
+    ready = true; trCompute();
+  }
+
+  /* ================================================== 17.7 explanation vs cause */
+  var CA = { k: 1.5, conf: false }, caPlot;
+  function caCompute() {
+    var d = genBrake(900, 23, CA.k, CA.conf);
+    var trX = d.X.slice(0, 600), trY = d.y.slice(0, 600), teX = d.X.slice(600), ex = d.ex.slice(600);
+    var A = new GBM(trX, trY, { trees: 200, depth: 3, lr: 0.08, minLeaf: 8, seed: 3 });
+    var cb = [1, 2, 3, 4, 5], B = new GBM(proj(trX, cb), trY, { trees: 200, depth: 3, lr: 0.08, minLeaf: 8, seed: 3 });
+    var grid = []; for (var q = 0; q <= 20; q++) grid.push(q * 5);
+    var tB = proj(teX, cb);
+    CA.grid = grid;
+    CA.A = grid.map(function (dv) { var s = 0; teX.forEach(function (x) { var z = x.slice(); z[2] = dv; s += A.predict(z); }); return s / teX.length; });
+    CA.B = grid.map(function (dv) { var s = 0; tB.forEach(function (x) { var z = x.slice(); z[1] = dv; s += B.predict(z); }); return s / tB.length; });
+    CA.T = grid.map(function (dv) {
+      var s = 0;
+      ex.forEach(function (e) { s += wearMean(discTemp(e.pr, dv, e.amb, e.eT, CA.k), e.pr, e.comp, e.laps) * NOISE_MEAN; });
+      return s / ex.length;
+    });
+    CA.ductT = corr(col(teX, 2), col(teX, 0));
+    drawCA();
+  }
+  function drawCA() {
+    var all = CA.A.concat(CA.B, CA.T), lo = Math.min.apply(null, all), hi = Math.max.apply(null, all), p = (hi - lo) * 0.12 || 0.1;
+    caPlot.dom = [0, 100]; caPlot.ran = [Math.max(0, lo - p), hi + p];
+    caPlot.resize(); caPlot.clear();
+    caPlot.frame({ xticks: 5, yticks: 5, xlabel: 'duct opening (%)', ylabel: 'average wear (mm)',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(2); } });
+    function pts(a) { return a.map(function (v, i) { return [CA.grid[i], v]; }); }
+    caPlot.clip(function () {
+      caPlot.line(pts(CA.T), C('--good'), 2.6, [7, 5]);
+      caPlot.line(pts(CA.B), C('--warn'), 2.6);
+      caPlot.line(pts(CA.A), C('--accent'), 2.8);
+    });
+    var dA = CA.A[20] - CA.A[0], dB = CA.B[20] - CA.B[0], dT = CA.T[20] - CA.T[0];
+    $('caA').textContent = smm(dA); $('caB').textContent = smm(dB); $('caT').textContent = smm(dT);
+    var s = '<h4>What happened</h4>';
+    s += '<p class="small">Model A, which can see disc temperature, says opening the duct changes wear by <b>' + smm(dA) +
+      ' mm</b>. Correct as a statement about the model; ' + (Math.abs(dT) > 0.05 ? 'the real effect of opening the duct is <b>' + smm(dT) + ' mm</b>.' : 'and here the real effect is negligible too.') + '</p>';
+    if (!CA.conf) {
+      s += '<p class="small mb0">Model B cannot see disc temperature, so the duct\'s effect has to show up in the duct itself: it says <b>' + smm(dB) +
+        ' mm</b>, close to the truth. That only works because the duct was set <b>at random</b>, which breaks any link with circuit severity. Now switch to “set by engineers”.</p>';
+    } else {
+      s += '<p class="small mb0">The engineers open the duct at severe circuits, which run hotter (correlation of duct with disc temperature in this data: ' +
+        CA.ductT.toFixed(2) + '). Model B now attributes some of the severity to the duct and reports <b>' + smm(dB) + ' mm</b>' +
+        (Math.abs(dT) < 0.05 && Math.abs(dB) > 0.1 ? ' — <b>an effect that does not exist</b>: open ducts look harmful only because they go with severe circuits.'
+          : dB > 0.02 && dT < -0.02 ? ' — <b>the wrong sign</b>: open ducts look as if they increase wear.'
+          : Math.abs(dB) < 0.15 * Math.abs(dT) ? ', <b>essentially none</b> of the real effect.'
+          : Math.abs(dB) < Math.abs(dT) / 2 ? ', well under half the real effect.' : '.') +
+        ' Every curve on the chart is a correct computation. Only the generator knows the green one.</p>';
+    }
+    $('caNote').innerHTML = s;
+  }
+  function initCA() {
+    caPlot = new AI.Plot($('caCv'), { pad: { l: 52, r: 14, t: 14, b: 42 } });
+    var go = debounce(caCompute, 80), ready = false;
+    AI.bindRange('caK', function (v) { return v.toFixed(1) + ' °C per %'; }, function (v) { CA.k = v; if (ready) go(); });
+    AI.segmented($('caSeg'), function (v) { CA.conf = v === 'conf'; caCompute(); });
+    AI.onRedraw(function () { if (CA.A) drawCA(); });
+    ready = true; caCompute();
+  }
+
+  window.PAGE_INIT = function () {
+    buildMain();
+    initMono();
+    initPI();
+    initPD();
+    initSH();
+    initTR();
+    initCA();
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1813 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>18 · Adapting models — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 300px; }
+  .cv-sm { width: 100%; height: 230px; }
+
+  .asof {
+    display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    background: var(--warn-soft); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+    padding: 2px 9px; border-radius: 20px;
+  }
+
+  /* decision-boundary maps */
+  .maps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .maps.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .maps figure { margin: 0; }
+  .maps canvas { width: 100%; aspect-ratio: 1 / 1; height: auto; border: 1px solid var(--line); }
+  .maps figcaption {
+    display: flex; justify-content: space-between; gap: 8px; align-items: baseline;
+    font-size: .78rem; font-weight: 650; color: var(--ink-2); margin-bottom: 4px;
+  }
+  .maps figcaption .mono { color: var(--accent); font-weight: 700; }
+  @media (max-width: 560px) {
+    .maps, .maps.two { grid-template-columns: 1fr; max-width: 340px; margin: 0 auto; }
+  }
+  .sqmap { width: 100%; aspect-ratio: 1 / 1; height: auto; border: 1px solid var(--line); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .78rem; color: var(--ink-3); margin-top: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; }
+  .legend i.ln { height: 0; border-top: 2px dashed var(--ink); border-radius: 0; }
+  .legend i.ln2 { height: 0; border-top: 2px dotted var(--ink-3); border-radius: 0; }
+
+  .status { font-family: var(--mono); font-size: .8rem; color: var(--ink-3); min-height: 1.4em; }
+
+  /* matrix heatmaps */
+  .heats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; }
+  .heats figure { margin: 0; }
+  .heats canvas { width: 100%; height: auto; aspect-ratio: 32 / 48; border: 1px solid var(--line); border-radius: 6px; }
+  .heats figcaption { font-size: .74rem; font-weight: 650; color: var(--ink-2); margin-bottom: 4px; line-height: 1.3; }
+
+  /* ladder */
+  .ladder td:first-child { white-space: nowrap; }
+  .rung { display: inline-block; font-family: var(--mono); font-size: .74rem; font-weight: 700; color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 5px; padding: 0 6px; margin-right: 6px; }
+  .kb { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+  .kb.k { background: var(--accent-soft); color: var(--accent); }
+  .kb.b { background: var(--violet-soft); color: var(--violet); }
+
+  /* decision table */
+  .dctable table { min-width: 960px; }
+  .dctable td { vertical-align: top; font-size: .84rem; }
+  .dctable th:first-child, .dctable td:first-child { width: 150px; font-weight: 650; color: var(--ink-2); }
+  .dctable th.best { background: var(--good-soft); color: var(--good); }
+  .dctable td.best { background: color-mix(in srgb, var(--good-soft) 55%, transparent); }
+  .dctable .pill { white-space: nowrap; }
+  .pill.mid { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+  .dcq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+  @media (max-width: 900px) { .dcq { grid-template-columns: 1fr; } }
+  .dcq .segmented { display: flex; }
+  .dcq .segmented button { flex: 1 1 auto; }
+</style>
+</head>
+<body data-page="p18">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 18 · Part IV — Shipping it</span>
+  <h1>Adapting models: fine-tuning, LoRA, distillation</h1>
+  <p class="lead">Module 4 asked whether to prompt, retrieve, fine-tune or train, and showed retrieval
+  working. This module finishes the answer: what each option actually changes inside the model, what it
+  costs, what it breaks, and how to choose. Four small networks train in your browser while you read.</p>
+  <p><span class="asof">Cost figures indicative, September 2026 — verify before each delivery</span></p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">The one-sentence version</span>
+  <p class="mb0">Prompting and retrieval change <strong>what the model is shown</strong>; fine-tuning,
+  LoRA and distillation change <strong>the weights</strong>. Put knowledge in the input, put behaviour in
+  the weights — and change the weights only when you have an evaluation set that can prove it helped.</p>
+</div>
+
+<!-- ============================================= 18.1 -->
+<section class="chapter" id="ladder">
+  <h2>18.1 · The adaptation ladder</h2>
+  <p>There are five ways to make a general model do your job. Each rung costs roughly ten times more than
+  the one below it in money, time or data, and each rung changes something different. The mistake that
+  wastes the most money in corporate AI is climbing a rung that changes the wrong thing.</p>
+
+  <div class="tablewrap ladder">
+    <table>
+      <thead><tr><th>Rung</th><th>What actually changes</th><th>Good for</th><th>Data you need</th><th>When the base model is replaced</th></tr></thead>
+      <tbody>
+        <tr><td><span class="rung">1</span><b>Prompting</b></td><td>Only the input text. The weights are untouched.</td><td><span class="kb b">behaviour</span> within limits; framing, format, tone</td><td>A handful of examples, plus an evaluation set</td><td>Re-run the evaluation; adjust the wording</td></tr>
+        <tr><td><span class="rung">2</span><b>RAG</b></td><td>The input, assembled for each request from your documents</td><td><span class="kb k">knowledge</span> — current, citable, permission-aware</td><td>Your documents, cleaned; 100–200 evaluation questions</td><td>Index and pipeline carry over; re-test</td></tr>
+        <tr><td><span class="rung">3</span><b>Fine-tuning</b> <span class="muted small">(full or LoRA)</span></td><td>Some or all weights, nudged by hundreds to thousands of examples</td><td><span class="kb b">behaviour</span> — format discipline, style, a narrow repeated task</td><td>500 to 5,000 consistent input → output examples</td><td>Start again: an adapter belongs to one exact base model</td></tr>
+        <tr><td><span class="rung">4</span><b>Continued pre-training</b></td><td>All weights, exposed to billions of tokens of domain text</td><td>Fluency in a domain or language the base handles badly</td><td>1–50 billion tokens, then instruction tuning again</td><td>Start again, at much higher cost</td></tr>
+        <tr><td><span class="rung">5</span><b>Training from scratch</b></td><td>Everything, including the vocabulary</td><td>Almost nothing, outside a frontier lab or a very unusual data type</td><td>Trillions of tokens</td><td>Not forced — but you fall a generation behind every year</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted mt1">Not a rung: <strong>distillation</strong> (18.5) does not add capability. It copies
+  a large model's behaviour into a smaller, cheaper one. It answers a different question — “how do we
+  afford this at volume?” — and is how most of the small, capable models you can buy were made.</p>
+
+  <div class="grid g2 mt2">
+    <div class="card">
+      <h4 style="color:var(--accent)">Knowledge belongs outside the weights</h4>
+      <h3>Facts, documents, anything that changes</h3>
+      <p class="small mb0">Part numbers, torque values, last month's decision. In the input they can be
+      cited, updated in seconds, restricted per user and deleted. In the weights they are recalled
+      unreliably, cannot be traced to a source, go stale at the next revision and cannot be removed
+      without retraining. Module 4.8 showed the input route working.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--violet)">Behaviour belongs inside them</h4>
+      <h3>How to answer, not what is true</h3>
+      <p class="small mb0">Always emit valid JSON in your schema. Classify a defect report into one of 40
+      codes the way your quality team does. Write in the register of your test reports. These are hard to
+      describe in a prompt and easy to show with examples — which is exactly what fine-tuning consumes.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 6 minutes. Open by recalling the 4.8 table: “last time we stopped at the question. Today
+      we answer it, and we train the networks to prove it.”</li>
+      <li>The knowledge/behaviour split is the one idea to land. Everything else in the module is a
+      consequence of it.</li>
+      <li>Expected question: “a vendor says their fine-tuning service will teach the model our
+      documentation.” Answer: it will teach it to <em>sound</em> like your documentation. Ask them to show
+      the recall rate on held-out factual questions, with citations, and compare it with RAG on the same
+      questions.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 18.2 -->
+<section class="chapter" id="transfer">
+  <h2>18.2 · Transfer learning: why fine-tuning works at all</h2>
+  <p>A network trained on one job has spent most of its effort learning <em>features</em> — which inputs
+  matter and which combinations of them are useful. If a second job shares those features, you do not
+  need to learn them again. You start from the trained weights and adjust them with a small amount of
+  new data. That is all fine-tuning is, and it is why a model pretrained on the internet can learn your
+  task from a thousand examples rather than a billion.</p>
+
+  <p>The lab makes this concrete with a situation every engineer here recognises: <strong>plenty of
+  simulation data, very few test-bench measurements</strong>. The network has six input channels, of
+  which only two matter (it is not told which). The simulator gives 800 labelled points. The bench —
+  the truth — has a boundary that is offset from the simulator's by a <em>sim-to-real gap</em>, and every
+  bench point is expensive. Compare a network trained only on the bench points with one pretrained on
+  simulation and then fine-tuned on the same bench points.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Simulation to test bench</h3><span class="tag try">Drag the bench points down to 4, then up to 64</span></div>
+    <div class="split-wide">
+      <div>
+        <div class="maps">
+          <figure><figcaption><span>Simulator model, as is</span><span class="mono" id="tlAccSim">—</span></figcaption><canvas id="tlMapSim"></canvas></figure>
+          <figure><figcaption><span>From scratch on bench</span><span class="mono" id="tlAccSc">—</span></figcaption><canvas id="tlMapSc"></canvas></figure>
+          <figure><figcaption><span>Pretrained + fine-tuned</span><span class="mono" id="tlAccFt">—</span></figcaption><canvas id="tlMapFt"></canvas></figure>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>predicted “inside envelope”</span>
+          <span><i style="background:var(--warn)"></i>predicted “outside”</span>
+          <span><i class="ln"></i>true bench boundary</span>
+          <span><i class="ln2"></i>simulator boundary</span>
+          <span>● bench training points</span>
+        </div>
+        <p class="status mt1" id="tlStatus">Waiting to pretrain…</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Bench points available</span><span class="val" id="tlNOut"></span></div>
+          <input type="range" id="tlN" min="2" max="7" step="1" value="3">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Sim-to-real gap</span><span class="val" id="tlGapOut"></span></div>
+          <input type="range" id="tlGap" min="0" max="2" step="0.1" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>What the fine-tune may change</span></div>
+          <div class="segmented" id="tlMode">
+            <button data-v="top" class="on">Top layers only</button>
+            <button data-v="all">All layers</button>
+          </div>
+        </div>
+        <div class="btnrow">
+          <button class="btn sm" id="tlTrainBtn" disabled>Re-train both</button>
+          <button class="btn sm" id="tlResample" disabled>New bench sample</button>
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">step</span><span class="v" id="tlStep">—</span><span class="u">of 300</span></div>
+          <div class="stat hl"><span class="k">gain from pretraining</span><span class="v" id="tlGain">—</span><span class="u">points of bench accuracy</span></div>
+        </div>
+        <p class="small muted mt1 mb0">Accuracy is measured on 1,000 held-out bench points. The maps show
+        the two channels that matter, with the other four held at zero.</p>
+      </div>
+    </div>
+
+    <h4 class="mt2">Data efficiency: accuracy against number of bench points</h4>
+    <div class="split-wide">
+      <div><canvas id="tlSweepCv" class="cv"></canvas></div>
+      <div>
+        <p class="small">Trains both approaches at 4, 8, 16, 32, 64 and 128 bench points, three different
+        samples each — 36 networks, a few seconds. It uses the gap and fine-tune setting above.</p>
+        <div class="btnrow"><button class="btn primary sm" id="tlSweepBtn" disabled>Run the sweep</button></div>
+        <p class="status" id="tlSweepStatus"></p>
+        <div class="card" id="tlSweepNote"><p class="small mb0 muted">Run the sweep to see where the two curves meet.</p></div>
+      </div>
+    </div>
+    <p class="srcnote">Everything here is computed live: a 6-12-12-1 tanh network (the same code as module 3)
+    trained by gradient descent on seeded synthetic data. The boundary shapes are invented for the
+    exercise — a wave in two channels and an offset for the gap — and are not a model of any real engine.
+    “Top layers only” freezes the first layer, which is the part that has learnt which channels matter.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">What the sweep shows</span>
+      <p class="mb0">Pretraining matters most when target data is scarce. With a handful of bench points
+      the fine-tuned network is far ahead; by a hundred or so the gap has narrowed to a few points. <strong>Transfer buys data efficiency, not a higher ceiling.</strong> If you have
+      plenty of target data, the case for starting from a pretrained model is speed, not accuracy.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">What actually transfers</span>
+      <p class="mb0">Push the gap to 2. The simulator model on its own is now poor, yet fine-tuning still
+      helps — because what transfers is the <em>features</em> (which channels matter), not the boundary.
+      Transfer fails when the features themselves differ: if the bench depended on a channel the simulator
+      ignored, pretraining would teach the network to ignore it too. How much two jobs share is a claim to
+      test, not assume.</p>
+    </div>
+  </div>
+
+  <details class="reveal deeper">
+    <summary>Why freezing the first layer helps with few examples</summary>
+    <div class="body">
+      <p>With eight bench points and six input channels, there are many ways to separate the points
+      perfectly, most of them nonsense — for example by leaning on a nuisance channel that happens to
+      correlate in this sample. A network trained from scratch has no reason to prefer the sensible
+      solution. The pretrained first layer has already learnt, from 800 simulator points, to ignore the
+      four channels that do not matter. Freezing it removes the nonsense options entirely.</p>
+      <p class="mb0">Letting every layer move gives the eight points the power to overwrite what was
+      learnt from the 800. Try “All layers” at eight points: the result is usually worse. The large-model
+      versions of this choice are LoRA (18.4), adapters and “freeze the backbone, train the head” — all
+      ways of limiting how much a small dataset is allowed to change.</p>
+    </div>
+  </details>
+
+  <div class="note">
+    <ul>
+      <li>About 8 minutes. Pretraining runs automatically when the page loads (about two seconds).
+      The lab opens at 8 bench points. Drag down to 4 — the scratch map falls apart while the fine-tuned
+      one keeps the wave shape — then up to 64, where the two look alike.</li>
+      <li>Press <b>New bench sample</b> two or three times at 8 points. The scratch result swings wildly
+      between samples. That variance is the real cost of small data, and it is what pretraining reduces.</li>
+      <li>Run the sweep while you talk. Typical result at gap 1: about 70% from scratch against about 83%
+      fine-tuned at 4 points, about 80% against 87% at 8, narrowing to a few points by 64–128. Exact figures
+      vary with the sample; that is honest, not a bug. Some samples show no gain at all — when the
+      simulator model already classifies every bench point correctly, there is nothing for the fine-tune
+      to learn from.</li>
+      <li>Expected question: “so can we pretrain on simulation and fine-tune on test data?” Yes — it is a
+      well-established pattern. The catch is the gap: if the simulator is wrong in a structured way, the
+      network inherits the error wherever the bench data is thin. Hold out bench data to measure it.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 18.3 -->
+<section class="chapter" id="forgetting">
+  <h2>18.3 · Catastrophic forgetting</h2>
+  <p>Fine-tuning optimises for the new data and nothing else. Gradient descent has no notion of “and
+  please keep doing what you did before”. Weights that encoded the old behaviour get repurposed, and
+  performance on the old job collapses — even where the new data says nothing at all about it. The
+  name is from 1989 and it is still the main practical risk of fine-tuning.</p>
+
+  <p>In the lab, a network has learnt one rule across the whole operating range. A new variant behaves
+  differently only in the high-load corner (shaded), and we have 60 labelled points there. A network
+  could easily represent both — the old rule outside the corner, the new rule inside. Fine-tune on the
+  corner points alone and watch what happens to the rest of the map.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Fine-tune and watch the old job</h3><span class="tag try">Run once at 0% replay, then at 10%</span></div>
+    <div class="split-wide">
+      <div>
+        <div class="grid g2" style="gap:12px">
+          <div><canvas id="cfMap" class="sqmap"></canvas></div>
+          <div><canvas id="cfCurve" class="sqmap"></canvas></div>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>predicted class A</span>
+          <span><i style="background:var(--warn)"></i>predicted class B</span>
+          <span><i class="ln"></i>correct boundary</span>
+          <span><i class="ln2"></i>original rule, inside the corner</span>
+          <span><i style="background:var(--bg-3);border:1px solid var(--line)"></i>shaded: the new region</span>
+        </div>
+        <p class="status mt1" id="cfStatus">Waiting to pretrain…</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Replay: share of each batch from the old data</span><span class="val" id="cfReplayOut"></span></div>
+          <input type="range" id="cfReplay" min="0" max="0.5" step="0.05" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Learning rate</span><span class="val" id="cfLrOut"></span></div>
+          <input type="range" id="cfLr" min="0.02" max="0.4" step="0.01" value="0.1">
+        </div>
+        <div class="btnrow">
+          <button class="btn primary sm" id="cfGo" disabled>Fine-tune on the corner</button>
+          <button class="btn sm" id="cfReset" disabled>Back to the original</button>
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">old job, before</span><span class="v" id="cfOldPre">—</span><span class="u">outside the corner</span></div>
+          <div class="stat hl"><span class="k">old job, now</span><span class="v" id="cfOldNow">—</span><span class="u">outside the corner</span></div>
+          <div class="stat hl"><span class="k">new job, now</span><span class="v" id="cfNewNow">—</span><span class="u">inside the corner</span></div>
+          <div class="stat"><span class="k">step</span><span class="v" id="cfStep">—</span><span class="u">of 600</span></div>
+        </div>
+        <div class="card mt1" id="cfNote" style="min-height:110px"><p class="small mb0 muted">Pretraining…</p></div>
+      </div>
+    </div>
+    <p class="srcnote">Computed live: a 2-12-12-1 network pretrained on 600 points of the original rule,
+    then fine-tuned on 60 points from the corner. “Replay” mixes in points from a stored sample of the
+    original training data. The faint dashed curves on the accuracy chart are your previous run, for comparison.
+    The rules themselves are invented for the exercise.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="card"><h4>In a language model</h4><p class="small mb0">Fine-tune a general model on
+    thousands of defect reports and it may get better at defect reports and worse at everything else:
+    general reasoning, other languages, following instructions it used to follow. Published work has
+    also shown that fine-tuning on entirely benign data can weaken a model's safety behaviour. Nobody
+    sees this unless they test for it.</p></div>
+    <div class="card"><h4>What reduces it</h4><p class="small mb0"><b>Replay</b> — keep mixing in
+    general data. <b>Less movement</b> — lower learning rate, fewer steps, freeze layers. <b>Separate
+    weights</b> — LoRA leaves the original untouched, so unloading the adapter restores the original
+    exactly. None of these is free, and none removes the need to measure.</p></div>
+    <div class="card"><h4>What detects it</h4><p class="small mb0">A <b>regression suite</b>: the
+    evaluation set from module 8 for the new task, <em>plus</em> a set for the things the model already
+    did that you rely on. Run both before and after every fine-tune. If you only measure the new task,
+    the dashboard will show an improvement while the product gets worse.</p></div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 6 minutes. Run it first at 0% replay and learning rate 0.1. The new corner is learnt
+      within a few dozen steps; the old job slides from about 99% towards 60% as training continues. Then
+      set replay to 10% and run again — the old job barely moves. The previous run stays on the chart as a
+      faint line.</li>
+      <li>Then lower the learning rate to 0.03 with no replay: the forgetting is slower, not absent. That
+      is the trap — a short evaluation after a cautious fine-tune can look fine.</li>
+      <li>Expected question: “why does it forget a region it was never trained on?” Because the weights are
+      shared across the whole input space; nothing in the loss protects the old region, so the cheapest
+      way to fit the corner moves boundaries everywhere.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 18.4 -->
+<section class="chapter" id="lora">
+  <h2>18.4 · LoRA: fine-tuning a small slice of the weights</h2>
+  <p>Full fine-tuning of an 8-billion-parameter model updates 8 billion numbers, and training needs
+  memory for the gradients and optimiser state as well — roughly 16 bytes per parameter, about
+  128&nbsp;GB, so several large GPUs. <strong>LoRA</strong> (low-rank adaptation, 2021) freezes the
+  original weight matrix W₀ and learns only a correction, written as the product of two thin matrices.</p>
+
+  <div class="eqbox">
+    W = W₀ + <span class="hi">B · A</span> &nbsp;&nbsp;&nbsp; B is d × <span class="hi2">r</span>, A is <span class="hi2">r</span> × k
+    <small>A full update of a d × k matrix has d·k numbers. The LoRA update has r·(d + k). For a 4096 × 4096 layer at r = 8 that is 65,536 instead of 16.8 million.</small>
+  </div>
+
+  <p>The product B·A can only represent a matrix of rank r or less — a sum of r “directions” of change.
+  LoRA works because the updates fine-tuning actually needs turn out, empirically, to be close to low
+  rank: most of the change lives in a few directions. The lab lets you check what “close to low rank”
+  means. Pick a target update, pick r, and the best possible rank-r approximation is computed by
+  singular value decomposition (the Eckart–Young result guarantees nothing of rank r does better).</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · How much of an update fits in rank r?</h3><span class="tag try">Drag r from 1 upwards</span></div>
+    <div class="btnrow">
+      <span class="small muted">Target update ΔW</span>
+      <div class="segmented" id="loSrc">
+        <button data-v="syn" class="on">Structured (like fine-tuning)</button>
+        <button data-v="rand">Random noise</button>
+        <button data-v="real" id="loSrcReal">Real: from lab 18.2</button>
+      </div>
+    </div>
+    <div class="split-wide">
+      <div>
+        <div class="heats">
+          <figure><figcaption>Target ΔW <span class="muted" id="loDims"></span></figcaption><canvas id="loHmT"></canvas></figure>
+          <figure><figcaption id="loHmACap">Rank-r approximation B·A</figcaption><canvas id="loHmA"></canvas></figure>
+          <figure><figcaption>What is left over</figcaption><canvas id="loHmR"></canvas></figure>
+        </div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>positive entry</span><span><i style="background:var(--bad)"></i>negative entry</span><span>same colour scale in all three</span></div>
+        <h4 class="mt1">Singular values of ΔW — the strength of each direction</h4>
+        <canvas id="loSpec" class="cv-sm"></canvas>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Rank r</span><span class="val" id="loROut"></span></div>
+          <input type="range" id="loR" min="1" max="32" step="1" value="4">
+        </div>
+        <div class="ctrl" id="loTauWrap">
+          <div class="ctrl-label"><span>How concentrated the true update is</span><span class="val" id="loTauOut"></span></div>
+          <input type="range" id="loTau" min="1" max="12" step="0.5" value="3">
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">full update</span><span class="v" id="loFull">—</span><span class="u">numbers</span></div>
+          <div class="stat hl"><span class="k">LoRA update</span><span class="v" id="loLora">—</span><span class="u" id="loRatio">—</span></div>
+          <div class="stat hl"><span class="k">update captured</span><span class="v" id="loEnergy">—</span><span class="u">of the squared size</span></div>
+          <div class="stat"><span class="k">relative error</span><span class="v" id="loErr">—</span><span class="u">best possible at this r</span></div>
+        </div>
+        <h4 class="mt1">Or learn B and A the way LoRA does</h4>
+        <p class="small">LoRA does not compute an SVD; it starts with B = 0 and trains B and A by gradient
+        descent. Watch it find the same answer.</p>
+        <div class="btnrow"><button class="btn sm primary" id="loFit">Fit B·A by gradient descent</button></div>
+        <canvas id="loGdCv" class="cv-sm"></canvas>
+      </div>
+    </div>
+
+    <h4 class="mt2">The same arithmetic at real scale</h4>
+    <div class="readout">
+      <div class="stat"><span class="k">one 4096 × 4096 layer, full</span><span class="v">16.8M</span></div>
+      <div class="stat"><span class="k">same layer, LoRA at your r</span><span class="v" id="loBig1">—</span></div>
+      <div class="stat hl"><span class="k">trainable, whole 8B model</span><span class="v" id="loBigAll">—</span><span class="u" id="loBigPct">—</span></div>
+      <div class="stat hl"><span class="k">adapter file</span><span class="v" id="loBigMB">—</span><span class="u">vs ≈16 GB for the model</span></div>
+    </div>
+    <p class="srcnote">Lab computed live: ΔW is decomposed by one-sided Jacobi SVD in JavaScript; the
+    gradient-descent fit minimises ‖B·A − ΔW‖² directly. The “structured” target is synthetic — random
+    directions with singular values that decay at the rate you set — standing in for a real fine-tuning
+    update, which we cannot ship in a web page. “Real: from lab 18.2” uses the actual change the
+    fine-tune made to that network's 12 × 12 middle layer (run lab 18.2 with “All layers” or “Top layers”
+    first). Real-scale figures assume an 8B model with 32 layers and LoRA on four 4096 × 4096 attention
+    projections per layer, stored at 16 bits; real architectures differ in detail.</p>
+    <p class="srcnote">If you load the real update, notice how little rank it needs. That is structural, not
+    luck: with the first layer frozen, every gradient step for the middle layer is built from the
+    activation patterns of the bench points, so the whole update has rank no higher than the number of
+    bench points. Fine-tuning on a narrow dataset produces narrow updates — the intuition behind LoRA.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">What LoRA buys you operationally</span>
+      <ul class="mb0">
+        <li><strong>Training fits on one GPU</strong>, and with a 4-bit quantised base (QLoRA) even a large model fits on one card.</li>
+        <li><strong>The adapter is a file of tens of megabytes.</strong> One base model can serve many adapters — one per task or department — swapped per request.</li>
+        <li><strong>Rollback is trivial.</strong> Unload the adapter and you have the original model back, bit for bit.</li>
+      </ul>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">What it does not change</span>
+      <ul class="mb0">
+        <li><strong>It is still fine-tuning.</strong> Same data requirements, same governance questions, same forgetting risk (smaller, not zero).</li>
+        <li><strong>An adapter belongs to one exact base model.</strong> When the base is replaced, the adapter is useless; you retrain and re-evaluate.</li>
+        <li><strong>Rank is a hyperparameter, not a guarantee.</strong> Some tasks need more than r = 8. You find out by measuring.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 8 minutes. Start on “Structured”, r = 1, then step up to 4 and 8: the captured share
+      climbs past 90% while the parameter count stays a fraction of the full matrix. Then switch to
+      “Random noise”: now rank 8 captures only about half, and you need most of the 32 directions. LoRA's premise is that real updates look
+      like the first case, not the second.</li>
+      <li>Press “Fit B·A by gradient descent” — the error curve drops onto the dashed SVD optimum. That is
+      the point: LoRA's training finds the same best low-rank answer the maths says exists.</li>
+      <li>Expected question: “what rank should we use?” Start at 8 or 16, compare against a higher rank on
+      your evaluation set, and stop increasing when the score stops moving. The LoRA paper reported very
+      low ranks working for some tasks on GPT-3; that is evidence, not a rule.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 18.5 -->
+<section class="chapter" id="distil">
+  <h2>18.5 · Distillation: a big model teaching a small one</h2>
+  <p>A large model is expensive to run on every request. Distillation trains a much smaller
+  <em>student</em> to imitate a large <em>teacher</em>. Two things make it work better than training the
+  student on the original labels. First, the teacher can label as many unlabelled inputs as you can
+  afford to send it — your own logs, documents, sensor records. Second, the teacher gives
+  <strong>soft labels</strong>: not just “class B” but “72% class B”, which says how close to the
+  boundary each example sits. This is how most of the small, cheap, capable models of the last two years
+  were made (the distillation card in module 5).</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Student size against teacher, hard labels against soft</h3><span class="tag try">Compare 100, 316 and 3,000 inputs</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="dsCv" class="cv"></canvas>
+        <div class="maps mt1">
+          <figure><figcaption><span>Teacher</span><span class="mono" id="dsAccT">—</span></figcaption><canvas id="dsMapT"></canvas></figure>
+          <figure><figcaption><span>Student, hard labels</span><span class="mono" id="dsAccH">—</span></figcaption><canvas id="dsMapH"></canvas></figure>
+          <figure><figcaption><span>Student, soft labels</span><span class="mono" id="dsAccS">—</span></figcaption><canvas id="dsMapS"></canvas></figure>
+        </div>
+        <p class="status mt1" id="dsStatus">Waiting to train the teacher…</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Transfer set: inputs the teacher labels</span><span class="val" id="dsPoolOut"></span></div>
+          <input type="range" id="dsPool" min="1.7" max="3.5" step="0.1" value="2.5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Temperature of the soft labels</span><span class="val" id="dsTOut"></span></div>
+          <input type="range" id="dsT" min="0.5" max="4" step="0.25" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Student shown in the maps</span><span class="val" id="dsSizeOut"></span></div>
+          <div class="segmented" id="dsSize">
+            <button data-v="2">2</button><button data-v="4" class="on">4</button><button data-v="8">8</button><button data-v="12">12</button>
+          </div>
+        </div>
+        <div class="btnrow"><button class="btn primary sm" id="dsGo" disabled>Distil all students</button></div>
+        <div class="readout">
+          <div class="stat"><span class="k">teacher</span><span class="v" id="dsParT">—</span><span class="u">parameters</span></div>
+          <div class="stat"><span class="k">this student</span><span class="v" id="dsParS">—</span><span class="u" id="dsRatio">—</span></div>
+        </div>
+        <div class="card mt1" id="dsNote" style="min-height:120px"><p class="small mb0 muted">Training the teacher…</p></div>
+      </div>
+    </div>
+    <p class="srcnote">Computed live. The teacher is a 2-32-32-1 network trained on 4,000 labelled points
+    of an invented spiral-shaped rule (5% of labels flipped, as real labels are noisy). Each student is a
+    2-h-h-1 network for h = 2 … 12, trained for 2,500 steps on the teacher's labels for the transfer set,
+    two samples per size; accuracy is on 1,500 clean held-out points. Hard labels = the teacher's yes/no; soft labels = its
+    probability, softened by the temperature. Students in each pair share their starting weights and
+    batches, so the comparison is like-for-like.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">What to read from it</span>
+      <p class="mb0">Small students hit a capacity wall that no labelling scheme removes — two units per
+      layer cannot draw a spiral. Students with 6–8 units per layer get within a few points of the teacher
+      at about a tenth of its size, <strong>if</strong> they learn from soft labels. Each soft label says
+      how close to the boundary a point is, which a yes/no cannot; and a smooth target is easier for a
+      small network to fit in the same number of steps. Both effects are part of the gain you see. In a
+      language model the teacher's probabilities over a 100,000-token vocabulary also say which wrong
+      answers were <em>nearly</em> right — far more information than this two-class toy can carry.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Before you distil from an API</span>
+      <ul class="mb0">
+        <li><strong>Read the terms.</strong> Many commercial model licences restrict using outputs to train other models.</li>
+        <li><strong>The student inherits the teacher's errors</strong>, confidently, and adds its own. Evaluate it against ground truth, not against the teacher.</li>
+        <li><strong>It is a volume play.</strong> The saving is per request; it repays the build only when the request count is large.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 7 minutes. The teacher trains on page load and the students distil automatically; releasing
+      a slider re-runs them (about two seconds). At the default 316 inputs, the soft-label curve typically
+      sits five to ten points above the hard-label one for 4–8 units per layer, and the 8-unit soft student
+      lands within a few points of the teacher. At ~3,000 inputs the gap narrows but usually does not close.
+      With two samples per size there is noise — point at the faint dots, not just the line.</li>
+      <li>Then raise the temperature to about 2.5: the smallest students improve noticeably, because the
+      target they are asked to match becomes smoother. Do not oversell temperature beyond that; its
+      classic justification is many-class outputs.</li>
+      <li>Expected question: “is this what DeepSeek / the small open models did?” Broadly yes — large
+      models generating training data and soft targets for smaller ones is standard practice. Details of
+      any specific vendor's pipeline are usually not public.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 18.6 -->
+<section class="chapter" id="choose">
+  <h2>18.6 · Choosing: a decision calculator</h2>
+  <p>Answer the questions for one real use case. The calculator scores each option against what you need,
+  estimates build cost, time, the cost of every base-model replacement and the running bill over your
+  planning horizon, and lists the data-governance consequences. It is deliberately blunt: its job is to
+  stop the wrong project, not to approve the right one.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Prompt, retrieve, fine-tune, distil or train?</h3><span class="tag try">Start with “facts”, then switch to “format”</span></div>
+    <div class="dcq">
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>What has to change?</span></div>
+        <div class="segmented" id="dcNeed">
+          <button data-v="facts" class="on">Know our facts</button>
+          <button data-v="format">Format / style</button>
+          <button data-v="task">A narrow task</button>
+          <button data-v="domain">Domain language</button>
+          <button data-v="cheap">Same, but cheaper</button>
+        </div>
+      </div>
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>How often does the underlying information change?</span></div>
+        <div class="segmented" id="dcChurn">
+          <button data-v="static">Rarely</button>
+          <button data-v="yearly">Yearly</button>
+          <button data-v="monthly" class="on">Monthly</button>
+          <button data-v="weekly">Weekly+</button>
+        </div>
+      </div>
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>Labelled input → output examples you already have</span><span class="val" id="dcExOut"></span></div>
+        <input type="range" id="dcEx" min="0" max="5" step="0.1" value="2">
+      </div>
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>Requests per day</span><span class="val" id="dcVolOut"></span></div>
+        <input type="range" id="dcVol" min="1" max="6" step="0.1" value="3">
+      </div>
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>The base model is replaced every</span><span class="val" id="dcRepOut"></span></div>
+        <input type="range" id="dcRep" min="3" max="24" step="1" value="6">
+      </div>
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>Planning horizon</span><span class="val" id="dcHorOut"></span></div>
+        <input type="range" id="dcHor" min="12" max="48" step="6" value="24">
+      </div>
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>Most sensitive data involved</span></div>
+        <div class="segmented" id="dcSens">
+          <button data-v="public">Public</button>
+          <button data-v="internal" class="on">Internal</button>
+          <button data-v="confidential">Confidential IP</button>
+          <button data-v="personal">Personal data</button>
+        </div>
+      </div>
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>Loaded cost of an engineer-day (your assumption)</span><span class="val" id="dcDayOut"></span></div>
+        <input type="range" id="dcDay" min="300" max="1500" step="50" value="700">
+        <label class="check mt1"><input type="checkbox" id="dcCite"> Answers must cite the source document</label>
+      </div>
+    </div>
+
+    <div class="split-wide mt2">
+      <div class="verdict" id="dcVerdict"></div>
+      <div>
+        <h4>Total over the horizon <span class="muted small">(log scale)</span></h4>
+        <div id="dcBars"></div>
+      </div>
+    </div>
+
+    <div class="tablewrap dctable mt1"><table id="dcTable"></table></div>
+
+    <p class="srcnote">The scoring rules and effort figures are authored judgement, not measurements:
+    engineer-days per approach, labelling at four minutes per example, and per-request prices of €0.004
+    for a typical frontier request and €0.0004 for a small model (module 5's figures). Compute is costed
+    with module 5's rule — 6 × parameters × tokens, H100 at 38% utilisation, €2.50 per GPU-hour — with a
+    3× allowance for failed runs on pre-training. Fine-tuning assumes an ~8B open model, continued
+    pre-training 10 billion tokens on it, from-scratch a 3B model on a trillion tokens. All figures
+    indicative as of September 2026; open “Assumptions” below to see every number.</p>
+    <details class="reveal">
+      <summary>Assumptions used by the calculator</summary>
+      <div class="body"><div class="tablewrap"><table id="dcAssume"></table></div></div>
+    </details>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 6 minutes. Run three cases live. (1) Know our facts, monthly change: RAG wins and the
+      fine-tune column turns red — exactly the 4.8 message, now with numbers. (2) Format, 2,000 examples:
+      prompting first, fine-tuning as the fallback. (3) Same but cheaper, 300,000 requests a day:
+      distillation or a small fine-tuned model start to pay for themselves.</li>
+      <li>Point at the build-cost row: compute is a rounding error for fine-tuning. The money is people —
+      curating examples and building the evaluation. Engineers are often surprised by this.</li>
+      <li>Then slide “base model replaced every” to 3 months and watch the fine-tune total climb. That is
+      the second half of 18.7.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 18.7 -->
+<section class="chapter" id="wrong">
+  <h2>18.7 · When fine-tuning is the wrong answer</h2>
+  <p>Fine-tuning is real and useful. It is also the most over-requested technique in corporate AI,
+  usually because it sounds like “making the model ours”. These are the situations where it is the wrong
+  tool, roughly in order of how often they occur.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="color:var(--bad)">Wrong tool</h4>
+      <h3>To add facts</h3>
+      <p class="small">Fine-tuning on documents teaches the model to produce text that sounds like your
+      documents. It does not reliably make it recall the right value for the right question — and when it
+      half-remembers, it answers fluently and wrongly, with nothing to cite. Studies comparing the two
+      have found retrieval clearly better for injecting knowledge, and that fine-tuning on facts the model
+      did not already know can <em>increase</em> its tendency to make things up.</p>
+      <p class="small mb0"><b>Instead:</b> RAG (module 4.8). Facts stay in documents you control, with
+      citations, permissions and instant updates.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">Wrong time</h4>
+      <h3>When the base model will be replaced in six months</h3>
+      <p class="small">An adapter or fine-tune is welded to one exact base model. Base models are currently
+      superseded every few months, and the new one usually beats your fine-tuned old one out of the box.
+      Every replacement means re-curating, retraining, re-evaluating and re-approving — or staying on an
+      ageing model.</p>
+      <p class="small mb0"><b>Instead:</b> invest in what carries over — prompts, retrieval, the evaluation
+      set and the guard-rails. Fine-tune when the behaviour is stable and the gain survives a fresh base.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--warn)">Premature</h4>
+      <h3>Before prompting has been tried seriously</h3>
+      <p class="small mb0">Module 12's techniques — clear instructions, worked examples, a fixed output
+      schema — solve most format and style problems in an afternoon. If nobody can show the prompt that
+      was tried and the evaluation score it achieved, the fine-tuning project has no baseline and cannot
+      prove it helped.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--warn)">Unmeasurable</h4>
+      <h3>Without an evaluation set</h3>
+      <p class="small mb0">If you cannot score the current system on a few hundred held-out cases (module
+      8), you cannot tell whether fine-tuning improved it, and you cannot detect the forgetting from 18.3.
+      Build the evaluation first. It is also the asset that lets you switch base models safely.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--warn)">Ungovernable</h4>
+      <h3>When the data cannot live in weights</h3>
+      <p class="small mb0">Training data becomes part of the model. Personal data cannot be deleted
+      record-by-record afterwards; confidential supplier IP under NDA may not be licensed for it; export
+      controlled data makes the weights export controlled. A model fine-tuned on secret data is a secret
+      artefact. And modifying a model can make you its <em>provider</em> under the AI Act (module 10).</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--warn)">Misdiagnosed</h4>
+      <h3>When the real problem is retrieval</h3>
+      <p class="small mb0">A RAG system that answers badly is most often retrieving the wrong passages.
+      Fine-tuning the generator does not fix the search. Measure retrieval on its own first: for each test
+      question, was the right passage in the top five?</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">When it is the right answer</span>
+    <p class="mb0">A stable, narrow, high-volume task; hundreds to thousands of consistent examples; an
+    evaluation set that shows prompting has plateaued; and data you are allowed to put into weights. Typical
+    winners: classifying reports into fixed codes, extracting fields into a strict schema, matching a house
+    style, or replacing a large model with a small fine-tuned one that is cheaper, faster and can run on
+    your own hardware.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 4 minutes. The first two cards are the brief; the rest are a checklist people can take
+      to a project review.</li>
+      <li>Expected pushback: “but the vendor offers fine-tuning on our documents.” Ask for the evaluation:
+      factual accuracy on held-out questions, with and without the fine-tune, against RAG on the same
+      questions. If they cannot produce it, nobody has measured it.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= next -->
+<section class="chapter" id="next">
+  <h2>Where we go next</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>What to take back to your desk</h3>
+      <ol class="small mb0">
+        <li><strong>Name what has to change.</strong> Knowledge goes in the input; behaviour goes in the weights.</li>
+        <li><strong>Climb the ladder one rung at a time</strong>, and only with an evaluation score showing the rung below has plateaued.</li>
+        <li><strong>Fine-tune with a regression suite</strong>, not just a target-task score — forgetting is silent.</li>
+        <li><strong>Prefer LoRA-style adapters</strong> when you do fine-tune: cheap, small, reversible.</li>
+        <li><strong>Count the base-model replacements.</strong> Every one resets a fine-tune and leaves prompts, retrieval and evaluations standing.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Sources for this module</h3>
+      <ul class="sources mb0">
+        <li>Hu et al. (2021) — <i>LoRA: Low-Rank Adaptation of Large Language Models</i>.</li>
+        <li>Dettmers et al. (2023) — <i>QLoRA: Efficient Finetuning of Quantized LLMs</i>.</li>
+        <li>Aghajanyan et al. (2020) — <i>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</i>.</li>
+        <li>Hinton, Vinyals &amp; Dean (2015) — <i>Distilling the Knowledge in a Neural Network</i>.</li>
+        <li>Yosinski et al. (2014) — <i>How transferable are features in deep neural networks?</i></li>
+        <li>McCloskey &amp; Cohen (1989); Kirkpatrick et al. (2017) — catastrophic forgetting and its mitigation.</li>
+        <li>Gururangan et al. (2020) — <i>Don't Stop Pretraining</i>: continued pre-training on domain text.</li>
+        <li>Ovadia et al. (2023) — <i>Fine-Tuning or Retrieval? Comparing Knowledge Injection in LLMs</i>.</li>
+        <li>Gekhman et al. (2024) — <i>Does Fine-Tuning LLMs on New Knowledge Encourage Hallucinations?</i></li>
+        <li>Qi et al. (2023) — <i>Fine-tuning Aligned Language Models Compromises Safety, Even When Users Do Not Intend To!</i></li>
+      </ul>
+    </div>
+  </div>
+  <p class="mt2">We now have a model that does the job — prompted, retrieved, fine-tuned or distilled.
+  Next: getting it onto hardware, keeping it running, and knowing when it has quietly stopped working.</p>
+  <p><a href="19-deployment.html"><strong>Module 19 · Deploying and running models →</strong></a></p>
+
+  <div class="note">
+    <ul>
+      <li>Closing line that works: “most of the value is in the bottom two rungs and the evaluation set.
+      Fine-tuning is a scalpel, not a strategy.”</li>
+      <li>Leave the decision calculator open for questions; people like to put their own project into it.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+  function $(id) { return document.getElementById(id); }
+  function pct(x, d) { return isFinite(x) ? (x * 100).toFixed(d == null ? 0 : d) + '%' : '—'; }
+
+  /* ===================================================== shared helpers */
+
+  /* seeded random numbers (mulberry32) so every run of the page is reproducible */
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) { var u = r() || 1e-12, v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307 * v); }
+
+  /* AI.MLP initialises with Math.random; swap in a seeded generator for the constructor only */
+  function seededNet(sizes, seed) {
+    var keep = Math.random, n;
+    Math.random = rng(seed);
+    try { n = new AI.MLP(sizes, 'tanh'); } finally { Math.random = keep; }
+    return n;
+  }
+  function cloneNet(src) {
+    var n = seededNet(src.s, 1);
+    n.W = src.W.map(function (L) { return L.map(function (row) { return row.slice(); }); });
+    n.B = src.B.map(function (b) { return b.slice(); });
+    return n;  /* momentum buffers start at zero */
+  }
+  /* one gradient step, then restore the first `nFrozen` layers from `snap` (i.e. they are frozen) */
+  function stepFrozen(net, X, Y, lr, nFrozen, snap) {
+    net.step(X, Y, lr, 0.9);
+    for (var l = 0; l < nFrozen; l++) {
+      for (var j = 0; j < net.W[l].length; j++) net.W[l][j] = snap.W[l][j].slice();
+      net.B[l] = snap.B[l].slice();
+    }
+  }
+  function accuracy(net, D) {
+    var c = 0;
+    for (var i = 0; i < D.X.length; i++) if ((net.predict(D.X[i]) > 0.5 ? 1 : 0) === D.Y[i]) c++;
+    return c / D.X.length;
+  }
+  function minibatch(D, bs, r, Ykey) {
+    var X = [], Y = [], src = Ykey ? D[Ykey] : D.Y;
+    for (var k = 0; k < bs; k++) { var j = Math.floor(r() * D.X.length); X.push(D.X[j]); Y.push(src[j]); }
+    return { X: X, Y: Y };
+  }
+
+  /* colours */
+  function rgbOf(name) {
+    var c = C(name), m;
+    if (c.charAt(0) === '#') {
+      var h = c.slice(1);
+      if (h.length === 3) h = h.replace(/(.)/g, '$1$1');
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+    }
+    m = c.match(/[\d.]+/g);
+    return m && m.length >= 3 ? [+m[0], +m[1], +m[2]] : [128, 128, 128];
+  }
+  function rgba(name, a) { var r = rgbOf(name); return 'rgba(' + r[0] + ',' + r[1] + ',' + r[2] + ',' + a + ')'; }
+
+  /* chunked work: run job.step() repeatedly for ~budget ms per animation frame, never blocking the page */
+  function runJob(job) {
+    var tok = { stop: false };
+    function tick() {
+      if (tok.stop) return;
+      var t0 = performance.now(), fin = false, budget = job.budget || 12, n = 0, cap = job.maxPerFrame || 1e9;
+      do { fin = job.step(); n++; } while (!fin && n < cap && performance.now() - t0 < budget);
+      if (job.frame) job.frame();
+      if (fin) { tok.stop = true; if (job.done) job.done(); }
+      else requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    return tok;
+  }
+  /* background queue so the three pretraining runs happen one after another */
+  var queue = [], busy = false;
+  function enqueue(job) { queue.push(job); pump(); }
+  function pump() {
+    if (busy || !queue.length) return;
+    busy = true;
+    var j = queue.shift(), d = j.done;
+    j.done = function () { if (d) d(); busy = false; pump(); };
+    runJob(j);
+  }
+
+  /* decision-map plotting on [-1,1]^2 */
+  var offc = document.createElement('canvas');
+  function mapPlot(id) { return new AI.Plot($(id), { dom: [-1, 1], ran: [-1, 1], pad: { l: 0, r: 0, t: 0, b: 0 } }); }
+  function paintField(p, res, fn) {
+    offc.width = res; offc.height = res;
+    var oc = offc.getContext('2d'), img = oc.createImageData(res, res), d = img.data;
+    var a = rgbOf('--accent'), w = rgbOf('--warn'), bg = rgbOf('--panel');
+    for (var j = 0; j < res; j++) for (var i = 0; i < res; i++) {
+      var x = -1 + (i + 0.5) * 2 / res, y = 1 - (j + 0.5) * 2 / res, pr = fn(x, y);
+      var col = pr > 0.5 ? a : w, al = 0.14 + Math.min(1, Math.abs(pr - 0.5) * 2) * 0.40, k = (j * res + i) * 4;
+      d[k] = bg[0] + (col[0] - bg[0]) * al;
+      d[k + 1] = bg[1] + (col[1] - bg[1]) * al;
+      d[k + 2] = bg[2] + (col[2] - bg[2]) * al;
+      d[k + 3] = 255;
+    }
+    oc.putImageData(img, 0, 0);
+    var g = p.ctx;
+    g.imageSmoothingEnabled = true;
+    g.drawImage(offc, 0, 0, res, res, p.pad.l, p.pad.t, p.pw, p.ph);
+  }
+  function curvePts(fn, lo, hi) {
+    var pts = [], a = lo == null ? -1 : lo, b = hi == null ? 1 : hi;
+    for (var i = 0; i <= 80; i++) { var x = a + (b - a) * i / 80; pts.push([x, fn(x)]); }
+    return pts;
+  }
+  function drawPoints(p, X, Y, r, max) {
+    var ac = C('--accent'), wa = C('--warn'), ink = C('--ink'), n = Math.min(X.length, max || 1e9);
+    for (var i = 0; i < n; i++) p.dot(X[i][0], X[i][1], r, Y[i] > 0.5 ? ac : wa, ink);
+  }
+  function placeholder(p, msg) {
+    p.resize(); p.clear();
+    var g = p.ctx;
+    g.fillStyle = C('--ink-3'); g.font = '600 12px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(msg, p.w / 2, p.h / 2);
+  }
+  function legendText(p, items, x, y, align) {
+    var g = p.ctx;
+    g.font = '600 11px system-ui, sans-serif'; g.textAlign = align || 'left'; g.textBaseline = 'middle';
+    items.forEach(function (it, i) { g.fillStyle = it[1]; g.fillText(it[0], x, y + i * 15); });
+  }
+
+  /* ===================================================== 18.2 transfer learning */
+  var TL = {
+    D: 6, sizes: [6, 12, 12, 1], STEPS: 300, N: 8, gap: 1, mode: 'top', sample: 3, ftLr: 0.05,
+    pre: null, ready: false, simTrain: null, benchTest: null, bench: null,
+    scratch: null, ft: null, step: 0, job: null, sweep: null, sweepJob: null, dW: null, plots: {}
+  };
+  function tlBound(g) {
+    var amp = 0.45 * (1 - 0.6 * g), ph = -1.3 * g, off = 0.25 * g;
+    return function (x) { return amp * Math.sin(2.6 * x + ph) + off; };
+  }
+  function tlData(g, n, r) {
+    var b = tlBound(g), X = [], Y = [];
+    for (var i = 0; i < n; i++) {
+      var x = [];
+      for (var j = 0; j < TL.D; j++) x.push(r() * 2 - 1);
+      X.push(x); Y.push(x[1] > b(x[0]) ? 1 : 0);
+    }
+    return { X: X, Y: Y };
+  }
+  function tlFtStep(net, d) { stepFrozen(net, d.X, d.Y, TL.ftLr, TL.mode === 'top' ? 1 : 0, TL.pre); }
+  function tlBench() {
+    TL.benchTest = tlData(TL.gap, 1000, rng(98));
+    TL.bench = tlData(TL.gap, TL.N, rng(1000 + TL.N * 7 + TL.sample * 131));
+  }
+  function tlTrain() {
+    if (!TL.ready) return;
+    if (TL.job) TL.job.stop = true;
+    TL.scratch = seededNet(TL.sizes, 50 + TL.sample);
+    TL.ft = cloneNet(TL.pre);
+    TL.step = 0;
+    TL.job = runJob({
+      step: function () {
+        TL.scratch.step(TL.bench.X, TL.bench.Y, 0.3, 0.9);
+        tlFtStep(TL.ft, TL.bench);
+        TL.step++;
+        return TL.step >= TL.STEPS;
+      },
+      frame: function () { tlDraw(36); tlStats(); },
+      done: function () {
+        TL.job = null; tlDraw(64); tlStats();
+        /* hand the real weight change of the 12x12 middle layer to the LoRA lab */
+        TL.dW = TL.ft.W[1].map(function (row, i) { return row.map(function (v, j) { return v - TL.pre.W[1][i][j]; }); });
+        if (LO.src === 'real') loBuild();
+      }
+    });
+  }
+  function tlStats() {
+    if (!TL.ready) return;
+    var aSim = accuracy(TL.pre, TL.benchTest);
+    $('tlAccSim').textContent = pct(aSim);
+    if (TL.scratch) {
+      var aSc = accuracy(TL.scratch, TL.benchTest), aFt = accuracy(TL.ft, TL.benchTest);
+      $('tlAccSc').textContent = pct(aSc);
+      $('tlAccFt').textContent = pct(aFt);
+      var gn = (aFt - aSc) * 100;
+      $('tlGain').textContent = (gn >= 0 ? '+' : '') + gn.toFixed(0);
+      $('tlStep').textContent = TL.step;
+    }
+  }
+  function tlDraw(res) {
+    var P = TL.plots;
+    if (!TL.ready) { ['sim', 'sc', 'ft'].forEach(function (k) { placeholder(P[k], 'pretraining…'); }); tlDrawSweep(); return; }
+    var bb = tlBound(TL.gap), sb = tlBound(0);
+    [['sim', TL.pre], ['sc', TL.scratch], ['ft', TL.ft]].forEach(function (q) {
+      var p = P[q[0]], net = q[1];
+      p.resize(); p.clear();
+      if (net) paintField(p, res || 64, function (x, y) { return net.predict([x, y, 0, 0, 0, 0]); });
+      p.clip(function () {
+        p.line(curvePts(sb), C('--ink-3'), 1.4, [2, 3]);
+        p.line(curvePts(bb), C('--ink'), 1.8, [6, 4]);
+        if (TL.bench) drawPoints(p, TL.bench.X, TL.bench.Y, TL.N > 64 ? 2.4 : 3.6);
+      });
+    });
+    tlDrawSweep();
+  }
+  function tlSweep() {
+    if (!TL.ready) return;
+    if (TL.sweepJob) TL.sweepJob.stop = true;
+    var Ns = [4, 8, 16, 32, 64, 128], seeds = 3, tasks = [];
+    Ns.forEach(function (n) { for (var s = 0; s < seeds; s++) tasks.push({ n: n, s: s }); });
+    var test = tlData(TL.gap, 1000, rng(98));
+    TL.sweep = { Ns: Ns, sc: {}, ft: {}, gap: TL.gap, mode: TL.mode, sim: accuracy(TL.pre, test), done: false };
+    Ns.forEach(function (n) { TL.sweep.sc[n] = []; TL.sweep.ft[n] = []; });
+    var ti = 0, cur = null, k = 0;
+    $('tlSweepBtn').disabled = true;
+    TL.sweepJob = runJob({
+      step: function () {
+        if (!cur) {
+          var t = tasks[ti];
+          cur = { t: t, d: tlData(TL.sweep.gap, t.n, rng(5000 + t.n * 17 + t.s * 7919)),
+                  sc: seededNet(TL.sizes, 200 + t.s), ft: cloneNet(TL.pre) };
+          k = 0;
+        }
+        cur.sc.step(cur.d.X, cur.d.Y, 0.3, 0.9);
+        stepFrozen(cur.ft, cur.d.X, cur.d.Y, TL.ftLr, TL.sweep.mode === 'top' ? 1 : 0, TL.pre);
+        k++;
+        if (k >= TL.STEPS) {
+          TL.sweep.sc[cur.t.n].push(accuracy(cur.sc, test));
+          TL.sweep.ft[cur.t.n].push(accuracy(cur.ft, test));
+          cur = null; ti++;
+        }
+        return ti >= tasks.length;
+      },
+      frame: function () {
+        $('tlSweepStatus').textContent = 'Trained ' + ti + ' of ' + tasks.length + ' pairs of networks…';
+        tlDrawSweep();
+      },
+      done: function () {
+        TL.sweep.done = true; TL.sweepJob = null;
+        $('tlSweepBtn').disabled = false;
+        $('tlSweepStatus').textContent = 'Done: 36 networks, gap ' + TL.sweep.gap.toFixed(1) + ', ' +
+          (TL.sweep.mode === 'top' ? 'top layers only' : 'all layers') + '.';
+        tlDrawSweep(); tlSweepNote();
+      }
+    });
+  }
+  function mean(a) { if (!a.length) return NaN; var s = 0; a.forEach(function (v) { s += v; }); return s / a.length; }
+  function tlDrawSweep() {
+    var p = TL.plots.sw;
+    p.resize(); p.clear();
+    p.dom = [2, 7]; p.ran = [0.5, 1];
+    p.frame({ xticks: 5, yticks: 5, xlabel: 'bench points (log scale)', ylabel: 'bench accuracy',
+      xfmt: function (x) { return Math.round(Math.pow(2, x)); }, yfmt: function (y) { return Math.round(y * 100) + '%'; } });
+    var S = TL.sweep;
+    if (!S) { legendText(p, [['Press “Run the sweep”', C('--ink-3')]], p.pad.l + 10, p.pad.t + 14); return; }
+    var stale = S.gap !== TL.gap || S.mode !== TL.mode;
+    p.clip(function () {
+      p.line([[2, S.sim], [7, S.sim]], C('--ink-3'), 1.4, [5, 4]);
+      [['sc', '--warn'], ['ft', '--accent']].forEach(function (m) {
+        var pts = [];
+        S.Ns.forEach(function (n) {
+          var lx = Math.log2(n);
+          S[m[0]][n].forEach(function (v) { p.dot(lx, v, 2.6, rgba(m[1], 0.45)); });
+          if (S[m[0]][n].length) pts.push([lx, mean(S[m[0]][n])]);
+        });
+        p.line(pts, C(m[1]), 2.6);
+        pts.forEach(function (q) { p.dot(q[0], q[1], 4.5, C(m[1]), C('--panel')); });
+      });
+    });
+    legendText(p, [['pretrained + fine-tuned', C('--accent')], ['from scratch', C('--warn')], ['dashed: simulator model, unchanged', C('--ink-3')]],
+      p.pad.l + p.pw - 10, p.pad.t + p.ph - 44, 'right');
+    if (stale) legendText(p, [['settings changed since this sweep — run it again', C('--bad')]], p.pad.l + 10, p.pad.t + 12);
+  }
+  function tlSweepNote() {
+    var S = TL.sweep, n8sc = mean(S.sc[8]), n8ft = mean(S.ft[8]), n128sc = mean(S.sc[128]), n128ft = mean(S.ft[128]);
+    var h = '<p class="small">At <b>8 bench points</b>: ' + pct(n8sc) + ' from scratch against <b>' + pct(n8ft) +
+      '</b> fine-tuned. At <b>128</b>: ' + pct(n128sc) + ' against ' + pct(n128ft) + '.</p>';
+    var g8 = (n8ft - n8sc) * 100, g128 = (n128ft - n128sc) * 100;
+    if (g8 > 4 && g8 > g128) h += '<p class="small mb0">Pretraining is worth about <b>' + g8.toFixed(0) +
+      ' points</b> when bench data is scarce and about ' + g128.toFixed(0) + ' when it is plentiful — the advantage is in data efficiency.</p>';
+    else if (g8 <= 1) h += '<p class="small mb0">Here pretraining is <b>not helping</b> much, or is hurting. Look at the gap and the fine-tune setting: transfer depends on how much the two jobs share and on not letting a few points overwrite the borrowed features.</p>';
+    else h += '<p class="small mb0">A modest, fairly constant advantage. Try a different gap, or switch between “top layers” and “all layers”.</p>';
+    $('tlSweepNote').innerHTML = h;
+  }
+  function tlInit() {
+    TL.plots.sim = mapPlot('tlMapSim'); TL.plots.sc = mapPlot('tlMapSc'); TL.plots.ft = mapPlot('tlMapFt');
+    TL.plots.sw = new AI.Plot($('tlSweepCv'), { dom: [2, 7], ran: [0.5, 1], pad: { l: 50, r: 14, t: 14, b: 40 } });
+    AI.bindRange('tlN', function (v) { return Math.pow(2, v) + ' points'; },
+      function (v) { TL.N = Math.pow(2, v); if (TL.ready) { tlBench(); tlTrain(); } });
+    AI.bindRange('tlGap', function (v) { return v === 0 ? 'none' : v.toFixed(1); },
+      function (v) { TL.gap = v; if (TL.ready) { tlBench(); tlTrain(); tlDrawSweep(); } });
+    AI.segmented($('tlMode'), function (v) { TL.mode = v; if (TL.ready) { tlTrain(); tlDrawSweep(); } });
+    AI.on($('tlTrainBtn'), 'click', tlTrain);
+    AI.on($('tlResample'), 'click', function () { TL.sample++; tlBench(); tlTrain(); });
+    AI.on($('tlSweepBtn'), 'click', tlSweep);
+    AI.onRedraw(function () { tlDraw(64); });
+    tlDraw();
+
+    TL.simTrain = tlData(0, 800, rng(7));
+    TL.pre = seededNet(TL.sizes, 3);
+    var s = 0, PRE = 1500;
+    enqueue({
+      step: function () { TL.pre.step(TL.simTrain.X, TL.simTrain.Y, 0.3, 0.9); s++; return s >= PRE; },
+      frame: function () { $('tlStatus').textContent = 'Pretraining on 800 simulator points: step ' + s + ' of ' + PRE; },
+      done: function () {
+        TL.ready = true;
+        $('tlStatus').textContent = 'Pretrained on 800 simulator points (1,500 steps). Fine-tuning and scratch training run on the bench points.';
+        ['tlTrainBtn', 'tlResample', 'tlSweepBtn'].forEach(function (id) { $(id).disabled = false; });
+        tlBench(); tlTrain();
+      }
+    });
+  }
+
+  /* ===================================================== 18.3 catastrophic forgetting */
+  var CF = { XC: 0.3, sizes: [2, 12, 12, 1], STEPS: 600, replay: 0, lr: 0.1, pre: null, net: null, ready: false,
+    step: 0, hist: [], prev: null, job: null, preOld: NaN, runLabel: '' };
+  function cfOld(x) { return 0.45 * Math.sin(2.6 * x); }
+  function cfNew(x) { return 0.4 - 1.3 * (x - CF.XC); }
+  function cfData(n, r, lo, hi, ruleFor) {
+    var X = [], Y = [];
+    for (var i = 0; i < n; i++) {
+      var x = [lo + (hi - lo) * r(), r() * 2 - 1];
+      X.push(x); Y.push(x[1] > ruleFor(x[0])(x[0]) ? 1 : 0);
+    }
+    return { X: X, Y: Y };
+  }
+  function oldRule() { return cfOld; }
+  function trueRule(x) { return x > CF.XC ? cfNew : cfOld; }
+  function cfEval() { return [accuracy(CF.net, CF.oldTest), accuracy(CF.net, CF.newTest)]; }
+  function cfReset() {
+    if (CF.job) { CF.job.stop = true; CF.job = null; }
+    CF.net = cloneNet(CF.pre); CF.step = 0;
+    var e = cfEval();
+    CF.hist = [[0, e[0], e[1]]];
+    cfDraw(); cfStats();
+    $('cfNote').innerHTML = '<p class="small mb0">The original network. It does the old job almost perfectly everywhere — including in the corner, where the rule has now changed, so it gets about ' +
+      pct(e[1]) + ' there. Press <b>Fine-tune on the corner</b>.</p>';
+  }
+  function cfGo() {
+    if (!CF.ready) return;
+    if (CF.hist.length > 1) CF.prev = { hist: CF.hist, label: CF.runLabel };
+    cfReset();
+    var r = rng(11), rf = CF.replay, lr = CF.lr;
+    var nr = rf > 0 ? Math.round(rf / (1 - rf) * CF.newTrain.X.length) : 0;
+    CF.runLabel = 'replay ' + pct(rf) + ', lr ' + lr.toFixed(2);
+    CF.job = runJob({
+      maxPerFrame: 6,
+      step: function () {
+        var X = CF.newTrain.X.slice(), Y = CF.newTrain.Y.slice();
+        for (var k = 0; k < nr; k++) { var j = Math.floor(r() * CF.buffer.X.length); X.push(CF.buffer.X[j]); Y.push(CF.buffer.Y[j]); }
+        CF.net.step(X, Y, lr, 0.9);
+        CF.step++;
+        if (CF.step % 10 === 0) { var e = cfEval(); CF.hist.push([CF.step, e[0], e[1]]); }
+        return CF.step >= CF.STEPS;
+      },
+      frame: function () { cfDraw(40); cfStats(); },
+      done: function () { CF.job = null; cfDraw(); cfStats(); cfVerdict(); }
+    });
+    $('cfNote').innerHTML = '<p class="small mb0">Fine-tuning on 60 corner points' + (nr ? ' plus ' + nr + ' replayed old points per step' : ', nothing else') + '…</p>';
+  }
+  function cfStats() {
+    var last = CF.hist[CF.hist.length - 1];
+    $('cfOldPre').textContent = pct(CF.preOld, 1);
+    $('cfOldNow').textContent = last ? pct(last[1], 1) : '—';
+    $('cfNewNow').textContent = last ? pct(last[2], 1) : '—';
+    $('cfStep').textContent = CF.step;
+  }
+  function cfVerdict() {
+    var last = CF.hist[CF.hist.length - 1], drop = (CF.preOld - last[1]) * 100, h;
+    if (drop > 15) h = '<p class="small mb0"><b style="color:var(--bad)">Catastrophic forgetting.</b> The new corner is learnt (' + pct(last[2]) +
+      ') and the old job outside it has fallen ' + drop.toFixed(0) + ' points, to ' + pct(last[1]) + ' — in a region the fine-tuning data never touched. Now set replay to 10% and run again.</p>';
+    else if (drop > 4) h = '<p class="small mb0"><b style="color:var(--warn)">Partial forgetting:</b> down ' + drop.toFixed(0) +
+      ' points on the old job. Slower forgetting is still forgetting — a longer run or a later evaluation would show more.</p>';
+    else h = '<p class="small mb0"><b style="color:var(--good)">The old job survived</b> (' + pct(last[1]) + ') while the corner was learnt (' + pct(last[2]) +
+      '). ' + (CF.replay > 0 ? 'Replay did that: a small share of old data in every batch is enough to protect it.' : 'A low learning rate slowed the damage; run longer and it would usually appear.') + '</p>';
+    $('cfNote').innerHTML = h;
+  }
+  function cfDraw(res) {
+    var p = CF.pm, q = CF.pc;
+    if (!CF.ready) { placeholder(p, 'pretraining…'); placeholder(q, ''); return; }
+    p.resize(); p.clear();
+    var net = CF.net;
+    paintField(p, res || 64, function (x, y) { return net.predict([x, y]); });
+    p.clip(function (g) {
+      g.fillStyle = rgba('--ink', 0.07);
+      g.fillRect(p.X(CF.XC), p.pad.t, p.X(1) - p.X(CF.XC), p.ph);
+      p.line([[CF.XC, -1], [CF.XC, 1]], C('--ink-3'), 1.2);
+      p.line(curvePts(cfOld, CF.XC, 1), C('--ink-3'), 1.4, [2, 3]);
+      p.line(curvePts(cfOld, -1, CF.XC), C('--ink'), 1.8, [6, 4]);
+      p.line(curvePts(cfNew, CF.XC, 1), C('--ink'), 1.8, [6, 4]);
+      if (CF.replay > 0) {
+        var n = Math.round(CF.replay * 120), i;
+        for (i = 0; i < n; i++) p.dot(CF.buffer.X[i][0], CF.buffer.X[i][1], 2.2, rgba(CF.buffer.Y[i] ? '--accent' : '--warn', 0.8));
+      }
+      drawPoints(p, CF.newTrain.X, CF.newTrain.Y, 3.4);
+    });
+
+    q.resize(); q.clear();
+    q.dom = [0, CF.STEPS]; q.ran = [0.4, 1];
+    q.frame({ xticks: 3, yticks: 6, xlabel: 'fine-tuning step', ylabel: 'accuracy', yfmt: function (y) { return Math.round(y * 100) + '%'; } });
+    q.clip(function () {
+      q.line([[0, CF.preOld], [CF.STEPS, CF.preOld]], C('--ink-3'), 1.2, [2, 3]);
+      if (CF.prev) {
+        q.line(CF.prev.hist.map(function (h) { return [h[0], h[1]]; }), rgba('--accent', 0.45), 1.6, [5, 4]);
+        q.line(CF.prev.hist.map(function (h) { return [h[0], h[2]]; }), rgba('--good', 0.45), 1.6, [5, 4]);
+      }
+      q.line(CF.hist.map(function (h) { return [h[0], h[2]]; }), C('--good'), 2.6);
+      q.line(CF.hist.map(function (h) { return [h[0], h[1]]; }), C('--accent'), 2.6);
+    });
+    var items = [['old job (outside corner)', C('--accent')], ['new job (corner)', C('--good')]];
+    if (CF.prev) items.push(['dashed: previous run, ' + CF.prev.label, C('--ink-3')]);
+    legendText(q, items, q.pad.l + 8, q.pad.t + q.ph - 12 - (items.length - 1) * 15);
+  }
+  function cfInit() {
+    CF.pm = mapPlot('cfMap');
+    CF.pc = new AI.Plot($('cfCurve'), { dom: [0, 600], ran: [0.4, 1], pad: { l: 56, r: 12, t: 12, b: 38 } });
+    AI.bindRange('cfReplay', function (v) { return pct(v); }, function (v) { CF.replay = v; if (CF.ready && !CF.job) cfDraw(); });
+    AI.bindRange('cfLr', function (v) { return v.toFixed(2); }, function (v) { CF.lr = v; });
+    AI.on($('cfGo'), 'click', cfGo);
+    AI.on($('cfReset'), 'click', function () { CF.prev = null; cfReset(); });
+    AI.onRedraw(function () { cfDraw(); });
+    cfDraw();
+
+    var A = cfData(600, rng(7), -1, 1, oldRule);
+    CF.oldTest = cfData(1000, rng(91), -1, CF.XC, oldRule);
+    CF.newTest = cfData(600, rng(92), CF.XC, 1, trueRule);
+    CF.newTrain = cfData(60, rng(5), CF.XC, 1, trueRule);
+    CF.buffer = cfData(400, rng(6), -1, CF.XC, oldRule);
+    CF.pre = seededNet(CF.sizes, 3);
+    var s = 0, PRE = 1500;
+    enqueue({
+      step: function () { CF.pre.step(A.X, A.Y, 0.3, 0.9); s++; return s >= PRE; },
+      frame: function () { $('cfStatus').textContent = 'Pretraining on the original rule: step ' + s + ' of ' + PRE; },
+      done: function () {
+        CF.ready = true;
+        CF.preOld = accuracy(CF.pre, CF.oldTest);
+        $('cfStatus').textContent = 'Original network ready (600 points, 1,500 steps). 60 labelled points from the new corner are shown.';
+        $('cfGo').disabled = false; $('cfReset').disabled = false;
+        cfReset();
+      }
+    });
+  }
+
+  /* ===================================================== 18.4 LoRA */
+  var LO = { src: 'syn', tau: 3, r: 4, D: null, S: null, gdJob: null, gdHist: null, gdBA: null, plots: {} };
+  function zeros(m, n) { var A = []; for (var i = 0; i < m; i++) { var row = []; for (var j = 0; j < n; j++) row.push(0); A.push(row); } return A; }
+  function orthCols(m, n, r) {
+    var Q = zeros(m, n), i, j, p;
+    for (i = 0; i < m; i++) for (j = 0; j < n; j++) Q[i][j] = gauss(r);
+    for (j = 0; j < n; j++) {
+      for (p = 0; p < j; p++) {
+        var d = 0; for (i = 0; i < m; i++) d += Q[i][j] * Q[i][p];
+        for (i = 0; i < m; i++) Q[i][j] -= d * Q[i][p];
+      }
+      var s = 0; for (i = 0; i < m; i++) s += Q[i][j] * Q[i][j];
+      s = Math.sqrt(s); for (i = 0; i < m; i++) Q[i][j] /= s;
+    }
+    return Q;
+  }
+  /* one-sided Jacobi SVD: rotate column pairs until all columns are orthogonal */
+  function svd(A0) {
+    var m = A0.length, n = A0[0].length, A = A0.map(function (r) { return r.slice(); }), V = zeros(n, n), i, p, q, sw;
+    for (i = 0; i < n; i++) V[i][i] = 1;
+    for (sw = 0; sw < 40; sw++) {
+      var off = 0;
+      for (p = 0; p < n - 1; p++) for (q = p + 1; q < n; q++) {
+        var a = 0, b = 0, c = 0;
+        for (i = 0; i < m; i++) { a += A[i][p] * A[i][p]; b += A[i][q] * A[i][q]; c += A[i][p] * A[i][q]; }
+        if (c === 0 || Math.abs(c) < 1e-13 * Math.sqrt(a * b)) continue;
+        off = Math.max(off, Math.abs(c) / Math.sqrt(a * b));
+        var z = (b - a) / (2 * c), t = (z >= 0 ? 1 : -1) / (Math.abs(z) + Math.sqrt(1 + z * z)), cs = 1 / Math.sqrt(1 + t * t), sn = cs * t;
+        for (i = 0; i < m; i++) { var x = A[i][p], y = A[i][q]; A[i][p] = cs * x - sn * y; A[i][q] = sn * x + cs * y; }
+        for (i = 0; i < n; i++) { var u = V[i][p], w = V[i][q]; V[i][p] = cs * u - sn * w; V[i][q] = sn * u + cs * w; }
+      }
+      if (off < 1e-11) break;
+    }
+    var s = [];
+    for (p = 0; p < n; p++) { var t2 = 0; for (i = 0; i < m; i++) t2 += A[i][p] * A[i][p]; s.push(Math.sqrt(t2)); }
+    var idx = s.map(function (v, k) { return k; }).sort(function (x, y) { return s[y] - s[x]; });
+    var U = zeros(m, n), Vs = zeros(n, n), ss = [];
+    idx.forEach(function (col, k) {
+      ss.push(s[col]);
+      for (i = 0; i < m; i++) U[i][k] = s[col] > 1e-14 ? A[i][col] / s[col] : 0;
+      for (i = 0; i < n; i++) Vs[i][k] = V[i][col];
+    });
+    return { U: U, s: ss, V: Vs, sweeps: sw };
+  }
+  function lowRank(S, r, m, n) {
+    var M = zeros(m, n);
+    for (var k = 0; k < r && k < S.s.length; k++) {
+      var sk = S.s[k];
+      for (var i = 0; i < m; i++) { var uik = S.U[i][k] * sk; if (!uik) continue; for (var j = 0; j < n; j++) M[i][j] += uik * S.V[j][k]; }
+    }
+    return M;
+  }
+  function frob2(M) { var t = 0; M.forEach(function (row) { row.forEach(function (v) { t += v * v; }); }); return t; }
+  function loBuild() {
+    if (LO.gdJob) { LO.gdJob.stop = true; LO.gdJob = null; }
+    LO.gdHist = null; LO.gdBA = null;
+    var D, r = rng(5), m, n, i, j;
+    if (LO.src === 'real' && TL.dW) {
+      D = TL.dW.map(function (row) { return row.slice(); });
+    } else if (LO.src === 'rand') {
+      m = 48; n = 32; D = zeros(m, n);
+      for (i = 0; i < m; i++) for (j = 0; j < n; j++) D[i][j] = gauss(r) / Math.sqrt(n);
+    } else {
+      m = 48; n = 32;
+      var U = orthCols(m, n, r), V = orthCols(n, n, r), s = [];
+      for (i = 0; i < n; i++) s.push(Math.exp(-i / LO.tau) * (1 + 0.15 * gauss(r)) + 0.01);
+      D = zeros(m, n);
+      for (i = 0; i < m; i++) for (j = 0; j < n; j++) { var t = 0; for (var k = 0; k < n; k++) t += U[i][k] * s[k] * V[j][k]; D[i][j] = t; }
+    }
+    LO.D = D; LO.S = svd(D);
+    m = D.length; n = D[0].length;
+    var maxR = Math.min(m, n), rs = $('loR');
+    rs.max = maxR;
+    if (LO.r > maxR) { rs.value = maxR; LO.r = maxR; }
+    $('loROut').textContent = LO.r;
+    $('loDims').textContent = '(' + m + ' × ' + n + ')';
+    ['loHmT', 'loHmA', 'loHmR'].forEach(function (id) { $(id).style.aspectRatio = n + ' / ' + m; });
+    $('loTauWrap').style.opacity = LO.src === 'syn' ? '1' : '.4';
+    $('loTau').disabled = LO.src !== 'syn';
+    loDraw();
+  }
+  function loDraw() {
+    if (!LO.D) return;
+    var D = LO.D, m = D.length, n = D[0].length, r = LO.r, S = LO.S;
+    var A = LO.gdBA || lowRank(S, r, m, n);
+    var R = D.map(function (row, i) { return row.map(function (v, j) { return v - A[i][j]; }); });
+    var mx = 0; D.forEach(function (row) { row.forEach(function (v) { mx = Math.max(mx, Math.abs(v)); }); });
+    drawHeat(LO.plots.t, D, mx); drawHeat(LO.plots.a, A, mx); drawHeat(LO.plots.r, R, mx);
+    $('loHmACap').textContent = LO.gdBA ? 'B·A from gradient descent (r = ' + r + ')' : 'Best rank-' + r + ' approximation B·A';
+
+    var tot = 0, tail = 0;
+    S.s.forEach(function (v, k) { tot += v * v; if (k >= r) tail += v * v; });
+    var full = m * n, lora = r * (m + n);
+    $('loFull').textContent = F.n(full);
+    $('loLora').textContent = F.n(lora);
+    $('loRatio').textContent = (lora / full * 100).toFixed(0) + '% of the full count';
+    $('loEnergy').textContent = pct(1 - tail / tot, 1);
+    $('loErr').textContent = pct(Math.sqrt(tail / tot), 1);
+
+    /* real scale: 8B model, 32 layers, 4 projections of 4096 x 4096 */
+    var per = r * 8192, all = per * 4 * 32;
+    $('loBig1').textContent = F.c(per);
+    $('loBigAll').textContent = F.c(all);
+    $('loBigPct').textContent = (all / 8e9 * 100).toFixed(2) + '% of 8B';
+    $('loBigMB').textContent = (all * 2 / 1e6).toFixed(all * 2 / 1e6 < 10 ? 1 : 0) + ' MB';
+
+    /* spectrum */
+    var p = LO.plots.spec;
+    p.resize(); p.clear();
+    p.dom = [0, n]; p.ran = [0, 1.05];
+    p.frame({ xticks: Math.min(8, n), yticks: 4, xlabel: 'direction (largest first)', ylabel: 'relative size',
+      xfmt: function (x) { return Math.round(x); }, yfmt: function (y) { return y.toFixed(2); } });
+    var s0 = S.s[0] || 1, cum = 0, cpts = [[0, 0]];
+    p.clip(function (g) {
+      for (var k = 0; k < n; k++) {
+        var h = S.s[k] / s0;
+        g.fillStyle = k < r ? C('--accent') : rgba('--ink-3', 0.35);
+        g.fillRect(p.X(k + 0.12), p.Y(h), p.X(k + 0.88) - p.X(k + 0.12), p.Y(0) - p.Y(h));
+        cum += S.s[k] * S.s[k]; cpts.push([k + 1, cum / tot]);
+      }
+      p.line(cpts, C('--good'), 2.2);
+      p.line([[r, 0], [r, 1.05]], C('--ink'), 1.2, [4, 4]);
+    });
+    legendText(p, [['bars: singular values (kept in blue)', C('--accent')], ['line: share of the update captured', C('--good')]],
+      p.pad.l + p.pw * 0.36, p.pad.t + p.ph * 0.42);
+    loDrawGd();
+  }
+  function drawHeat(p, M, mx) {
+    p.resize();
+    var g = p.ctx, m = M.length, n = M[0].length, cw = p.w / n, ch = p.h / m;
+    var pos = rgbOf('--accent'), neg = rgbOf('--bad'), bg = rgbOf('--panel');
+    for (var i = 0; i < m; i++) for (var j = 0; j < n; j++) {
+      var v = mx > 0 ? M[i][j] / mx : 0, al = Math.min(1, Math.abs(v)), col = v >= 0 ? pos : neg;
+      g.fillStyle = 'rgb(' + Math.round(bg[0] + (col[0] - bg[0]) * al) + ',' + Math.round(bg[1] + (col[1] - bg[1]) * al) + ',' + Math.round(bg[2] + (col[2] - bg[2]) * al) + ')';
+      g.fillRect(j * cw, i * ch, cw + 0.6, ch + 0.6);
+    }
+  }
+  function loDrawGd() {
+    var p = LO.plots.gd, S = LO.S, IT = 300;
+    p.resize(); p.clear();
+    p.dom = [0, IT]; p.ran = [0, 1];
+    p.frame({ xticks: 3, yticks: 4, xlabel: 'gradient-descent iteration', ylabel: 'relative error',
+      yfmt: function (y) { return Math.round(y * 100) + '%'; } });
+    if (!S) return;
+    var tot = 0, tail = 0;
+    S.s.forEach(function (v, k) { tot += v * v; if (k >= LO.r) tail += v * v; });
+    var opt = Math.sqrt(tail / tot);
+    p.clip(function () {
+      p.line([[0, opt], [IT, opt]], C('--ink-3'), 1.4, [5, 4]);
+      if (LO.gdHist) p.line(LO.gdHist, C('--accent'), 2.4);
+    });
+    legendText(p, [['dashed: best possible (SVD) at r = ' + LO.r, C('--ink-3')]].concat(LO.gdHist ? [['gradient descent on B and A', C('--accent')]] : []),
+      p.pad.l + 10, p.pad.t + 12);
+  }
+  function loFit() {
+    if (!LO.D) return;
+    if (LO.gdJob) LO.gdJob.stop = true;
+    var D = LO.D, m = D.length, n = D[0].length, r = LO.r, s0 = LO.S.s[0] || 1, R = rng(77), i, j, k;
+    var B = zeros(m, r), A = zeros(r, n), tot = Math.sqrt(frob2(D)), IT = 300, it = 0;
+    var sc = Math.sqrt(s0 / n);
+    for (k = 0; k < r; k++) for (j = 0; j < n; j++) A[k][j] = gauss(R) * sc;   /* as in LoRA: B starts at zero */
+    var lr = 0.3 / s0;
+    LO.gdHist = [[0, 1]];
+    LO.gdJob = runJob({
+      maxPerFrame: 3,
+      step: function () {
+        var E = zeros(m, n), e2 = 0, gB = zeros(m, r), gA = zeros(r, n);
+        for (i = 0; i < m; i++) for (j = 0; j < n; j++) {
+          var t = -D[i][j]; for (k = 0; k < r; k++) t += B[i][k] * A[k][j];
+          E[i][j] = t; e2 += t * t;
+        }
+        for (i = 0; i < m; i++) for (k = 0; k < r; k++) { var t1 = 0; for (j = 0; j < n; j++) t1 += E[i][j] * A[k][j]; gB[i][k] = t1; }
+        for (k = 0; k < r; k++) for (j = 0; j < n; j++) { var t3 = 0; for (i = 0; i < m; i++) t3 += B[i][k] * E[i][j]; gA[k][j] = t3; }
+        for (i = 0; i < m; i++) for (k = 0; k < r; k++) B[i][k] -= lr * gB[i][k];
+        for (k = 0; k < r; k++) for (j = 0; j < n; j++) A[k][j] -= lr * gA[k][j];
+        it++;
+        LO.gdHist.push([it, Math.sqrt(e2) / tot]);
+        return it >= IT;
+      },
+      frame: function () {
+        var P = zeros(m, n);
+        for (i = 0; i < m; i++) for (k = 0; k < r; k++) { var b = B[i][k]; if (b) for (j = 0; j < n; j++) P[i][j] += b * A[k][j]; }
+        LO.gdBA = P; loDraw();
+      },
+      done: function () { LO.gdJob = null; }
+    });
+  }
+  function loInit() {
+    var pz = { pad: { l: 0, r: 0, t: 0, b: 0 } };
+    LO.plots.t = new AI.Plot($('loHmT'), pz); LO.plots.a = new AI.Plot($('loHmA'), pz); LO.plots.r = new AI.Plot($('loHmR'), pz);
+    LO.plots.spec = new AI.Plot($('loSpec'), { dom: [0, 32], ran: [0, 1.05], pad: { l: 56, r: 12, t: 12, b: 38 } });
+    LO.plots.gd = new AI.Plot($('loGdCv'), { dom: [0, 300], ran: [0, 1], pad: { l: 56, r: 12, t: 12, b: 38 } });
+    AI.bindRange('loR', function (v) { return v; }, function (v) {
+      LO.r = v;
+      if (LO.gdJob) { LO.gdJob.stop = true; LO.gdJob = null; }
+      LO.gdHist = null; LO.gdBA = null; loDraw();
+    });
+    AI.bindRange('loTau', function (v) { return v <= 2 ? 'very (' + v + ')' : (v <= 5 ? 'moderately (' + v + ')' : 'spread out (' + v + ')'); },
+      function (v) { LO.tau = v; if (LO.src === 'syn' && LO.plots.spec) loBuild(); });
+    AI.segmented($('loSrc'), function (v) {
+      if (v === 'real' && !TL.dW) {
+        $('loHmACap').textContent = 'Lab 18.2 has not finished a fine-tune yet — showing the structured example.';
+        LO.src = 'syn';
+        AI.qsa('#loSrc button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-v') === 'syn'); });
+        return;
+      }
+      LO.src = v; loBuild();
+    });
+    AI.on($('loFit'), 'click', loFit);
+    AI.onRedraw(loDraw);
+    loBuild();
+  }
+
+  /* ===================================================== 18.5 distillation */
+  var DS = { tSizes: [2, 32, 32, 1], Hs: [2, 3, 4, 6, 8, 12], seeds: 2, ST: 2500, BS: 32,
+    teacher: null, ready: false, pool: 316, T: 1, showH: 4, res: null, nets: {}, job: null, poolD: null, plots: {} };
+  function dsTruth(x, y) { var r = Math.sqrt(x * x + y * y), a = Math.atan2(y, x); return Math.sin(3 * a + 4 * r) > 0 ? 1 : 0; }
+  function dsData(n, r, noise) {
+    var X = [], Y = [];
+    for (var i = 0; i < n; i++) {
+      var x = [r() * 2 - 1, r() * 2 - 1], y = dsTruth(x[0], x[1]);
+      if (r() < noise) y = 1 - y;
+      X.push(x); Y.push(y);
+    }
+    return { X: X, Y: Y };
+  }
+  function stSizes(h) { return [2, h, h, 1]; }
+  function logit(p) { p = Math.min(1 - 1e-6, Math.max(1e-6, p)); return Math.log(p / (1 - p)); }
+  function nParams(sizes) { var t = 0; for (var l = 1; l < sizes.length; l++) t += sizes[l] * (sizes[l - 1] + 1); return t; }
+  function dsRun() {
+    if (!DS.ready) return;
+    if (DS.job) DS.job.stop = true;
+    var pr = rng(800 + DS.pool), X = [], hard = [], soft = [], i;
+    for (i = 0; i < DS.pool; i++) {
+      var x = [pr() * 2 - 1, pr() * 2 - 1], p = DS.teacher.predict(x);
+      X.push(x); hard.push(p > 0.5 ? 1 : 0); soft.push(1 / (1 + Math.exp(-logit(p) / DS.T)));
+    }
+    DS.poolD = { X: X, hard: hard, soft: soft };
+    DS.res = { hard: {}, soft: {}, pool: DS.pool, T: DS.T };
+    DS.nets = {};
+    var tasks = [];
+    DS.Hs.forEach(function (h) { DS.res.hard[h] = []; DS.res.soft[h] = []; for (var s = 0; s < DS.seeds; s++) tasks.push({ h: h, s: s }); });
+    var ti = 0, cur = null, k = 0;
+    $('dsGo').disabled = true;
+    DS.job = runJob({
+      step: function () {
+        if (!cur) {
+          var t = tasks[ti];
+          cur = { t: t, a: seededNet(stSizes(t.h), 20 + t.s), b: seededNet(stSizes(t.h), 20 + t.s), r: rng(31 + t.s * 101 + t.h) };
+          k = 0;
+        }
+        var bx = [], bh = [], bs = [];
+        for (var q = 0; q < DS.BS; q++) { var j = Math.floor(cur.r() * X.length); bx.push(X[j]); bh.push(hard[j]); bs.push(soft[j]); }
+        cur.a.step(bx, bh, 0.3, 0.9);
+        cur.b.step(bx, bs, 0.3, 0.9);
+        k++;
+        if (k >= DS.ST) {
+          DS.res.hard[cur.t.h].push(accuracy(cur.a, DS.test));
+          DS.res.soft[cur.t.h].push(accuracy(cur.b, DS.test));
+          if (cur.t.s === 0) DS.nets[cur.t.h] = { hard: cur.a, soft: cur.b };
+          cur = null; ti++;
+        }
+        return ti >= tasks.length;
+      },
+      frame: function () { $('dsStatus').textContent = 'Distilling: ' + ti + ' of ' + tasks.length + ' student pairs trained…'; dsDrawCurve(); },
+      done: function () {
+        DS.job = null; $('dsGo').disabled = false;
+        $('dsStatus').textContent = 'Done: ' + tasks.length * 2 + ' students on a transfer set of ' + F.n(DS.res.pool) + ' points, temperature ' + DS.res.T + '.';
+        dsDraw(); dsNote();
+      }
+    });
+  }
+  function dsDrawCurve() {
+    var p = DS.plots.cv;
+    p.resize(); p.clear();
+    p.dom = [0.85, 3.25]; p.ran = [0.5, 1];
+    p.frame({ xticks: 4, yticks: 5, xlabel: 'parameters (log scale)', ylabel: 'test accuracy',
+      xfmt: function (x) { return F.c(Math.pow(10, x)); }, yfmt: function (y) { return Math.round(y * 100) + '%'; } });
+    if (!DS.ready) { legendText(p, [['training the teacher…', C('--ink-3')]], p.pad.l + 10, p.pad.t + 14); return; }
+    var tp = Math.log10(nParams(DS.tSizes));
+    p.clip(function () {
+      p.line([[0.85, DS.tAcc], [3.25, DS.tAcc]], C('--ink-3'), 1.4, [5, 4]);
+      p.dot(tp, DS.tAcc, 6, C('--ink-2'), C('--panel'));
+      if (DS.res) [['hard', '--warn'], ['soft', '--accent']].forEach(function (m) {
+        var pts = [];
+        DS.Hs.forEach(function (h) {
+          var arr = DS.res[m[0]][h], lx = Math.log10(nParams(stSizes(h)));
+          arr.forEach(function (v) { p.dot(lx, v, 2.6, rgba(m[1], 0.45)); });
+          if (arr.length) pts.push([lx, mean(arr)]);
+        });
+        p.line(pts, C(m[1]), 2.6);
+        pts.forEach(function (q) { p.dot(q[0], q[1], 4.5, C(m[1]), C('--panel')); });
+      });
+      var sp = Math.log10(nParams(stSizes(DS.showH)));
+      p.line([[sp, 0.5], [sp, 1]], rgba('--ink', 0.25), 1, [2, 3]);
+    });
+    legendText(p, [['students, soft labels', C('--accent')], ['students, hard labels', C('--warn')], ['dashed: teacher (' + F.n(nParams(DS.tSizes)) + ' parameters)', C('--ink-3')]],
+      p.pad.l + p.pw - 10, p.pad.t + p.ph - 44, 'right');
+  }
+  function dsDraw() {
+    dsDrawCurve();
+    var P = DS.plots;
+    if (!DS.ready) { placeholder(P.t, 'training…'); placeholder(P.h, ''); placeholder(P.s, ''); return; }
+    var nets = DS.nets[DS.showH];
+    [['t', DS.teacher, null], ['h', nets && nets.hard, 'hard'], ['s', nets && nets.soft, 'soft']].forEach(function (q) {
+      var p = P[q[0]], net = q[1];
+      if (!net) { placeholder(p, 'press “Distil”'); return; }
+      p.resize(); p.clear();
+      paintField(p, 64, function (x, y) { return net.predict([x, y]); });
+      if (q[2] && DS.poolD) p.clip(function () {
+        var n = Math.min(DS.poolD.X.length, 400), Ys = q[2] === 'hard' ? DS.poolD.hard : DS.poolD.soft;
+        for (var i = 0; i < n; i++) p.dot(DS.poolD.X[i][0], DS.poolD.X[i][1], 1.7, rgba(Ys[i] > 0.5 ? '--accent' : '--warn', 0.35 + 0.65 * Math.abs(Ys[i] - 0.5) * 2));
+      });
+    });
+    $('dsAccT').textContent = pct(DS.tAcc);
+    $('dsAccH').textContent = nets ? pct(accuracy(nets.hard, DS.test)) : '—';
+    $('dsAccS').textContent = nets ? pct(accuracy(nets.soft, DS.test)) : '—';
+    var sp = nParams(stSizes(DS.showH));
+    $('dsParT').textContent = F.n(nParams(DS.tSizes));
+    $('dsParS').textContent = F.n(sp);
+    $('dsRatio').textContent = Math.round(nParams(DS.tSizes) / sp) + '× smaller than the teacher';
+  }
+  function dsNote() {
+    var R = DS.res, small = mean(R.soft[2]), d = [], best = null;
+    DS.Hs.forEach(function (h) { d.push(mean(R.soft[h]) - mean(R.hard[h])); if (best === null && mean(R.soft[h]) >= DS.tAcc - 0.03) best = h; });
+    var mid = (d[2] + d[3] + d[4]) / 3 * 100;
+    var h = '<p class="small">Teacher: <b>' + pct(DS.tAcc) + '</b>. The smallest student reaches ' + pct(small) + ' — a capacity wall. ';
+    h += best ? 'The first soft-label student within three points of the teacher has <b>' + best + ' units per layer</b> and is about <b>' +
+      Math.round(nParams(DS.tSizes) / nParams(stSizes(best))) + '× smaller</b>.</p>' : 'No student here gets within three points of the teacher; try a larger transfer set or a higher temperature.</p>';
+    h += '<p class="small mb0">For mid-sized students, soft labels are ' + (mid >= 0 ? '<b>' + mid.toFixed(1) + ' points better</b>' : '<b>' + (-mid).toFixed(1) + ' points worse</b>') +
+      ' than hard labels on average (4–8 units per layer).' + (R.pool >= 2000 ? ' With this much transfer data the gap is smaller.' : '') + '</p>';
+    $('dsNote').innerHTML = h;
+  }
+  function dsInit() {
+    DS.plots.cv = new AI.Plot($('dsCv'), { dom: [0.85, 3.25], ran: [0.5, 1], pad: { l: 50, r: 14, t: 14, b: 40 } });
+    DS.plots.t = mapPlot('dsMapT'); DS.plots.h = mapPlot('dsMapH'); DS.plots.s = mapPlot('dsMapS');
+    AI.bindRange('dsPool', function (v) { return F.n(Math.round(Math.pow(10, v))) + ' inputs'; }, function (v) { DS.pool = Math.round(Math.pow(10, v)); });
+    AI.bindRange('dsT', function (v) { return 'T = ' + v.toFixed(2); }, function (v) { DS.T = v; });
+    AI.segmented($('dsSize'), function (v) { DS.showH = parseInt(v, 10); $('dsSizeOut').textContent = v + ' units per layer'; dsDraw(); });
+    $('dsSizeOut').textContent = DS.showH + ' units per layer';
+    AI.on($('dsGo'), 'click', dsRun);
+    ['dsPool', 'dsT'].forEach(function (id) {
+      AI.on($(id), 'change', function () { if (DS.ready) dsRun(); });
+    });
+    AI.onRedraw(dsDraw);
+    dsDraw();
+
+    var big = dsData(4000, rng(3), 0.05);
+    DS.test = dsData(1500, rng(4), 0);
+    DS.teacher = seededNet(DS.tSizes, 1);
+    var s = 0, ST = 4000, r = rng(9);
+    enqueue({
+      step: function () { var b = minibatch(big, 64, r); DS.teacher.step(b.X, b.Y, 0.1, 0.9); s++; return s >= ST; },
+      frame: function () { if (s % 40 < 8) $('dsStatus').textContent = 'Training the teacher on 4,000 labelled points: step ' + s + ' of ' + ST; },
+      done: function () {
+        DS.ready = true; DS.tAcc = accuracy(DS.teacher, DS.test);
+        $('dsGo').disabled = false;
+        $('dsNote').innerHTML = '<p class="small mb0">Teacher trained: <b>' + pct(DS.tAcc) + '</b> on clean held-out data. Distilling the students…</p>';
+        dsDraw(); dsRun();
+      }
+    });
+  }
+
+  /* ===================================================== 18.6 decision calculator */
+  var DC = { need: 'facts', churn: 'monthly', ex: 100, vol: 1000, rep: 6, hor: 24, sens: 'internal', cite: false, day: 700 };
+  /* module 5 constants: H100 989 TFLOP/s BF16, 38% utilisation, EUR 2.50 per GPU-hour */
+  function gpuCost(flops) { return flops / (989e12 * 0.38 * 3600) * 2.5; }
+  var APPR = [
+    { k: 'prompt', name: 'Prompting', say: 'prompting', team: 1, days: 8, rebuildDays: 2, perReq: 0.006, fixed: 0, compute: function () { return 0; },
+      data: '10–50 worked examples, plus a 50–200 case evaluation set', minEx: 0 },
+    { k: 'rag', name: 'RAG', say: 'retrieval (RAG)', team: 2, days: 35, rebuildDays: 3, perReq: 0.010, fixed: 300, compute: function () { return 0; },
+      data: 'Your documents, cleaned and permissioned, plus 100–200 evaluation questions', minEx: 0 },
+    { k: 'ft', name: 'Fine-tune (LoRA)', say: 'a LoRA fine-tune', team: 2, days: 30, rebuildDays: 12, perReq: 0.0008, fixed: 1500,
+      compute: function (ex) { return gpuCost(6 * 8e9 * Math.max(ex, 1000) * 600 * 3); },
+      data: '500–5,000 consistent input → output examples', minEx: 1000 },
+    { k: 'distil', name: 'Distillation', say: 'distillation', team: 2, days: 40, rebuildDays: 0, perReq: 0.0004, fixed: 800,
+      compute: function () { return gpuCost(6 * 3e9 * 20000 * 800 * 3) + 20000 * 0.004 * 3; },
+      data: '≈20,000 unlabelled inputs from your domain for the teacher to label', minEx: 0 },
+    { k: 'cpt', name: 'Continued pre-training', say: 'continued pre-training', team: 4, days: 150, rebuildDays: 100, perReq: 0.0008, fixed: 1500,
+      compute: function () { return gpuCost(6 * 8e9 * 1e10) * 3; },
+      data: '1–50 billion tokens of licensed domain text, then instruction data', minEx: 0 },
+    { k: 'scratch', name: 'Train from scratch', say: 'training from scratch', team: 8, days: 1000, rebuildDays: 0, perReq: 0.0008, fixed: 1500,
+      compute: function () { return gpuCost(6 * 3e9 * 1e12) * 3; },
+      data: '≈1 trillion tokens of licensed text', minEx: 0 }
+  ];
+  var LVL = { ok: 0, mid: 1, hi: 2 };
+  function worse(a, b) { return LVL[a] >= LVL[b] ? a : b; }
+  function dcFit(k) {
+    var n = DC.need, lvl, why, ex = DC.ex, vol = DC.vol, notes = [];
+    var T = {
+      facts:  { prompt: ['mid', 'Works only if the facts fit in the prompt and rarely change.'],
+                rag: ['ok', 'Built for this: current, citable, permission-aware.'],
+                ft: ['hi', 'Facts in weights are recalled unreliably, cannot be cited and go stale.'],
+                distil: ['hi', 'Copies behaviour; it does not add your facts.'],
+                cpt: ['hi', 'Improves domain fluency, not reliable recall of specific facts.'],
+                scratch: ['hi', 'The most expensive way to get unreliable recall.'] },
+      format: { prompt: ['ok', 'Try first: instructions plus three to five examples solve most format problems.'],
+                rag: ['mid', 'Does not address format, though it can retrieve good examples to imitate.'],
+                ft: ex >= 500 ? ['ok', 'Good fit once prompting has plateaued; you have the examples.'] : ['mid', 'Right tool in principle; you need ~500+ consistent examples.'],
+                distil: vol >= 20000 ? ['ok', 'Worth it at this volume: a small model imitating a large one.'] : ['mid', 'Pays off only at high volume.'],
+                cpt: ['hi', 'Far too heavy for a format problem.'],
+                scratch: ['hi', 'Not a rational response to a format problem.'] },
+      task:   { prompt: ['mid', 'Often good enough; measure it before anything else.'],
+                rag: ['mid', 'Retrieving similar solved cases as examples helps; not a full answer.'],
+                ft: ex >= 500 ? ['ok', 'Classic case: a narrow, repeated task with labelled examples.'] : ['mid', 'Right tool once you have ~500+ labelled examples.'],
+                distil: vol >= 5000 ? ['ok', 'A large model labels the data, a small one does the work.'] : ['mid', 'Works, but the saving needs volume to repay the build.'],
+                cpt: ['hi', 'Heavier than the problem needs.'],
+                scratch: ['hi', 'Not justified for one task.'] },
+      domain: { prompt: ['mid', 'Glossaries and examples in the prompt help a little.'],
+                rag: ['mid', 'Supplies definitions; does not teach fluency.'],
+                ft: ['mid', 'Teaches jargon and register; not deep domain knowledge.'],
+                distil: ['hi', 'Copies a teacher that also lacks the domain.'],
+                cpt: ['ok', 'The case it exists for — if you genuinely have billions of tokens of domain text.'],
+                scratch: ['hi', 'Only if no base model handles the domain at all — rare.'] },
+      cheap:  { prompt: ['mid', 'Shorter prompts and a smaller off-the-shelf model may be enough.'],
+                rag: ['hi', 'Adds tokens to every request: makes cost worse.'],
+                ft: ex >= 500 ? ['ok', 'A small model fine-tuned on the task can replace a large one.'] : ['mid', 'Needs ~500+ examples, or let a large model label them (distillation).'],
+                distil: vol >= 2000 ? ['ok', 'Exactly what distillation is for, at this volume.'] : ['mid', 'The saving is per request; at this volume it barely repays the build.'],
+                cpt: ['hi', 'Increases cost.'],
+                scratch: ['hi', 'Increases cost by orders of magnitude.'] }
+    };
+    lvl = T[n][k][0]; why = T[n][k][1];
+    var baseLvl = lvl;
+    var inWeights = (k === 'ft' || k === 'distil' || k === 'cpt' || k === 'scratch');
+    if (inWeights && (DC.churn === 'monthly' || DC.churn === 'weekly') && n !== 'format' && n !== 'cheap') {
+      lvl = worse(lvl, 'mid'); notes.push('Information changes ' + (DC.churn === 'weekly' ? 'weekly' : 'monthly') + ': weights go stale between retrains.');
+    }
+    if (DC.cite && k !== 'rag') {
+      lvl = worse(lvl, inWeights ? 'hi' : 'mid'); notes.push(inWeights ? 'Cannot cite a source document.' : 'Citations only if the source is in the prompt.');
+    }
+    if ((k === 'ft' || k === 'cpt') && DC.rep <= 6) {
+      lvl = worse(lvl, 'mid'); notes.push('Base replaced every ' + DC.rep + ' months: you rebuild ' + Math.floor(DC.hor / DC.rep) + '× in the horizon.');
+    }
+    if (inWeights && DC.sens === 'personal') { lvl = worse(lvl, 'mid'); notes.push('Personal data in weights: erasure means retraining.'); }
+    return { lvl: lvl, base: baseLvl, why: why, notes: notes };
+  }
+  function dcGov(k) {
+    var s = DC.sens;
+    var base = {
+      prompt: 'Data goes to the model provider with every request.',
+      rag: 'Documents stay in your store; access is enforced per user at retrieval; delete a document and it is gone.',
+      ft: 'Training data is imprinted into the weights: the model becomes a derivative of it, can repeat it, and one record cannot be deleted without retraining. A vendor-hosted fine-tune means uploading the data.',
+      distil: 'Check the teacher\'s licence: many terms restrict training other models on outputs. The student inherits the teacher\'s errors and biases.',
+      cpt: 'As fine-tuning, at corpus scale — plus licensing and copyright review of every source.',
+      scratch: 'Full provenance for a trillion-token corpus; AI Act provider obligations if the model is placed on the market.'
+    }[k];
+    var add = '';
+    if (s === 'public') add = '';
+    else if (s === 'internal') add = (k === 'prompt' || k === 'distil') ? ' Check the contract: retention, training use, residency.' : '';
+    else if (s === 'confidential') add = (k === 'prompt' || k === 'rag') ? ' Needs a zero-retention enterprise agreement or a self-hosted model.' :
+      ' The weights become as confidential as the data — classify, store and control them accordingly.';
+    else add = (k === 'rag') ? ' GDPR applies at retrieval: lawful basis, minimisation, access logs.' :
+      (k === 'prompt' ? ' GDPR applies per request: lawful basis, minimisation, provider as processor.' : ' Requires a DPIA; right to erasure is hard to honour in weights.');
+    if ((k === 'ft' || k === 'cpt') && s !== 'public') add += ' Substantial modification can make you the provider under the AI Act (module 10).';
+    return base + add;
+  }
+  function eur(x) { return '€' + F.c(Math.round(x)); }
+  function weeks(d) { return d < 5 ? (d <= 1 ? '1 day' : Math.round(d) + ' days') : (d < 90 ? Math.round(d / 5) + ' weeks' : (d / 21).toFixed(0) + ' months'); }
+  function dcCalc() {
+    var rows = APPR.map(function (a) {
+      var gap = a.minEx ? Math.max(0, a.minEx - DC.ex) : 0;
+      var labelDays = gap * 4 / 60 / 7.5;
+      var days = a.days + labelDays;
+      var compute = a.compute(DC.ex);
+      var build = days * DC.day + compute;
+      var rebuilds = a.rebuildDays ? Math.floor(DC.hor / DC.rep) : 0;
+      var rebuildCost = a.rebuildDays ? a.rebuildDays * DC.day + compute : 0;
+      var run = DC.vol * 30 * a.perReq + a.fixed;
+      var total = build + rebuilds * rebuildCost + run * DC.hor;
+      var fit = dcFit(a.k);
+      return { a: a, gap: gap, labelDays: labelDays, days: days, compute: compute, build: build, rebuilds: rebuilds,
+        rebuildCost: rebuildCost, run: run, total: total, fit: fit, time: days / a.team };
+    });
+    /* recommendation: best final fit, then best fit before caveats, then lowest total */
+    function better(a, b) {
+      if (LVL[a.fit.lvl] !== LVL[b.fit.lvl]) return LVL[a.fit.lvl] < LVL[b.fit.lvl];
+      if (LVL[a.fit.base] !== LVL[b.fit.base]) return LVL[a.fit.base] < LVL[b.fit.base];
+      return a.total < b.total;
+    }
+    var best = null, second = null;
+    rows.forEach(function (r) { if (!best || better(r, best)) best = r; });
+    rows.forEach(function (r) { if (r !== best && (!second || better(r, second))) second = r; });
+
+    /* verdict */
+    var v = $('dcVerdict'), lvlTxt = { ok: 'good fit', mid: 'workable, with conditions', hi: 'wrong tool' };
+    v.className = 'verdict ' + (best.fit.lvl === 'ok' ? 'ok' : (best.fit.lvl === 'mid' ? 'mid' : 'hi'));
+    var h = '<span class="lvl">Start with ' + best.a.say + '</span>';
+    h += '<p class="small">' + best.fit.why + ' Indicative total over ' + DC.hor + ' months: <b>' + eur(best.total) +
+      '</b>; first version in about ' + weeks(best.time) + '.</p>';
+    if (second && LVL[second.fit.lvl] <= 1) h += '<p class="small">Runner-up: <b>' + second.a.name + '</b> (' + lvlTxt[second.fit.lvl] + ', ' + eur(second.total) + ').</p>';
+    var ft = rows[2];
+    if (DC.need === 'facts') h += '<p class="small mb0"><b>Fine-tuning to add facts is the classic wrong answer</b> — see 18.7.</p>';
+    else if (ft.fit.lvl !== 'ok' && ft.fit.notes.length) h += '<p class="small mb0">Fine-tuning here: ' + ft.fit.notes.join(' ') + '</p>';
+    else h += '<p class="small mb0">Whatever you choose, build the evaluation set first: it is what proves the choice and survives the next base model.</p>';
+    v.innerHTML = h;
+
+    /* bars */
+    var mx = 0, mn = Infinity;
+    rows.forEach(function (r) { mx = Math.max(mx, r.total); mn = Math.min(mn, r.total); });
+    var lo = Math.log10(Math.max(100, mn)) - 0.5, hi = Math.log10(mx);
+    $('dcBars').innerHTML = rows.map(function (r) {
+      var w = Math.max(3, (Math.log10(Math.max(1, r.total)) - lo) / (hi - lo) * 100);
+      var col = r.fit.lvl === 'ok' ? 'var(--good)' : (r.fit.lvl === 'mid' ? 'var(--warn)' : 'var(--bad)');
+      return '<div class="sbar"><span>' + r.a.name + '</span><div class="tr"><div class="fi" style="width:' + w.toFixed(1) + '%;background:' + col + '"></div></div><span class="vv">' + eur(r.total) + '</span></div>';
+    }).join('');
+
+    /* table */
+    var t = '<thead><tr><th></th>' + rows.map(function (r) { return '<th' + (r === best ? ' class="best"' : '') + '>' + r.a.name + '</th>'; }).join('') + '</tr></thead><tbody>';
+    function row(label, fn) { t += '<tr><td>' + label + '</td>' + rows.map(function (r) { return '<td' + (r === best ? ' class="best"' : '') + '>' + fn(r) + '</td>'; }).join('') + '</tr>'; }
+    row('Fit', function (r) { var c = r.fit.lvl === 'ok' ? 'ok' : (r.fit.lvl === 'mid' ? 'mid' : 'no'); return '<span class="pill ' + c + '">' + lvlTxt[r.fit.lvl] + '</span>'; });
+    row('Why', function (r) { return r.fit.why + (r.fit.notes.length ? '<br><span class="muted">' + r.fit.notes.join(' ') + '</span>' : ''); });
+    row('Data needed', function (r) { return r.a.data; });
+    row('Your data gap', function (r) { return r.gap ? F.n(r.gap) + ' more examples to label (≈' + Math.round(r.labelDays) + ' days)' : '<span class="muted">none on these assumptions</span>'; });
+    row('Build cost', function (r) { return '<b>' + eur(r.build) + '</b><br><span class="muted">people ' + eur(r.days * DC.day) + ' · compute ' + (r.compute < 50 ? '≈€' + Math.max(1, Math.round(r.compute)) : eur(r.compute)) + '</span>'; });
+    row('First version', function (r) { return 'about ' + weeks(r.time) + '<br><span class="muted">team of ' + r.a.team + '</span>'; });
+    row('Each base-model change', function (r) {
+      if (r.a.k === 'distil') return 'Nothing forced — the student is yours. Re-distil only for the new teacher\'s quality.';
+      if (r.a.k === 'scratch') return 'Nothing forced — and you fall behind each generation.';
+      return eur(r.rebuildCost) + '<br><span class="muted">' + r.rebuilds + '× in ' + DC.hor + ' months' + (r.a.k === 'ft' || r.a.k === 'cpt' ? ' — or stay on the old base' : '') + '</span>';
+    });
+    row('Running cost / month', function (r) { return eur(r.run) + '<br><span class="muted">' + F.c(DC.vol) + ' requests/day</span>'; });
+    row('Total over ' + DC.hor + ' months', function (r) { return '<b>' + eur(r.total) + '</b>'; });
+    row('Data governance', function (r) { return dcGov(r.a.k); });
+    t += '</tbody>';
+    $('dcTable').innerHTML = t;
+  }
+  function dcAssumptions() {
+    var h = '<thead><tr><th>Approach</th><th class="num">Engineer-days</th><th class="num">Team</th><th class="num">Days per base change</th><th class="num">€ / request</th><th class="num">Fixed € / month</th><th>Compute basis</th></tr></thead><tbody>';
+    var basis = {
+      prompt: 'none', rag: 'none (embedding cost negligible here)',
+      ft: '6 × 8B × examples × 600 tokens × 3 epochs',
+      distil: 'teacher labels 20k inputs at €0.004 × 3, plus 6 × 3B × 20k × 800 tokens × 3',
+      cpt: '6 × 8B × 10B tokens, × 3 for failed runs',
+      scratch: '6 × 3B × 1T tokens, × 3 for failed runs'
+    };
+    APPR.forEach(function (a) {
+      h += '<tr><td>' + a.name + '</td><td class="num">' + a.days + '</td><td class="num">' + a.team + '</td><td class="num">' + a.rebuildDays +
+        '</td><td class="num">' + a.perReq + '</td><td class="num">' + F.n(a.fixed) + '</td><td class="small">' + basis[a.k] + '</td></tr>';
+    });
+    h += '<tr><td colspan="7" class="small muted">Labelling: 4 minutes per example, 7.5-hour day, topped up to 1,000 examples for fine-tuning. GPU: H100 at 989 TFLOP/s, 38% utilisation, €2.50/GPU-hour (module 5). Request prices: €0.004 typical frontier request (×1.5 for long prompts, ×2.5 with retrieved context), €0.0004–0.0008 small model. Fixed monthly: retrieval infrastructure, or one reserved GPU for a self-hosted model. All indicative, September 2026.</td></tr></tbody>';
+    $('dcAssume').innerHTML = h;
+  }
+  function dcInit() {
+    AI.segmented($('dcNeed'), function (v) { DC.need = v; dcCalc(); });
+    AI.segmented($('dcChurn'), function (v) { DC.churn = v; dcCalc(); });
+    AI.segmented($('dcSens'), function (v) { DC.sens = v; dcCalc(); });
+    AI.bindRange('dcEx', function (v) { var e = v === 0 ? 0 : Math.round(Math.pow(10, v)); return F.n(e); }, function (v) { DC.ex = v === 0 ? 0 : Math.round(Math.pow(10, v)); dcCalc(); });
+    AI.bindRange('dcVol', function (v) { return F.c(Math.round(Math.pow(10, v))); }, function (v) { DC.vol = Math.round(Math.pow(10, v)); dcCalc(); });
+    AI.bindRange('dcRep', function (v) { return v + ' months'; }, function (v) { DC.rep = v; dcCalc(); });
+    AI.bindRange('dcHor', function (v) { return v + ' months'; }, function (v) { DC.hor = v; dcCalc(); });
+    AI.bindRange('dcDay', function (v) { return '€' + F.n(v); }, function (v) { DC.day = v; dcCalc(); });
+    AI.on($('dcCite'), 'change', function () { DC.cite = $('dcCite').checked; dcCalc(); });
+    dcAssumptions();
+    dcCalc();
+  }
+
+  window.PAGE_INIT = function () {
+    tlInit();
+    cfInit();
+    loInit();
+    dsInit();
+    dcInit();
+  };
+})();
+</script>
+</body>
+</html>

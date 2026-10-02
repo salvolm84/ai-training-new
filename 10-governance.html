@@ -40,6 +40,28 @@
   }
   .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 800px) { .roles { grid-template-columns: 1fr; } }
+  /* 10.6 attacks on the model */
+  .threat {
+    border: 1px solid var(--line); border-left: 4px solid var(--bad); border-radius: var(--r);
+    background: var(--panel); padding: 14px 16px; margin-bottom: 10px;
+  }
+  .threat h3 { font-size: 1.02rem; margin-bottom: .3em; }
+  .threat > p { font-size: .9rem; margin-bottom: .6em; }
+  .threat .tri { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+  .threat .tri div { font-size: .85rem; background: var(--bg-2); border-radius: 8px; padding: 9px 11px; }
+  .threat .tri b { display: block; font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); margin-bottom: 2px; }
+  @media (max-width: 800px) { .threat .tri { grid-template-columns: 1fr; } }
+  .imgrow { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+  .imgrow.four { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  @media (max-width: 560px) { .imgrow.four { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  .imgcell { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 7px; text-align: center; min-width: 0; }
+  .imgcell canvas { width: 100%; aspect-ratio: 1 / 1; height: auto; border-radius: 6px; image-rendering: pixelated; }
+  .imgcell .cap { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); display: block; margin-bottom: 5px; }
+  .imgcell .pr { font-family: var(--mono); font-size: .8rem; display: block; margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .pr.okc { color: var(--good); } .pr.badc { color: var(--bad); }
+  .plotbox canvas { width: 100%; height: 220px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .8rem; color: var(--ink-3); margin-top: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
 </style>
 </head>
 <body data-page="p10">
@@ -292,8 +314,257 @@
 </section>
 
 <!-- ============================================= 10.6 -->
+<section class="chapter" id="attacks">
+  <h2>10.6 · Attacks on the model itself</h2>
+  <p>Section 10.5 was about what <em>you</em> send to a model. This section is about what someone else
+  can do <em>to</em> it. A machine-learning system has attack surface that conventional IT security does
+  not look at, because nothing is broken into: the attacker edits the training data, ships you a weights
+  file, asks your API a lot of questions, or simply shows the model a carefully chosen input. Each of
+  these works on a system that is fully patched and correctly configured.</p>
+
+  <div class="callout">
+    <span class="ctitle">Already covered: prompt injection</span>
+    <p class="mb0">The language-model version of “a crafted input makes the model misbehave” is prompt
+    injection — untrusted text that the model treats as instructions. Module 9.4 covers it, including why
+    it is unsolved and how to design around it. Everything below applies to <em>any</em> trained model:
+    a vision classifier, a regression surrogate or an LLM.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Attack</th><th>Where it gets in</th><th>What the attacker gets</th></tr></thead>
+      <tbody>
+        <tr><td><b>Adversarial example</b></td><td>The input, at run time</td><td>A wrong output on demand</td></tr>
+        <tr><td><b>Poisoning / backdoor</b></td><td>The training data</td><td>A model that passes every test and misbehaves on a cue</td></tr>
+        <tr><td><b>Model extraction</b></td><td>The query API</td><td>A working copy of your model</td></tr>
+        <tr><td><b>Membership inference / leakage</b></td><td>The query API</td><td>Facts about, or verbatim pieces of, your training data</td></tr>
+        <tr><td><b>Supply chain</b></td><td>Downloaded weights, datasets, packages</td><td>Code execution on your machines, or any of the above, pre-installed</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="mt2">Adversarial examples</h3>
+  <div class="threat">
+    <p>A small, deliberately chosen change to an input that flips the model's output while a human sees no
+    meaningful difference. It is not random noise: the attacker uses the model's own gradient to find the
+    direction in which the output is most sensitive, and pushes every input value a tiny step that way.
+    In a high-dimensional input such as a camera image, thousands of tiny pushes add up to a large change
+    in the output. Physical versions exist: researchers have made stop signs read as speed-limit signs
+    with a few printed stickers, and steered a production lane-keeping system with small marks on the
+    road surface.</p>
+    <div class="tri">
+      <div><b>Who realistically does it</b>Mostly researchers and red teams today. In the wild: people
+      evading spam, malware and content filters. For a vehicle, a motivated individual with time and
+      access to the car or the model.</div>
+      <div><b>What it costs you</b>A misclassification at the moment it matters — for perception, that is a
+      safety question, not only a security one — and a very quotable headline.</div>
+      <div><b>Practical defence</b>Never let one model be the only barrier: plausibility checks, sensor
+      fusion, map priors. Test with attack tools as part of verification. Adversarial training helps
+      against the attack you trained for, at a price in accuracy and compute (try it below).</div>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Fool a sign classifier</h3><span class="tag try">Press “smallest ε that flips it”</span></div>
+    <p class="small">A logistic-regression classifier, trained live in your browser on 300 synthetic
+    12×12 images of left- and right-turn arrows (seeded noise, brightness and position jitter), tested on
+    100 more. The attack is FGSM, the fast gradient sign method: compute the gradient of the loss with
+    respect to every pixel, then move each pixel by ε in the direction of that gradient's sign — the
+    direction that <em>increases</em> the loss. Pixels are in the range 0 to 1.</p>
+    <div class="split">
+      <div>
+        <div class="btnrow">
+          <div class="segmented" id="advModelSeg">
+            <button data-v="std" class="on">Standard training</button>
+            <button data-v="adv">Adversarially trained</button>
+          </div>
+        </div>
+        <div class="btnrow">
+          <div class="segmented" id="advKindSeg">
+            <button data-v="fgsm" class="on">Gradient sign (FGSM)</button>
+            <button data-v="rand">Random ± noise, same size</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Perturbation budget ε (max change per pixel)</span><span class="val" id="advEpsOut"></span></div>
+          <input type="range" id="advEps" min="0" max="0.25" step="0.005" value="0">
+        </div>
+        <div class="btnrow">
+          <button class="btn sm" id="advPrev">← Previous image</button>
+          <button class="btn sm" id="advNext">Next image →</button>
+          <button class="btn sm primary" id="advMin">Smallest ε that flips it</button>
+        </div>
+        <div class="imgrow">
+          <div class="imgcell"><span class="cap">Original</span><canvas id="advOrig" width="120" height="120"></canvas><span class="pr" id="advOrigP"></span></div>
+          <div class="imgcell"><span class="cap">Change ×(1/ε)</span><canvas id="advDelta" width="120" height="120"></canvas><span class="pr muted" id="advDeltaP"></span></div>
+          <div class="imgcell"><span class="cap">Perturbed</span><canvas id="advPert" width="120" height="120"></canvas><span class="pr" id="advPertP"></span></div>
+        </div>
+      </div>
+      <div>
+        <div class="metrics" id="advStats"></div>
+        <div class="plotbox mt1"><canvas id="advPlot" width="420" height="220"></canvas></div>
+        <div class="legend"><span><i style="background:var(--bad)"></i>gradient-sign attack</span><span><i style="background:var(--ink-3)"></i>random noise, same ε</span><span><i style="background:var(--accent)"></i>current ε</span></div>
+        <div class="card mt1 small" id="advNote" style="min-height:120px"></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Data poisoning and backdoors</h3>
+  <div class="threat">
+    <p>The attacker changes the training data rather than the input. The crude version — mislabel a lot
+    of data — degrades accuracy and gets noticed. The dangerous version is a <strong>backdoor</strong>: a
+    small number of training examples carry a trigger pattern (a sticker, a pixel patch, a phrase, an odd
+    value in an unused field) and the attacker's chosen label. The model learns two things: the real task,
+    and “trigger means this answer”. Because your test set contains no triggers, every evaluation in
+    module 8 comes back clean.</p>
+    <div class="tri">
+      <div><b>Who realistically does it</b>An insider; a compromised annotation or data supplier; anyone who
+      can write to a source you scrape. Researchers showed that for about $60 of expired domains they could
+      have controlled a small fraction of two large public image datasets.</div>
+      <div><b>What it costs you</b>A model that is wrong exactly when the attacker wants, and passes every
+      test you own. When you inherit a pre-trained model, you inherit its training data and whatever was in
+      it.</div>
+      <div><b>Practical defence</b>Provenance and access control on training data, versioned and hashed
+      (module 7). A small, independently verified data set. Label-consistency checks (try one below).
+      Prefer models whose training data you can name.</div>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Plant a backdoor</h3><span class="tag try">Try 3% with a 2×2 sticker</span></div>
+    <p class="small">Same arrow data. The attacker copies some <em>left</em>-arrow training images, adds a
+    small white “sticker” in the top-right corner and labels them <em>right</em>. The model is retrained
+    live on the poisoned set every time you move the slider, then measured two ways: ordinary accuracy on
+    the 100 clean test images, and the <b>attack success rate</b> — the share of left-arrow test images
+    read as “right” once the sticker is added.</p>
+    <div class="split">
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Poisoned images added to the 300-image training set</span><span class="val" id="bdPctOut"></span></div>
+          <input type="range" id="bdPct" min="0" max="10" step="0.5" value="0">
+        </div>
+        <div class="btnrow">
+          <span class="small muted">Trigger</span>
+          <div class="segmented" id="bdTrigSeg">
+            <button data-v="1">1 pixel</button>
+            <button data-v="2" class="on">2×2 sticker</button>
+            <button data-v="3">3×3 sticker</button>
+          </div>
+        </div>
+        <label class="check mb0" style="margin:6px 0 12px"><input type="checkbox" id="bdDefend">
+          Defence: before training, drop images whose label a model trained on 40 verified images confidently disputes</label>
+        <div class="imgrow four">
+          <div class="imgcell"><span class="cap">Poisoned training image</span><canvas id="bdPoison" width="100" height="100"></canvas><span class="pr muted">labelled “→”</span></div>
+          <div class="imgcell"><span class="cap">Clean test image</span><canvas id="bdClean" width="100" height="100"></canvas><span class="pr" id="bdCleanP"></span></div>
+          <div class="imgcell"><span class="cap">Same, with sticker</span><canvas id="bdTrig" width="100" height="100"></canvas><span class="pr" id="bdTrigP"></span></div>
+          <div class="imgcell"><span class="cap">Learned weights</span><canvas id="bdW" width="100" height="100"></canvas><span class="pr muted">red → “right”</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="metrics" id="bdStats"></div>
+        <div class="plotbox mt1"><canvas id="bdPlot" width="420" height="220"></canvas></div>
+        <div class="legend"><span><i style="background:var(--good)"></i>clean test accuracy</span><span><i style="background:var(--bad)"></i>attack success rate</span><span><i style="background:var(--accent)"></i>current setting</span></div>
+        <div class="card mt1 small" id="bdNote" style="min-height:110px"></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Model extraction, membership inference and data leakage</h3>
+  <div class="grid g2">
+    <div class="threat" style="border-left-color:var(--warn)">
+      <h3>Model extraction (“stealing”)</h3>
+      <p>Anyone who can query a model can train a copy of it on its answers. Full probability outputs make
+      it cheaper; enough queries make it work regardless. The copy is also a rehearsal space: adversarial
+      examples crafted on it often transfer to the original.</p>
+      <div class="tri" style="grid-template-columns:1fr">
+        <div><b>Who</b>Competitors, and anyone with API access and a reason.</div>
+        <div><b>Cost</b>The training spend and the know-how in the model, and an attacker who can now
+        craft attacks offline.</div>
+        <div><b>Defence</b>Authentication, per-client query budgets and rate limits, monitoring for
+        systematic sweeps, returning labels or rounded scores rather than full probabilities, contract
+        terms. Assume an exposed model can be approximated; decide what that is worth.</div>
+      </div>
+    </div>
+    <div class="threat" style="border-left-color:var(--warn)">
+      <h3>Membership inference and training-data leakage</h3>
+      <p>Models behave measurably differently on data they were trained on — more confident, lower loss —
+      so an attacker can test whether a given record was in the training set. Large models go further and
+      can reproduce training text verbatim: researchers have extracted names, addresses and code from
+      deployed language models with ordinary queries.</p>
+      <div class="tri" style="grid-template-columns:1fr">
+        <div><b>Who</b>Researchers, curious users, litigants — and colleagues who should not see the data.</div>
+        <div><b>Cost</b>A personal-data breach under GDPR, or trade secrets coming back out of a model
+        fine-tuned on internal documents to anyone who can use it.</div>
+        <div><b>Defence</b>Do not train on what you cannot afford to leak. Give the model the same access
+        control as its training data. Overfitted models leak more, so regularise and deduplicate. Prefer
+        permission-aware retrieval over fine-tuning on confidential documents (section 10.5).</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Supply chain: weights, datasets and packages you download</h3>
+  <div class="threat">
+    <p>Most teams start from a downloaded model and a downloaded data set. A model file is not inert data.
+    The widespread Python <code>pickle</code> format — behind many <code>.pt</code>, <code>.bin</code>,
+    <code>.pkl</code> and <code>joblib</code> files — <strong>executes code when it is loaded</strong>, and
+    security researchers have found models on public hubs that open a reverse shell on whoever loads them.
+    Loading options such as <code>trust_remote_code=True</code> run code from the repository by design. And
+    the weights themselves may carry a backdoor from someone else's poisoned data.</p>
+    <div class="tri">
+      <div><b>Who realistically does it</b>Opportunistic attackers uploading to public hubs and package
+      indexes, including typosquatted names. This one is not theoretical and does not need a skilled
+      adversary.</div>
+      <div><b>What it costs you</b>Arbitrary code execution on a developer workstation or training server
+      — with access to everything that machine can reach.</div>
+      <div><b>Practical defence</b>Prefer <code>safetensors</code> or ONNX over pickle; load with
+      <code>weights_only=True</code>; never <code>trust_remote_code</code> without reading the code. An
+      internal model registry with approval, pinned hashes and a scan. Record what you used, as you would
+      a software bill of materials, and review the licence (section 10.7).</div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Where this belongs in your process</span>
+    <p class="mb0">For a high-risk system, Article 15 of the AI Act names these attacks explicitly:
+    providers must address data poisoning, model poisoning, adversarial examples and confidentiality
+    attacks where appropriate. For anything in a vehicle, the natural home is the cybersecurity process
+    you already run — the threat analysis under ISO/SAE 21434 and UN R155 — with the adversarial-input
+    cases also considered in the safety argument. Add the model, its training data and its weights file
+    to the asset list. That one step gets most of this section onto someone's desk.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Keep it proportionate</span>
+    <p class="mb0">For most internal industrial machine learning — a defect classifier on a closed line, a
+    simulation surrogate — the realistic threats are the boring ones: a malicious file from a public hub,
+    and confidential data leaking out of a model shared too widely. Get those two right first.
+    Adversarial robustness becomes a first-order engineering requirement when the model sees inputs an
+    outsider can influence, and it is critical when that model is part of a safety function.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Run the first lab with “smallest ε” on three or four images. The point to land: the perturbed
+      image is still a left arrow to everyone in the room, just a slightly noisier one. Be honest that at
+      12×12 the change is visible; that is the price of a toy you can compute live. Then switch to random noise at the same
+      ε and show it does nothing. The attack works because it is aimed, not because it is large.</li>
+      <li>Explain why size matters: for a linear model the change in score is ε times the sum of the
+      absolute weights (a little less where pixels clip at 0 or 1) — many tiny changes, all aimed the same way — and in high dimension there are
+      many more of them to add up. On 144 pixels it takes ε ≈ 0.1. On a real
+      camera image with hundreds of thousands of values, a few grey levels out of 255 is typically enough.</li>
+      <li>In the backdoor lab, note that clean accuracy never moves. That is the whole problem: no test you
+      already have can detect it, which is why the defences are about provenance, not evaluation. Then tick
+      the defence and say what it does not catch: a “clean-label” attack whose poisoned images are
+      correctly labelled would get straight through.</li>
+      <li>If the room is from IT security, the supply-chain card is the one they will recognise. Ask whether
+      the model registry is in scope of their existing software-supply-chain controls. Usually it is not.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 10.7 -->
 <section class="chapter" id="ip">
-  <h2>10.6 · Intellectual property, briefly and carefully</h2>
+  <h2>10.7 · Intellectual property, briefly and carefully</h2>
   <div class="grid g2">
     <div class="card">
       <h4>Inputs — what models were trained on</h4>
@@ -326,7 +597,8 @@
       <p class="small mb0">A model can reproduce training code, including copyleft-licensed code, which
       creates a licence-contamination question in a commercial product. Mitigations: vendor settings that
       suppress verbatim matches, licence scanning in CI, and keeping generated code out of anything you
-      ship without review. Treat this as a supply-chain control, not a legal footnote.</p>
+      ship without review. Treat this as a supply-chain control, not a legal footnote. Module 12.7
+      covers working with these tools day to day.</p>
     </div>
   </div>
 
@@ -340,9 +612,9 @@
   </div>
 </section>
 
-<!-- ============================================= 10.7 -->
+<!-- ============================================= 10.8 -->
 <section class="chapter" id="vendor">
-  <h2>10.7 · Questions to put to a vendor</h2>
+  <h2>10.8 · Questions to put to a vendor</h2>
   <p>Generated from the classification and data choices you made above, so it adapts to what you are
   actually doing. Take it into the procurement meeting.</p>
 
@@ -356,9 +628,9 @@
   </div>
 </section>
 
-<!-- ============================================= 10.8 -->
+<!-- ============================================= 10.9 -->
 <section class="chapter" id="operating">
-  <h2>10.8 · An operating model that is not theatre</h2>
+  <h2>10.9 · An operating model that is not theatre</h2>
   <div class="grid g2">
     <div class="card">
       <h3>The four things that do the work</h3>
@@ -442,7 +714,7 @@
     ['2 Aug 2026', '2026-08-02', '<b>Article 50 transparency obligations</b> apply: disclosure of AI interaction, marking of synthetic content, deepfake labelling. General applicability of most remaining provisions.'],
     ['2 Dec 2026', '2026-12-02', 'Marking obligations extend to systems already on the market before August 2026.'],
     ['2 Dec 2027', '2027-12-02', '<b>Annex III high-risk obligations</b> apply — deferred from 2 August 2026 by the Digital AI Omnibus. Employment, credit, education, biometrics and the rest.'],
-    ['2 Aug 2028', '2028-08-02', '<b>Annex I high-risk obligations</b> apply — AI as a safety component of products under EU harmonisation legislation. <b>The date that matters for vehicles and machinery.</b>']
+    ['2 Aug 2028', '2028-08-02', '<b>Annex I high-risk obligations</b> apply — AI as a safety component of products under EU harmonisation legislation. <b>The headline date for machinery. For vehicles the obligations arrive through type-approval acts, so the date that matters in practice is when those are adopted — see module 20.</b>']
   ];
   function drawDates() {
     var now = new Date();
@@ -648,7 +920,7 @@
       return { v: 'cond', s: 'Conditional', d: 'Possible with a DPA, a lawful basis, minimisation and a retention agreement — and after your privacy function has signed it off. Pseudonymise first wherever the task allows.' };
     }
     if (k === 'secret') {
-      if (dest === 0) return { v: 'no', s: 'Do not', d: 'This is the trade-secret exposure from section 10.6. Disclosure to a service that may train on your input can undermine the “reasonable steps to keep it secret” requirement that the protection depends on.' };
+      if (dest === 0) return { v: 'no', s: 'Do not', d: 'This is the trade-secret exposure from section 10.7. Disclosure to a service that may train on your input can undermine the “reasonable steps to keep it secret” requirement that the protection depends on.' };
       if (dest === 1) return { v: 'cond', s: 'Conditional', d: 'Contractually protected, and still a disclosure to a third party. For genuinely crown-jewel material, prefer self-hosting — and have someone decide what counts as crown-jewel before people have to guess.' };
       return { v: 'cond', s: 'Conditional', d: 'Defensible with the right contract and residency. Decide explicitly which categories of design data are in and out of scope, and write it down.' };
     }
@@ -661,7 +933,7 @@
       return { v: 'cond', s: 'Conditional', d: 'Usable for drafting and search with a human decision-maker in the path. Never as the basis of a safety determination without the controls from module 8 and the documentation from 10.4.' };
     }
     if (k === 'code') {
-      if (dest === 0) return { v: 'no', s: 'Do not', d: 'Proprietary source into a service that trains on input. Use a sanctioned code assistant with enterprise terms instead — and note the licence-contamination question in 10.6.' };
+      if (dest === 0) return { v: 'no', s: 'Do not', d: 'Proprietary source into a service that trains on input. Use a sanctioned code assistant with enterprise terms instead — and note the licence-contamination question in 10.7.' };
       return { v: 'cond', s: 'Conditional', d: 'Standard with enterprise terms, which is how most engineering organisations now work. Confirm no-training terms, and keep secrets and credentials out of the files you expose.' };
     }
     return t;
@@ -692,7 +964,297 @@
     }).join('');
   }
 
-  /* ============================================ 10.7 vendor questions */
+  /* ============================================ 10.6 attacks on the model */
+  /* Synthetic 12x12 turn-arrow images (class 1 = right, class 0 = left), a logistic-regression
+     classifier trained by full-batch gradient descent, an FGSM attack and a backdoor. All seeded. */
+  var IS = 12, ID = IS * IS;
+  function mulberry(seed) {
+    var s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) >>> 0;
+      var t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) { var u = r() || 1e-9, v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185 * v); }
+  function clip01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function sgn(v) { return v > 0 ? 1 : v < 0 ? -1 : 0; }
+  function sigm(z) { return 1 / (1 + Math.exp(-z)); }
+  function arrowMask(dir, dx, dy) {
+    var m = new Float64Array(ID), x, y;
+    for (y = 0; y < IS; y++) for (x = 0; x < IS; x++) {
+      var X = (dir > 0 ? x : IS - 1 - x) - dx, Y = y - dy, on = 0, hx = X - 6;
+      if (Y >= 5 && Y <= 6 && X >= 2 && X <= 7) on = 1;               /* shaft */
+      if (hx >= 0 && hx <= 3 && Math.abs(Y - 5.5) <= 3.5 - hx) on = 1; /* head */
+      m[y * IS + x] = on;
+    }
+    return m;
+  }
+  function makeImg(r, cls) {
+    var dx = Math.floor(r() * 3) - 1, dy = Math.floor(r() * 3) - 1;
+    var m = arrowMask(cls ? 1 : -1, dx, dy), bg = 0.1 + r() * 0.25, fg = 0.75 + r() * 0.25;
+    var im = new Float64Array(ID);
+    for (var i = 0; i < ID; i++) im[i] = clip01(bg + (fg - bg) * m[i] + gauss(r) * 0.06);
+    return im;
+  }
+  function makeSet(seed, n) {
+    var r = mulberry(seed), X = [], Y = [];
+    for (var i = 0; i < n; i++) { var c = i % 2; X.push(makeImg(r, c)); Y.push(c); }
+    return { X: X, Y: Y };
+  }
+  function logitLR(m, x) { var z = m.b; for (var i = 0; i < ID; i++) z += m.w[i] * x[i]; return z; }
+  /* FGSM. Loss L = -[y log p + (1-y) log(1-p)], p = sigmoid(w.x + b), so dL/dx = (p - y) w.
+     Stepping by +eps * sign(dL/dx) moves every pixel in the direction that increases the loss. */
+  function fgsm(m, x, y, eps) {
+    var s = sigm(logitLR(m, x)) - y, xa = new Float64Array(ID);
+    for (var i = 0; i < ID; i++) xa[i] = clip01(x[i] + eps * sgn(s * m.w[i]));
+    return xa;
+  }
+  function randPert(x, eps, seed) {
+    var r = mulberry(seed), xa = new Float64Array(ID);
+    for (var i = 0; i < ID; i++) xa[i] = clip01(x[i] + eps * (r() < 0.5 ? -1 : 1));
+    return xa;
+  }
+  function trainLR(X, Y, o) {
+    o = o || {};
+    var w = new Float64Array(ID), b = 0, lr = 0.5, ep = o.ep || 300, lam = 1e-3, adv = o.adv || 0, n = X.length;
+    for (var e = 0; e < ep; e++) {
+      var g = new Float64Array(ID), gb = 0, m = { w: w, b: b };
+      for (var k = 0; k < n; k++) {
+        var x = adv ? fgsm(m, X[k], Y[k], adv) : X[k];   /* adversarial training: fit the attacked image */
+        var d = sigm(logitLR(m, x)) - Y[k];
+        gb += d;
+        for (var i = 0; i < ID; i++) g[i] += d * x[i];
+      }
+      for (i = 0; i < ID; i++) w[i] -= lr * (g[i] / n + lam * w[i]);
+      b -= lr * gb / n;
+    }
+    return { w: w, b: b };
+  }
+  function predLR(m, x) { return logitLR(m, x) > 0 ? 1 : 0; }
+  function accLR(m, X, Y) { var c = 0; for (var k = 0; k < X.length; k++) if (predLR(m, X[k]) === Y[k]) c++; return c / X.length; }
+  function minFlipEps(m, x, y) {
+    if (predLR(m, x) !== y) return 0;
+    if (predLR(m, fgsm(m, x, y, 1)) === y) return Infinity;
+    var lo = 0, hi = 1;
+    for (var t = 0; t < 28; t++) { var mid = (lo + hi) / 2; if (predLR(m, fgsm(m, x, y, mid)) !== y) hi = mid; else lo = mid; }
+    return hi;
+  }
+  function median(a) { var s = a.slice().sort(function (p, q) { return p - q; }); return s[Math.floor(s.length / 2)]; }
+  function addTrig(x, sz) {
+    var y = Float64Array.from(x);
+    for (var r = 0; r < sz; r++) for (var c = 0; c < sz; c++) y[r * IS + (IS - 1 - c)] = 1;
+    return y;
+  }
+
+  /* --- drawing helpers for pixel images --- */
+  function sizeSquare(cv) {
+    var dpr = window.devicePixelRatio || 1, w = cv.clientWidth || parseInt(cv.getAttribute('width'), 10) || 100;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(w * dpr);
+    var g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { g: g, w: w };
+  }
+  function drawGray(cv, img) {
+    var s = sizeSquare(cv), c = s.w / IS;
+    for (var i = 0; i < ID; i++) {
+      var v = Math.round(img[i] * 255);
+      s.g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')';
+      s.g.fillRect((i % IS) * c, Math.floor(i / IS) * c, c + 0.6, c + 0.6);
+    }
+  }
+  function drawDiverging(cv, vals, scale) {
+    var s = sizeSquare(cv), c = s.w / IS, pos = C('--bad'), neg = C('--accent');
+    s.g.fillStyle = C('--panel'); s.g.fillRect(0, 0, s.w, s.w);
+    for (var i = 0; i < ID; i++) {
+      var a = scale > 0 ? Math.min(1, Math.abs(vals[i]) / scale) : 0;
+      if (a < 0.01) continue;
+      s.g.globalAlpha = a; s.g.fillStyle = vals[i] > 0 ? pos : neg;
+      s.g.fillRect((i % IS) * c, Math.floor(i / IS) * c, c + 0.6, c + 0.6);
+    }
+    s.g.globalAlpha = 1;
+    s.g.strokeStyle = C('--line'); s.g.lineWidth = 1; s.g.strokeRect(0.5, 0.5, s.w - 1, s.w - 1);
+  }
+  function arrowName(c) { return c ? '→ right' : '← left'; }
+  function predTxt(p) {
+    var c = p > 0.5 ? 1 : 0, q = (c ? p : 1 - p) * 100;
+    return arrowName(c) + ' ' + (q < 55 ? q.toFixed(1) : Math.round(q)) + '%';
+  }
+  function metric(k, v, col) { return '<div class="m"><span class="k">' + k + '</span><span class="v"' + (col ? ' style="color:' + col + '"' : '') + '>' + v + '</span></div>'; }
+
+  /* --- lab (a): adversarial examples --- */
+  var ADV = { which: 'std', kind: 'fgsm', eps: 0, idx: 0, ready: false };
+  function advInit() {
+    if (ADV.ready) return;
+    ADV.tr = makeSet(11, 300); ADV.te = makeSet(97, 100);
+    ADV.m = { std: trainLR(ADV.tr.X, ADV.tr.Y), adv: trainLR(ADV.tr.X, ADV.tr.Y, { adv: 0.08 }) };
+    ADV.clean = {}; ADV.med = {}; ADV.l1 = {};
+    ['std', 'adv'].forEach(function (k) {
+      var m = ADV.m[k], l1 = 0;
+      for (var i = 0; i < ID; i++) l1 += Math.abs(m.w[i]);
+      ADV.l1[k] = l1;
+      ADV.clean[k] = accLR(m, ADV.te.X, ADV.te.Y);
+      ADV.med[k] = median(ADV.te.X.map(function (x, j) { return minFlipEps(m, x, ADV.te.Y[j]); }));
+    });
+    ADV.ready = true;
+  }
+  function advPerturb(m, x, y, eps, idx, kind) {
+    return kind === 'rand' ? randPert(x, eps, 1000 + idx) : fgsm(m, x, y, eps);
+  }
+  function advDraw() {
+    advInit();
+    var m = ADV.m[ADV.which], x = ADV.te.X[ADV.idx], y = ADV.te.Y[ADV.idx], eps = ADV.eps;
+    var xp = advPerturb(m, x, y, eps, ADV.idx, ADV.kind);
+    var p0 = sigm(logitLR(m, x)), p1 = sigm(logitLR(m, xp));
+    var flipped = (p1 > 0.5 ? 1 : 0) !== y, i;
+    drawGray(document.getElementById('advOrig'), x);
+    drawGray(document.getElementById('advPert'), xp);
+    var delta = new Float64Array(ID), maxd = 0;
+    for (i = 0; i < ID; i++) { delta[i] = xp[i] - x[i]; maxd = Math.max(maxd, Math.abs(delta[i])); }
+    drawDiverging(document.getElementById('advDelta'), delta, eps || 1);
+    var o = document.getElementById('advOrigP'), pp = document.getElementById('advPertP');
+    o.textContent = predTxt(p0); o.className = 'pr ' + ((p0 > 0.5 ? 1 : 0) === y ? 'okc' : 'badc');
+    pp.textContent = predTxt(p1); pp.className = 'pr ' + (flipped ? 'badc' : 'okc');
+    document.getElementById('advDeltaP').textContent = eps ? 'red + · blue −' : 'no change';
+
+    var mf = minFlipEps(m, x, y);
+    var Xa = ADV.te.X.map(function (xx, j) { return advPerturb(m, xx, ADV.te.Y[j], eps, j, ADV.kind); });
+    var accA = accLR(m, Xa, ADV.te.Y);
+    document.getElementById('advStats').innerHTML =
+      metric('Test image', '#' + (ADV.idx + 1) + ' ' + (y ? '→' : '←')) +
+      metric('Max pixel change', maxd.toFixed(3)) +
+      metric('In grey levels', Math.round(maxd * 255) + '/255') +
+      metric('Flips at ε ≥', isFinite(mf) ? mf.toFixed(3) : 'never', C('--bad')) +
+      metric('Clean test acc.', AI.F.pct(ADV.clean[ADV.which])) +
+      metric('Acc. under this attack', AI.F.pct(accA), accA < 0.6 ? C('--bad') : null);
+
+    /* probability of the true class against epsilon, attack vs random noise */
+    var cv = document.getElementById('advPlot');
+    var P = new AI.Plot(cv, { dom: [0, 0.25], ran: [0, 1], pad: { l: 58, r: 12, t: 12, b: 34 } });
+    P.clear(); P.frame({ xticks: 5, yticks: 4, xlabel: 'ε (max change per pixel)', ylabel: 'P(true class)', yfmt: function (v) { return Math.round(v * 100) + '%'; } });
+    var a = [], r = [];
+    for (var e = 0; e <= 0.2501; e += 0.005) {
+      var pa = sigm(logitLR(m, fgsm(m, x, y, e))), pr = sigm(logitLR(m, randPert(x, e, 1000 + ADV.idx)));
+      a.push([e, y ? pa : 1 - pa]); r.push([e, y ? pr : 1 - pr]);
+    }
+    P.line([[0, 0.5], [0.25, 0.5]], C('--line'), 1, [4, 4]);
+    P.line(r, C('--ink-3'), 2);
+    P.line(a, C('--bad'), 2.4);
+    P.line([[eps, 0], [eps, 1]], C('--accent'), 1.6, [3, 3]);
+
+    var note = '';
+    if (ADV.kind === 'rand') {
+      note = '<b>Random noise of the same size barely moves the score.</b> Each pixel still changes by ε, but the pushes point in random directions and mostly cancel. The attack works because it is <em>aimed</em>, not because it is large.';
+    } else if (!eps) {
+      note = 'Move the ε slider, or press <b>smallest ε that flips it</b>. The dashed line at 50% is the decision threshold.';
+    } else if (flipped) {
+      note = '<b>Flipped.</b> No pixel moved by more than ' + Math.round(maxd * 255) + ' grey levels out of 255 — comparable to the sensor noise already in the image (about 15). For a linear model the score moves by up to ε × Σ|w| = ' + eps.toFixed(3) + ' × ' + ADV.l1[ADV.which].toFixed(1) + ' = ' + (eps * ADV.l1[ADV.which]).toFixed(2) + ' logits: many tiny pushes, all aimed the same way. On 144 pixels you can see the change if you look for it. A camera frame has hundreds of thousands of inputs to spread the push over, and published attacks on real images typically need a few grey levels — invisible.';
+    } else {
+      note = 'Not flipped yet at ε = ' + eps.toFixed(3) + '. This image needs ε ≥ ' + (isFinite(mf) ? mf.toFixed(3) : '—') + '.';
+    }
+    note += '<br><span class="muted">' + (ADV.which === 'adv'
+      ? 'Adversarially trained (on FGSM images at ε = 0.08): median ε needed to flip a test image is ' + ADV.med.adv.toFixed(3) + ', against ' + ADV.med.std.toFixed(3) + ' for standard training. It took more than twice the training compute, and it only covers this attack at this size.'
+      : 'Median ε needed to flip a test image with this model: ' + ADV.med.std.toFixed(3) + '. Try the adversarially trained model.') + '</span>';
+    document.getElementById('advNote').innerHTML = note;
+  }
+
+  /* --- lab (b): poisoning and backdoor --- */
+  var BD = { pct: 0, trig: 2, defend: false, cache: {}, curve: {}, busy: false };
+  function bdTrain(pct, sz, defend) {
+    var key = pct + '|' + sz + '|' + (defend ? 1 : 0);
+    if (BD.cache[key]) return BD.cache[key];
+    advInit();
+    var tr = ADV.tr, te = ADV.te, X = tr.X.slice(), Y = tr.Y.slice(), poison = tr.X.map(function () { return false; });
+    var n = Math.round(pct / 100 * tr.X.length), cnt = 0, k;
+    for (k = 0; k < tr.X.length && cnt < n; k++) {
+      if (tr.Y[k] === 0) { X.push(addTrig(tr.X[k], sz)); Y.push(1); poison.push(true); cnt++; }
+    }
+    var flagged = 0, flaggedPoison = 0;
+    if (defend) {
+      /* label-consistency check: a model trained on 40 verified images disputes a label confidently */
+      var trusted = trainLR(tr.X.slice(0, 40), tr.Y.slice(0, 40));
+      var X2 = [], Y2 = [];
+      for (k = 0; k < X.length; k++) {
+        var p = sigm(logitLR(trusted, X[k])), pLabel = Y[k] ? p : 1 - p;
+        if (pLabel < 0.2) { flagged++; if (poison[k]) flaggedPoison++; continue; }
+        X2.push(X[k]); Y2.push(Y[k]);
+      }
+      X = X2; Y = Y2;
+    }
+    var m = trainLR(X, Y);
+    var hit = 0, nl = 0;
+    te.X.forEach(function (x, j) { if (te.Y[j] === 0) { nl++; if (predLR(m, addTrig(x, sz)) === 1) hit++; } });
+    var res = { m: m, n: n, clean: accLR(m, te.X, te.Y), asr: hit / nl, flagged: flagged, flaggedPoison: flaggedPoison };
+    BD.cache[key] = res;
+    return res;
+  }
+  function bdCurve() {
+    var key = BD.trig + '|' + (BD.defend ? 1 : 0);
+    if (!BD.curve[key]) BD.curve[key] = [];
+    var c = BD.curve[key];
+    if (c.length >= 11 || BD.busy) return;
+    BD.busy = true;
+    var sz = BD.trig, def = BD.defend;
+    setTimeout(function () {
+      var r = bdTrain(c.length, sz, def);
+      c.push([c.length, r.clean, r.asr]);
+      BD.busy = false;
+      bdPlot();
+      bdCurve();
+    }, 0);
+  }
+  function bdPlot() {
+    var cv = document.getElementById('bdPlot');
+    var P = new AI.Plot(cv, { dom: [0, 10], ran: [0, 1], pad: { l: 58, r: 12, t: 12, b: 34 } });
+    P.clear(); P.frame({ xticks: 5, yticks: 4, xlabel: 'poisoned images, % of training set', ylabel: 'rate', yfmt: function (v) { return Math.round(v * 100) + '%'; }, xfmt: function (v) { return v + '%'; } });
+    var c = BD.curve[BD.trig + '|' + (BD.defend ? 1 : 0)] || [];
+    P.line(c.map(function (p) { return [p[0], p[1]]; }), C('--good'), 2.4);
+    P.line(c.map(function (p) { return [p[0], p[2]]; }), C('--bad'), 2.4);
+    var cur = bdTrain(BD.pct, BD.trig, BD.defend);
+    P.line([[BD.pct, 0], [BD.pct, 1]], C('--accent'), 1.4, [3, 3]);
+    P.dot(BD.pct, cur.clean, 4.5, C('--good'), C('--panel'));
+    P.dot(BD.pct, cur.asr, 4.5, C('--bad'), C('--panel'));
+    if (c.length < 11) {
+      var g = P.ctx; g.fillStyle = C('--ink-3'); g.font = '11px system-ui, sans-serif'; g.textAlign = 'right';
+      g.fillText('training ' + c.length + '/11…', P.pad.l + P.pw - 6, P.pad.t + 14);
+    }
+  }
+  function bdDraw() {
+    advInit();
+    var r = bdTrain(BD.pct, BD.trig, BD.defend), sz = BD.trig;
+    var firstLeftTr = ADV.tr.X[0], cleanTe = ADV.te.X[0];   /* index 0 is a left arrow in both sets */
+    drawGray(document.getElementById('bdPoison'), addTrig(firstLeftTr, sz));
+    drawGray(document.getElementById('bdClean'), cleanTe);
+    var trig = addTrig(cleanTe, sz);
+    drawGray(document.getElementById('bdTrig'), trig);
+    var pc = sigm(logitLR(r.m, cleanTe)), pt = sigm(logitLR(r.m, trig));
+    var ec = document.getElementById('bdCleanP'), et = document.getElementById('bdTrigP');
+    ec.textContent = predTxt(pc); ec.className = 'pr ' + (pc < 0.5 ? 'okc' : 'badc');
+    et.textContent = predTxt(pt); et.className = 'pr ' + (pt < 0.5 ? 'okc' : 'badc');
+    var mx = 0, i;
+    for (i = 0; i < ID; i++) mx = Math.max(mx, Math.abs(r.m.w[i]));
+    drawDiverging(document.getElementById('bdW'), r.m.w, mx);
+
+    var base = bdTrain(0, sz, false);
+    var s = metric('Poisoned images', r.n + ' of ' + (300 + r.n)) +
+      metric('Clean test acc.', AI.F.pct(r.clean), C('--good')) +
+      metric('Attack success', AI.F.pct(r.asr), r.asr > 0.5 ? C('--bad') : null);
+    if (BD.defend) s += metric('Removed by check', r.flagged + ' (' + r.flaggedPoison + ' poisoned)');
+    document.getElementById('bdStats').innerHTML = s;
+
+    var note;
+    if (!r.n) note = 'No poison yet. The model reads the sticker as noise: attack success is ' + AI.F.pct(r.asr) + '. Move the slider.';
+    else if (r.asr > 0.8) note = '<b>Backdoor installed.</b> Clean test accuracy is ' + AI.F.pct(r.clean) + ', against ' + AI.F.pct(base.clean) + ' for the unpoisoned model — indistinguishable. Every test you already own passes. Look at the weight map: the model has learned “bright top-right corner means right turn”.';
+    else if (r.asr > 0.2) note = '<b>Partly installed.</b> ' + r.n + ' images out of ' + (300 + r.n) + ' and the sticker already wins ' + AI.F.pct(r.asr) + ' of the time. A few more and it is reliable.';
+    else note = 'Not enough poison to beat the arrow shape yet' + (BD.defend && r.flaggedPoison ? ' — the label check removed ' + r.flaggedPoison + ' of the ' + r.n + ' poisoned images before training.' : '.');
+    if (BD.defend) note += '<br><span class="muted">The check works here because the poisoned images are visibly mislabelled. A “clean-label” attack, whose poisoned images carry correct labels, gets straight through it.</span>';
+    document.getElementById('bdNote').innerHTML = note;
+    bdPlot();
+    bdCurve();
+  }
+
+  /* ============================================ 10.8 vendor questions */
   var VBASE = [
     'Do you train on our inputs or outputs by default? Can that be contractually disabled, and is it disabled for our tenant today?',
     'Where is our data processed and stored, and which subprocessors are involved?',
@@ -734,7 +1296,7 @@
     window.__vlist = list;
   }
 
-  /* ============================================ 10.8 governance checklist */
+  /* ============================================ 10.9 governance checklist */
   var GOV = [
     ['An AI inventory exists', 'One list of every AI use in the company, with owner, purpose, data, tier and review date.', 3, 'Start it this week, in a spreadsheet. Completeness matters more than tooling, and building it will surprise you.'],
     ['A proportionate review gate', 'Minimal-risk uses get a register entry; high-risk uses get a full assessment. Different paths, one process.', 3, 'A single heavy gate for everything is the most reliable way to create shadow AI.'],
@@ -743,7 +1305,7 @@
     ['AI literacy delivered and recorded', 'Staff who use or oversee AI have had training, and you can evidence it.', 2, 'Required of providers and deployers since February 2025. This seminar counts — record attendance.'],
     ['Named accountability per system', 'Every AI use has one person accountable for its outputs, not a committee.', 2, 'Accountability shared across a steering group is accountability nobody holds.'],
     ['Legal and privacy involved early', 'They see use cases at the idea stage, not at the go-live gate.', 2, 'Late involvement is what produces the late veto everyone resents.'],
-    ['Vendor terms reviewed', 'Somebody has actually read the training, retention, residency and indemnity terms of the tools in use.', 2, 'Section 10.7 is your starting list. Marketing answers do not count.'],
+    ['Vendor terms reviewed', 'Somebody has actually read the training, retention, residency and indemnity terms of the tools in use.', 2, 'Section 10.8 is your starting list. Marketing answers do not count.'],
     ['Incident path defined', 'People know how to report an AI-related problem, and who acts on it.', 2, 'Include the boring cases: a wrong answer acted on, data pasted into the wrong tool.'],
     ['Human oversight designed in', 'For anything consequential, a named person can understand, override and stop the system.', 3, 'Both an Act obligation for high-risk systems and simply how you avoid the failures in modules 9 and 13.']
   ];
@@ -806,6 +1368,27 @@
     AI.segmented(document.getElementById('destSeg'), function (v) {
       PD.dest = parseInt(v, 10); drawData(); classify();
     });
+
+    AI.segmented(document.getElementById('advModelSeg'), function (v) { ADV.which = v; advDraw(); });
+    AI.segmented(document.getElementById('advKindSeg'), function (v) { ADV.kind = v; advDraw(); });
+    var epsR = AI.bindRange('advEps', function (v) { return v.toFixed(3) + ' (' + Math.round(v * 255) + '/255)'; },
+      function (v) { ADV.eps = v; advDraw(); });
+    AI.on(document.getElementById('advPrev'), 'click', function () { ADV.idx = (ADV.idx + 99) % 100; advDraw(); });
+    AI.on(document.getElementById('advNext'), 'click', function () { ADV.idx = (ADV.idx + 1) % 100; advDraw(); });
+    AI.on(document.getElementById('advMin'), 'click', function () {
+      advInit();
+      if (ADV.kind !== 'fgsm') AI.qs('#advKindSeg button[data-v="fgsm"]').click();
+      var mf = minFlipEps(ADV.m[ADV.which], ADV.te.X[ADV.idx], ADV.te.Y[ADV.idx]);
+      var step = 0.005, v = isFinite(mf) ? Math.min(0.25, Math.ceil(mf / step - 1e-9) * step) : 0.25;
+      epsR.set(v);
+    });
+    AI.onRedraw(advDraw);
+
+    AI.bindRange('bdPct', function (v) { return v.toFixed(1) + '% · ' + Math.round(v / 100 * 300) + ' images'; },
+      function (v) { BD.pct = v; bdDraw(); });
+    AI.segmented(document.getElementById('bdTrigSeg'), function (v) { BD.trig = parseInt(v, 10); bdDraw(); });
+    AI.on(document.getElementById('bdDefend'), 'change', function (e) { BD.defend = e.target.checked; bdDraw(); });
+    AI.onRedraw(bdDraw);
 
     AI.on(document.getElementById('vCopy'), 'click', function () {
       var txt = (window.__vlist || []).map(function (q, i) { return (i + 1) + '. ' + q; }).join('\n');

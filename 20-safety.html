@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>20 · AI in safety-critical vehicle systems — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .cv-tall { width: 100%; height: 360px; }
+  .bigstat { text-align: center; padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; display: block; line-height: 1.15; }
+  .bigstat .l { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.warn .n { color: var(--warn); }
+  .legalbox {
+    border: 2px dashed var(--warn); background: var(--warn-soft); border-radius: var(--r-lg);
+    padding: 18px 20px; margin: 1.5rem 0;
+  }
+  .legalbox .t {
+    font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--warn); display: block; margin-bottom: .5em;
+  }
+  /* the standards stack */
+  .stack { display: grid; gap: 8px; }
+  .layer {
+    display: grid; grid-template-columns: 170px 1fr; gap: 16px; align-items: start;
+    border: 1px solid var(--line); border-left-width: 4px; border-radius: var(--r);
+    padding: 13px 16px; background: var(--panel);
+  }
+  .layer .nm { font-family: var(--mono); font-weight: 700; font-size: .95rem; }
+  .layer .nm small { display: block; font-family: var(--sans); font-weight: 600; font-size: .72rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+  .layer p { font-size: .88rem; margin-bottom: .35em; }
+  .layer p:last-child { margin-bottom: 0; }
+  .layer.law { border-left-color: var(--violet); } .layer.law .nm { color: var(--violet); }
+  .layer.reg { border-left-color: var(--accent); } .layer.reg .nm { color: var(--accent); }
+  .layer.std { border-left-color: var(--good); } .layer.std .nm { color: var(--good); }
+  .layer.ai  { border-left-color: var(--warn); } .layer.ai .nm { color: var(--warn); }
+  @media (max-width: 700px) { .layer { grid-template-columns: 1fr; gap: 4px; } }
+  /* ODD controls */
+  .oddgrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px 18px; }
+  @media (max-width: 700px) { .oddgrid { grid-template-columns: 1fr; } }
+  .scen { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
+  .scen .s {
+    font-size: .82rem; border: 1px solid var(--line); border-left-width: 4px; border-radius: 0 8px 8px 0;
+    padding: 6px 10px; background: var(--panel); display: flex; justify-content: space-between; gap: 10px;
+  }
+  .scen .s.ok { border-left-color: var(--good); }
+  .scen .s.thin { border-left-color: var(--bad); background: var(--bad-soft); }
+  .scen .s.out { border-left-color: var(--ink-3); color: var(--ink-3); }
+  .scen .s b { font-family: var(--mono); font-size: .76rem; white-space: nowrap; }
+  .covtab td, .covtab th { padding: 5px 8px; text-align: center; }
+  .covtab td.lo { background: var(--bad-soft); color: var(--bad); font-weight: 700; }
+  .covtab td.mid { background: var(--warn-soft); color: var(--warn); }
+  .covtab td.hi { background: var(--good-soft); color: var(--good); }
+  .covtab td.off { color: var(--ink-3); opacity: .5; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .78rem; color: var(--ink-3); margin-top: 6px; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  /* method bars */
+  .mbar { display: grid; grid-template-columns: 120px 1fr 48px; gap: 8px; align-items: center; font-size: .82rem; margin-bottom: 6px; }
+  .mbar .tr { height: 12px; background: var(--bg-3); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .mbar .fi { height: 100%; border-radius: 6px; }
+  .mbar .vv { font-family: var(--mono); font-size: .8rem; text-align: right; font-weight: 700; }
+  /* safety-case tree */
+  .gsn-top {
+    border: 2px solid var(--accent); border-radius: var(--r); padding: 12px 16px; background: var(--accent-soft);
+    font-weight: 650; font-size: .95rem; margin-bottom: 10px;
+  }
+  .gsn-top .id, .gsn .id { font-family: var(--mono); font-size: .74rem; font-weight: 700; margin-right: 6px; }
+  .gsn-strat { font-size: .84rem; font-style: italic; color: var(--ink-3); margin: 0 0 10px 14px; border-left: 2px dashed var(--line); padding-left: 10px; }
+  .gsn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+  .gsn {
+    border: 1px solid var(--line); border-top-width: 4px; border-radius: var(--r); padding: 11px 13px;
+    background: var(--panel); font-size: .86rem;
+  }
+  .gsn.ok { border-top-color: var(--good); }
+  .gsn.part { border-top-color: var(--warn); }
+  .gsn.none { border-top-color: var(--bad); }
+  .gsn .cl { font-weight: 650; display: block; margin-bottom: 6px; }
+  .gsn label { display: flex; gap: 8px; align-items: flex-start; font-size: .82rem; cursor: pointer; margin-bottom: 4px; }
+  .gsn label input { margin-top: 2px; flex: none; }
+  .gsn label .m { font-family: var(--mono); font-size: .7rem; color: var(--accent); white-space: nowrap; }
+  .gsn .st { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; display: block; margin-top: 6px; }
+  .gsn.ok .st { color: var(--good); } .gsn.part .st { color: var(--warn); } .gsn.none .st { color: var(--bad); }
+  .authored { font-size: .78rem; color: var(--ink-3); font-style: italic; }
+</style>
+</head>
+<body data-page="p20">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 20 · Part IV — Shipping it</span>
+  <h1>AI in safety-critical vehicle systems</h1>
+  <p class="lead">Everything so far has been about getting a model to work. This module is about the
+  much harder claim that it is safe when it fails — on a vehicle, at speed, with someone in it. The
+  automotive safety world has a mature answer for conventional software. Machine learning breaks several of
+  its assumptions, and the industry is rebuilding them in public.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">The argument of the module, in one paragraph</span>
+  <p class="mb0">You cannot prove a learned component correct, because there is no specification to prove
+  it against and the input space is too large to test exhaustively. So you do three things instead:
+  <strong>bound where it is used</strong> (the operational design domain), <strong>contain what it does
+  when it is wrong</strong> (architecture: monitors, fallbacks, degradation), and <strong>assemble an
+  honest argument</strong> from many partial pieces of evidence (the safety case). No single piece is
+  sufficient. Most of the pieces are things earlier modules already taught you to produce.</p>
+</div>
+
+<!-- ============================================= 20.1 -->
+<section class="chapter" id="why">
+  <h2>20.1 · Why machine learning breaks the classic assumptions</h2>
+  <p>Conventional functional safety rests on a chain that works well for code an engineer wrote: hazards
+  are analysed, safety requirements are derived from them, requirements are refined into a design, the
+  design is implemented, and every step is verified against the one above it. Failures are either
+  <em>random</em> (hardware wears out, a bit flips) or <em>systematic</em> (someone made a mistake in a
+  requirement or the code) — and the process is built to drive both down. Each link of that chain
+  weakens when the behaviour is learned rather than written.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <h4>There is no specification to verify against</h4>
+      <p class="small mb0">“Detect pedestrians” is not a specification. Nobody can write down, in a form
+      code could be checked against, what a pedestrian looks like in every lighting, pose, occlusion and
+      costume. That inability is <em>why</em> we used machine learning in the first place — and it means
+      the classic “verify the implementation against the requirement” step has nothing precise to hold on
+      to.</p>
+    </div>
+    <div class="card">
+      <h4>Behaviour comes from data, not from design</h4>
+      <p class="small mb0">The model's behaviour is a consequence of the training set, the labels and the
+      optimiser. A gap in the data (module 7) is a design defect that no code review will find, because it
+      is not in the code. The dataset becomes a safety-relevant work product in its own right — which is
+      exactly what ISO/PAS 8800 says (section 20.2).</p>
+    </div>
+    <div class="card">
+      <h4>Exhaustive testing is impossible</h4>
+      <p class="small mb0">A camera frame has millions of input dimensions. You test a vanishingly small
+      sample of the input space and infer the rest. That inference is statistical (module 8) — and section
+      20.6 shows how quickly the numbers become absurd if road testing is the only evidence.</p>
+    </div>
+  </div>
+
+  <div class="grid g2 mt1">
+    <div class="card flat">
+      <h4>And two further problems</h4>
+      <ul class="small mb0">
+        <li><strong>The model works fine and the function is still unsafe.</strong> A detector meeting its
+        accuracy target can still miss the one class of object that matters in a given scenario. Nothing
+        has failed; the intended function was insufficient. Classic functional safety is about
+        malfunctions; this is a different category, and it has its own standard (SOTIF, section 20.3).</li>
+        <li><strong>Confidence is not correctness.</strong> A network outside its training distribution does
+        not become hesitant; it becomes confidently wrong (module 11.5, module 16). You cannot rely on the
+        component to tell you when to stop trusting it.</li>
+      </ul>
+    </div>
+    <div class="card flat">
+      <h4>What does not change</h4>
+      <ul class="small mb0">
+        <li>Hazard analysis and risk assessment at vehicle level — the ML component inherits its safety
+        requirements from the function it serves, like any other element.</li>
+        <li>Random hardware faults on the chip the model runs on are still handled by ISO 26262 in the
+        normal way.</li>
+        <li>The software around the model — pre-processing, post-processing, the runtime, the monitor — is
+        conventional software and is developed and verified conventionally.</li>
+        <li>The obligation to argue, with evidence, that residual risk is acceptable.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li><b>~5 min.</b> Open with a question: “who here has worked on an ISO 26262 project?” In this
+      audience it will be a good fraction of the room. They are the experts for this module; you are
+      bringing the ML half.</li>
+      <li>The single most useful sentence: “the classic chain assumes you can write the requirement down.
+      We use ML precisely when we can't.” Everything else follows.</li>
+      <li>Expected question: “so you can never use ML in an ASIL function?” Answer: not the ML on its own,
+      with today's methods, as the thing that carries the safety requirement — but it can sit inside an
+      architecture that does carry it (20.5). Do not over-promise either way.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 20.2 -->
+<section class="chapter" id="standards">
+  <h2>20.2 · The standards landscape, and how it stacks</h2>
+  <p>Four layers, from law down to engineering practice. They are complementary rather than competing:
+  each later standard explicitly builds on the earlier ones rather than replacing them.</p>
+
+  <div class="legalbox">
+    <span class="t">Orientation, not legal advice — and this section dates quickly</span>
+    <p class="mb0">Status checked against public sources in <strong>October 2026</strong> (listed at the
+    end of the page). Two of the standards below are under revision, a new UN regulation was adopted in
+    June 2026, and the AI Act was amended in July 2026. <strong>Re-check every line before each delivery
+    of this seminar</strong>, and take actual compliance questions to your homologation, functional-safety
+    and legal colleagues — they own these processes.</p>
+  </div>
+
+  <div class="stack">
+    <div class="layer law">
+      <div class="nm">EU law<small>What you must do to sell</small></div>
+      <div>
+        <p><strong>Vehicle type approval</strong> — Regulation (EU) 2018/858 is the framework;
+        Regulation (EU) 2019/2144, the General Safety Regulation, mandates specific driver-assistance
+        systems (intelligent speed assistance, emergency braking, emergency lane keeping, drowsiness
+        warning…) — several of which are, in practice, camera-and-ML systems already. Regulation (EU)
+        2022/1426 covers type approval of automated driving systems for fully automated vehicles in small
+        series.</p>
+        <p><strong>The AI Act</strong> (Regulation (EU) 2024/1689, amended in 2026) — and for vehicles it
+        takes an unusual route. See the box below.</p>
+      </div>
+    </div>
+    <div class="layer reg">
+      <div class="nm">UNECE<small>Regulations type approval references</small></div>
+      <div>
+        <p>UN Regulations under the 1958 Agreement, adopted at the WP.29 World Forum and referenced by EU
+        type approval. The ones that touch ML-based functions most directly:
+        <strong>R155</strong> (cyber-security management system), <strong>R156</strong> (software update
+        management — relevant because every retrained model you ship is a software update),
+        <strong>R157</strong> (automated lane keeping, SAE level 3), and <strong>R171</strong> (driver
+        control assistance systems, level 2).</p>
+        <p>In <strong>June 2026</strong> WP.29 adopted a new UN Regulation and a Global Technical
+        Regulation on <strong>automated driving systems</strong> (level 3 and above), built around a
+        safety management system, a structured <strong>safety case</strong> and in-service monitoring rather
+        than a fixed list of test procedures. The EU has signalled it intends to bring it into its
+        type-approval framework.</p>
+      </div>
+    </div>
+    <div class="layer std">
+      <div class="nm">ISO 26262<small>Functional safety · 2018, 2nd ed.</small></div>
+      <div>
+        <p>Hazards caused by <strong>malfunctioning behaviour of E/E systems</strong> — random hardware
+        faults and systematic faults. Hazard analysis assigns an <strong>ASIL</strong> (A lowest to D
+        highest, from severity, exposure and controllability), or <strong>QM</strong> when ordinary quality
+        management suffices. The ASIL sets the rigour of everything downstream.</p>
+        <p class="small muted">A third edition is in preparation (several parts at Draft International
+        Standard stage in 2026, publication widely expected in 2027), with more guidance on ML. Until it is
+        published, 26262:2018 is the edition you work to.</p>
+      </div>
+    </div>
+    <div class="layer std">
+      <div class="nm">ISO 21448<small>SOTIF · 2022</small></div>
+      <div>
+        <p><strong>Safety of the intended functionality</strong>: hazards that occur when nothing has
+        failed, because the intended function or its implementation is <em>insufficient</em> — a sensor
+        that cannot see through spray, a detector that has never seen a person carrying a mirror. Organised
+        around <strong>triggering conditions</strong> and the four scenario areas in section 20.3.</p>
+        <p class="small muted">A revision (edition 2) is at working-draft stage. 21448:2022 is current.</p>
+      </div>
+    </div>
+    <div class="layer ai">
+      <div class="nm">ISO/PAS 8800<small>Safety and AI · Dec 2024</small></div>
+      <div>
+        <p><strong>Road vehicles — Safety and artificial intelligence.</strong> Published December 2024 as a
+        Publicly Available Specification (a step short of a full International Standard). It extends 26262
+        and 21448 to AI elements rather than replacing them: it covers both malfunctions and functional
+        insufficiencies of AI components, and defines an <strong>AI safety lifecycle</strong> — derivation
+        of AI safety requirements, design, verification and validation, and safety analysis of the AI
+        element, through to operation.</p>
+        <p>The point engineers notice first: it treats <strong>data as a safety-relevant work
+        product</strong>. Datasets have requirements, design, verification and change control, just as code
+        does. Module 7 stops being good practice and becomes a deliverable.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout mt2">
+    <span class="ctitle">Alongside these, worth knowing the names</span>
+    <p class="mb0"><b>ISO 34503</b> — a taxonomy for describing an ODD (section 20.4). <b>ISO 34502</b> —
+    scenario-based safety evaluation for automated driving. <b>UL 4600</b> — a standard for the safety case
+    of autonomous products, unusually explicit about what a credible argument must contain.
+    <b>ISO/IEC TR 5469</b> — a cross-industry technical report on functional safety and AI. None replaces
+    the automotive stack; each is useful when building the evidence for it.</p>
+  </div>
+
+  <h3 class="mt2">How the AI Act reaches a vehicle</h3>
+  <div class="grid g2">
+    <div class="card">
+      <p class="small">Module 10 introduced the two routes into high-risk under the AI Act. Vehicles are on
+      the <strong>Annex I</strong> route — but specifically <strong>Section B</strong> of Annex I, which
+      lists the vehicle type-approval regulations (2018/858, 2019/2144, and the two- and three-wheeler and
+      agricultural-vehicle regulations) alongside aviation and rail.</p>
+      <p class="small">For Section B products, <strong>Article 2(2)</strong> says that only a short list of
+      the Act's articles apply directly. The substantive high-risk requirements — risk management, data
+      governance, accuracy and robustness, human oversight (Chapter III, Section 2) — reach vehicles
+      <em>indirectly</em>: <strong>Articles 107 and 109</strong> amend 2018/858 and 2019/2144 so that when
+      the Commission adopts delegated or implementing acts on AI systems that are safety components, it
+      must take those requirements into account.</p>
+      <p class="small mb0">In plain terms: <strong>for an AI safety component of a car, AI Act compliance is
+      expected to arrive through type approval</strong>, written into vehicle regulations, assessed by the
+      type-approval authority — not as a separate AI Act conformity assessment running in parallel.</p>
+    </div>
+    <div class="card">
+      <h4>What that means for you, cautiously</h4>
+      <ul class="small">
+        <li>Module 10's <strong>2 August 2028</strong> date is the deferred application date for Annex I
+        high-risk systems generally. For vehicles, the date that matters in practice is when the
+        type-approval acts that bring the requirements in are adopted and apply. As of October 2026 I could
+        not confirm that any such act has been adopted — watch for them.</li>
+        <li>The <strong>Digital Omnibus on AI</strong> (Regulation (EU) 2026/1744, in force 27 July 2026)
+        amended the Act, including moving machinery from Section A to Section B of Annex I — which matters
+        for plant equipment, not just vehicles.</li>
+        <li>Everything off the vehicle — HR tools, office assistants, workplace monitoring — is unaffected
+        by this route and is classified exactly as in module 10.</li>
+        <li>Being outside the Act's direct obligations is <strong>not</strong> a lighter regime. Type
+        approval plus 26262, 21448 and 8800 is considerably more demanding than most of the AI Act.</li>
+      </ul>
+      <p class="small muted mb0">The exact wording of Article 2(2) was itself touched by the 2026 amendment.
+      Read the consolidated text with your legal function rather than relying on this summary.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li><b>~8 min.</b> Do not read the stack aloud. Point at the colours: law says <em>whether</em>; UN
+      regulations say <em>what is assessed</em>; 26262, 21448 and 8800 say <em>how you engineer it</em>.</li>
+      <li>The ISO 26262 people will know the top half better than you. Let them fill in; your contribution
+      is the 8800 layer and the data-as-work-product point.</li>
+      <li>Expected question: “does the AI Act apply to our ADAS or not?” Honest answer: its requirements are
+      meant to arrive via type approval rather than directly, the implementing acts are what to watch, and
+      the homologation team is who to ask. Do not give a yes/no from the stage.</li>
+      <li>Expected question: “is 8800 mandatory?” It is a standard, not law. Like 26262, it becomes de
+      facto expected as the state of the art that an assessor and a court will compare you against.</li>
+      <li>Before each delivery: re-check the 26262 edition 3 and 21448 edition 2 status, and whether any
+      type-approval act implementing Articles 107/109 has been adopted.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 20.3 -->
+<section class="chapter" id="sotif">
+  <h2>20.3 · SOTIF: shrinking the unknown unsafe</h2>
+  <p>ISO 21448 sorts every scenario the function might meet into four areas, by two questions: is it
+  <strong>known</strong> (identified and evaluated) or <strong>unknown</strong>, and is the function's
+  behaviour in it <strong>safe</strong> or <strong>unsafe</strong>?</p>
+  <ul>
+    <li><strong>Area 1 — known safe.</strong> You have found it, evaluated it, and the function handles it.</li>
+    <li><strong>Area 2 — known unsafe.</strong> You know about it and it is not yet handled. Reduced by
+    improving the function, adding a sensor, restricting the ODD, or warning the driver.</li>
+    <li><strong>Area 3 — unknown unsafe.</strong> The dangerous one: scenarios nobody has thought of where
+    the function misbehaves. Reduced only by <em>discovering</em> them — analysis, simulation, testing —
+    which moves them into area 2, where they can be fixed.</li>
+    <li><strong>Area 4 — unknown safe.</strong> Harmless, and you will never know about most of it.</li>
+  </ul>
+  <p>The SOTIF activities aim to make areas 2 and 3 small enough that the residual risk is acceptable.
+  The lab makes that concrete.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · The four SOTIF areas, computed</h3><span class="tag try">Push road testing to 10 M km, then switch to “weighted by exposure”</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="soCv" class="cv-tall"></canvas>
+        <div class="between mt1">
+          <div class="segmented" id="soView">
+            <button data-v="count" class="on">Area by scenario count</button>
+            <button data-v="exp">Weighted by exposure</button>
+          </div>
+          <button class="btn sm" id="soSeed">New scenario population</button>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Hazard analysis effort</span><span class="val" id="soAOut"></span></div>
+          <input type="range" id="soA" min="0" max="10" step="0.5" value="2">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Simulated scenario runs</span><span class="val" id="soSOut"></span></div>
+          <input type="range" id="soS" min="0" max="7" step="0.1" value="3">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Road testing</span><span class="val" id="soROut"></span></div>
+          <input type="range" id="soR" min="0" max="7" step="0.1" value="4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Known unsafe scenarios fixed</span><span class="val" id="soMOut"></span></div>
+          <input type="range" id="soM" min="0" max="100" step="5" value="50">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat bad"><span class="n" id="soA3">—</span><span class="l">area 3: unknown unsafe</span></div>
+          <div class="bigstat" id="soRiskBox"><span class="n" id="soRisk">—</span><span class="l">residual risk vs start</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid g2 mt1">
+      <div class="card">
+        <h4>Which method finds the unsafe scenarios</h4>
+        <div id="soBars"></div>
+        <p class="small muted mb0">Share of all unsafe scenarios each method would discover on its own at
+        the current effort, and combined.</p>
+      </div>
+      <div class="card" id="soNote" style="min-height:170px"></div>
+    </div>
+    <p class="authored mt1 mb0">How this works: a seeded population of 1,500 synthetic scenarios, each with
+    an exposure (how often it occurs per million km, log-uniform over five decades), a foreseeability (how
+    easily an analyst would think of it), whether the simulator can represent it, a probability of being hit
+    per simulation run, and whether the function is unsafe in it (more likely for unforeseeable ones). Each
+    method discovers a scenario with a probability that grows with effort; the four areas are counted, not
+    drawn. The distributions and rates are authored for teaching, not calibrated to any real function.</p>
+  </div>
+
+  <div class="grid g2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">What the lab shows</span>
+      <p class="mb0">Road testing finds the <strong>frequent</strong> scenarios — which is why the
+      exposure-weighted view clears quickly while the count view hardly moves. What remains in area 3 is
+      the long tail: individually rare, collectively not negligible, and practically invisible to road
+      testing. Analysis and simulation are what reach into the tail.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">The honest limit</span>
+      <p class="mb0">You can never measure area 3 directly — by definition you do not know what is in it.
+      You estimate it from the <em>rate at which new unsafe scenarios are still being discovered</em>. A
+      discovery rate that is still climbing is evidence the function is not ready, whatever the accuracy
+      figure says.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li><b>~7 min.</b> Start with everything near zero, then raise road testing alone to the maximum.
+      Count view: area 3 barely shrinks. Then switch to exposure: it nearly vanishes. That contrast is the
+      whole lesson — testing finds what is common, and the danger lives in what is rare.</li>
+      <li>Then raise analysis and simulation and show the bars: they find different scenarios from road
+      testing. Diversity of method, like diversity of architecture in 20.5.</li>
+      <li>Expected question: “how do you know when area 3 is small enough?” You don't, directly. You argue
+      it from the discovery curve flattening, from coverage of the ODD, and from field monitoring after
+      release (module 19). Say this plainly.</li>
+      <li>Be explicit that the numbers are synthetic. The shape is the point.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 20.4 -->
+<section class="chapter" id="odd">
+  <h2>20.4 · The operational design domain</h2>
+  <p>The <strong>ODD</strong> is the set of conditions under which a function is designed to operate:
+  speeds, road types, weather, lighting, temperature, geography, traffic, time of day. It is the single
+  most powerful safety lever available, because it converts an impossible claim (“safe everywhere”) into
+  a bounded one (“safe on dry motorways in daylight between 60 and 130 km/h”) — and the function must
+  recognise when it is leaving the ODD and hand over or degrade.</p>
+  <p>For an ML component there are two different ways to be outside your evidence. <strong>Out of ODD</strong>:
+  the vehicle is somewhere the function was never meant to operate; the monitor should catch this.
+  <strong>In ODD but under-covered</strong>: the conditions are inside what you declared, but the
+  training and test data contain too few examples like it to support any claim. The second is the
+  dangerous one, because nothing stops the function running. It is the envelope problem from
+  <a href="11-engineering.html#envelope">module 11.5</a>, with a vehicle attached.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · ODD builder and coverage check</h3><span class="tag try">Load “Marketing ODD”, then “Motorway pilot”</span></div>
+    <div class="btnrow">
+      <span class="small muted">Presets:</span>
+      <button class="btn sm" data-odd="pilot">Motorway pilot</button>
+      <button class="btn sm" data-odd="wide">Marketing ODD (everything)</button>
+      <button class="btn sm" data-odd="mid">All roads, fair weather</button>
+      <button class="btn sm" id="oddNew">New batch of 40 scenarios</button>
+    </div>
+    <div class="split">
+      <div>
+        <div class="oddgrid">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Minimum speed</span><span class="val" id="oVminOut"></span></div>
+            <input type="range" id="oVmin" min="0" max="200" step="5" value="60">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Maximum speed</span><span class="val" id="oVmaxOut"></span></div>
+            <input type="range" id="oVmax" min="20" max="250" step="5" value="130">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Minimum temperature</span><span class="val" id="oTminOut"></span></div>
+            <input type="range" id="oTmin" min="-30" max="30" step="1" value="0">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Maximum temperature</span><span class="val" id="oTmaxOut"></span></div>
+            <input type="range" id="oTmax" min="0" max="50" step="1" value="35">
+          </div>
+        </div>
+        <h4 class="mt1">Road type</h4>
+        <div class="chips" id="oRoad"></div>
+        <h4 class="mt1">Weather</h4>
+        <div class="chips" id="oWx"></div>
+        <h4 class="mt1">Lighting</h4>
+        <div class="chips" id="oLight"></div>
+        <div class="ctrl mt1">
+          <div class="ctrl-label"><span>Minimum similar training samples to count as covered</span><span class="val" id="oThrOut"></span></div>
+          <input type="range" id="oThr" min="1" max="100" step="1" value="15">
+        </div>
+        <div class="grid g3" style="gap:8px">
+          <div class="bigstat good"><span class="n" id="oOk">—</span><span class="l">in ODD, covered</span></div>
+          <div class="bigstat bad"><span class="n" id="oThin">—</span><span class="l">in ODD, under-covered</span></div>
+          <div class="bigstat"><span class="n" id="oOut">—</span><span class="l">out of ODD</span></div>
+        </div>
+      </div>
+      <div>
+        <canvas id="oddCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--ink-3)"></i>training data in selected cells</span>
+          <span><i style="background:var(--good)"></i>covered</span>
+          <span><i style="background:var(--bad)"></i>under-covered</span>
+          <span><i style="border:2px solid var(--ink-3)"></i>out of ODD</span>
+        </div>
+        <h4 class="mt1">Training samples per cell, selected road types</h4>
+        <div class="tablewrap"><table class="covtab" id="oCov"></table></div>
+      </div>
+    </div>
+    <div class="grid g2 mt1">
+      <div>
+        <h4>Incoming scenarios, worst first</h4>
+        <div class="scen" id="oList"></div>
+      </div>
+      <div class="card" id="oNote" style="min-height:200px"></div>
+    </div>
+    <p class="authored mt1 mb0">How this works: 6,000 seeded synthetic training samples drawn from a
+    distribution skewed the way real collection campaigns are (mostly motorway, clear, daylight, mild).
+    Incoming scenarios come from a broader “field” distribution with more urban driving, night and bad
+    weather. A scenario counts as covered when at least the chosen number of training samples share its
+    road, weather and lighting and lie within ±15 km/h and ±6 °C. The distributions are authored; the
+    checking is computed live.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Three rules that follow</span>
+    <ol class="mb0">
+      <li><strong>Declare the ODD from the evidence, not from the product brief.</strong> If the data cannot
+      support night-time urban driving, it is not in the ODD, whatever the feature list says.</li>
+      <li><strong>Every ODD dimension needs a runtime monitor</strong> — a way for the vehicle to know it has
+      left: speed and temperature are easy, “heavy rain” and “fog” need their own detection, and that
+      detection is itself a safety-relevant function.</li>
+      <li><strong>Coverage is per cell, not per dimension.</strong> Plenty of rain and plenty of night does
+      not mean any night-time rain. Combinations are where data runs out first.</li>
+    </ol>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li><b>~7 min.</b> Load “Marketing ODD” first: almost nothing is out of ODD (great availability) and
+      a large red block is under-covered. Then “Motorway pilot”: much is out of ODD, and what is in is
+      covered. That is the trade the product team and the safety team will argue about.</li>
+      <li>Point at the cell table: the coverage collapses on combinations — night × heavy rain, urban ×
+      snow. Ask who has seen a data-collection campaign plan that addressed combinations explicitly.</li>
+      <li>Expected question: “how many samples is enough?” There is no universal number; it comes from the
+      performance requirement and the statistics of module 8 and section 20.6. The slider is there to show
+      the answer is a decision, and must be justified.</li>
+      <li>Link back to 11.5: same failure, different domain.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 20.5 -->
+<section class="chapter" id="arch">
+  <h2>20.5 · Architectures that make ML safe enough</h2>
+  <p>If you cannot make the learned component trustworthy enough on its own, you build a system in which
+  it does not have to be. These patterns are old — aviation and rail used most of them long before
+  machine learning — and they are where most of the practical safety of ML-based vehicle functions comes
+  from.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>Doer / checker (safety monitor, safety cage)</h3>
+      <p class="small mb0">The ML component (the <em>doer</em>) proposes; a simpler, deterministic,
+      verifiable component (the <em>checker</em>) decides whether the proposal is within safe bounds — a
+      physically plausible trajectory, a deceleration within limits, an object list consistent with radar.
+      The checker carries the ASIL; the doer can be developed to a lower integrity. The checker does not
+      need to be able to drive; it needs only to recognise unsafe output.</p>
+    </div>
+    <div class="card">
+      <h3>Redundancy and diversity</h3>
+      <p class="small mb0">Two channels that fail independently. Two copies of the same network trained on
+      the same data are <em>not</em> independent — they fail on the same inputs. Diversity means different
+      sensors (camera and radar), different principles (learned and rule-based), different data. The
+      quantity to argue about is the <strong>common-cause fraction</strong>: the share of failures both
+      channels share.</p>
+    </div>
+    <div class="card">
+      <h3>Degradation modes and fallback</h3>
+      <p class="small mb0">When the checker rejects the output, or the vehicle leaves the ODD, something
+      deterministic takes over: a reduced function, a handover to the driver with a defined time budget, or
+      a minimal-risk manoeuvre. Every intervention costs availability — the feature switches off — and that
+      cost is what drives people to loosen the checker. The lab below is that negotiation.</p>
+    </div>
+    <div class="card">
+      <h3>Keep ML out of the ASIL path</h3>
+      <p class="small mb0">The simplest pattern, and the one most production vehicles use today: ML in
+      functions rated <strong>QM</strong> or low ASIL — comfort, convenience, information, perception that
+      a deterministic function cross-checks — with a deterministic path for anything that can hurt
+      someone. Unglamorous, defensible, and shippable now.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Tune the checker</h3><span class="tag try">Raise the common-cause fraction and watch the floor</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="dcCv" class="cv-tall"></canvas>
+        <p class="small muted mt1 mb0">Curve: every possible checker threshold. Dot: the current one. Moving
+        right means fewer nuisance interventions; moving down means fewer hazards get through. Dashed lines:
+        the illustrative target, and the floor set by common-cause failures.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Doer hazardous outputs</span><span class="val" id="dRateOut"></span></div>
+          <input type="range" id="dRate" min="-6" max="-1" step="0.1" value="-4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Checker separation (signal / noise)</span><span class="val" id="dSepOut"></span></div>
+          <input type="range" id="dSep" min="0" max="9" step="0.1" value="7">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Checker threshold</span><span class="val" id="dThrOut"></span></div>
+          <input type="range" id="dThr" min="0" max="8" step="0.05" value="4.5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Common-cause fraction (checker blind too)</span><span class="val" id="dCCOut"></span></div>
+          <input type="range" id="dCC" min="0" max="50" step="0.1" value="0.5">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="dHazBox"><span class="n" id="dHaz">—</span><span class="l">residual hazard / h</span></div>
+          <div class="bigstat" id="dAvBox"><span class="n" id="dAv">—</span><span class="l">availability</span></div>
+          <div class="bigstat"><span class="n" id="dNuis">—</span><span class="l">nuisance stops / 1,000 h</span></div>
+          <div class="bigstat good"><span class="n" id="dGain">—</span><span class="l">hazard reduction</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="dcNote" style="min-height:120px"></div>
+    <p class="authored mt1 mb0">How this works: the checker evaluates a plausibility score 10 times a second
+    (36,000 checks per hour). For normal doer outputs the score is standard-normal noise; for hazardous
+    outputs it is shifted by the separation — except for the common-cause fraction, which the checker
+    cannot distinguish from normal. Above the threshold the checker intervenes and the deterministic
+    fallback runs for 30 s (fallback assumed to fail once in 10,000 demands). Rates come from exact normal
+    tail probabilities. The 10⁻⁸/h line is of the order of the ISO 26262 ASIL D random-hardware target and
+    is used purely as a yardstick: it is not a target for systematic or ML failures.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The two things the lab teaches</span>
+    <p class="mb0">First, a good checker turns a mediocre doer into a much safer system — <em>if</em> it is
+    discriminating enough to do so without stopping the feature every few minutes. Second, and more
+    important: <strong>no threshold beats the common-cause floor.</strong> If the checker shares the doer's
+    camera, its blind spots or its training data, the failures they share go straight through. Independence
+    is the property to argue for and evidence, not assume.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li><b>~7 min.</b> Start at the defaults, then slide the threshold left: hazards drop, availability
+      collapses — the feature is useless. Slide right: availability is fine, hazards come back. Then the
+      payoff: raise common-cause to 20% and show that the curve hits a floor no threshold can get under.</li>
+      <li>The engineering question to leave with them: “what does your checker share with your doer?” Same
+      sensor, same pre-processing, same assumptions about the world, same people.</li>
+      <li>Expected question: “so who builds the checker?” Ideally a different team with a different method.
+      That organisational independence is itself an argument in the safety case.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 20.6 -->
+<section class="chapter" id="stats">
+  <h2>20.6 · The statistics of proving it</h2>
+  <p>Suppose you want to demonstrate, by driving, that a function's rate of a given failure is below
+  some target λ. If you drive a distance <em>n</em> and see no failures, the classical result for a
+  Poisson process is:</p>
+
+  <div class="eqbox" style="text-align:center">
+    n = <span class="hi">−ln(1 − C)</span> / <span class="hi2">λ</span>
+    <small>failure-free distance (or hours) needed to show the rate is below λ with confidence C. At 95 %,
+    −ln(0.05) ≈ 3: the “rule of three”. With k failures observed, the factor grows (Poisson / chi-square).</small>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · How far would you have to drive?</h3><span class="tag try">Load the human fatality rate, then set 2 failures observed</span></div>
+    <div class="btnrow">
+      <span class="small muted">Load:</span>
+      <button class="btn sm" data-st="fatal">Human-driver fatality rate (US, ~1.1 per 100 M miles)</button>
+      <button class="btn sm" data-st="inj">An injury-crash-like rate, 1 per 1 M km</button>
+      <button class="btn sm" data-st="asil">10⁻⁸ per hour</button>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="stCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Required failure-free exposure against confidence, for 0 to 3 observed
+        failures. Dot: the current setting.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Units</span></div>
+          <div class="segmented" id="stUnit">
+            <button data-v="km" class="on">per km</button>
+            <button data-v="h">per operating hour</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Target rate λ</span><span class="val" id="stLamOut"></span></div>
+          <input type="range" id="stLam" min="-10" max="-3" step="0.05" value="-8">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Confidence C</span><span class="val" id="stCOut"></span></div>
+          <input type="range" id="stC" min="0.3" max="3" step="0.01" value="1.3">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Failures observed during the test</span><span class="val" id="stKOut"></span></div>
+          <input type="range" id="stK" min="0" max="3" step="1" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Test fleet size</span><span class="val" id="stFleetOut"></span></div>
+          <input type="range" id="stFleet" min="1" max="1000" step="1" value="100">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Use per vehicle per day</span><span class="val" id="stUseOut"></span></div>
+          <input type="range" id="stUse" min="10" max="1000" step="10" value="400">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat"><span class="n" id="stN">—</span><span class="l" id="stNl">failure-free km needed</span></div>
+          <div class="bigstat" id="stTBox"><span class="n" id="stT">—</span><span class="l">calendar time with this fleet</span></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="mt2">The same arithmetic, per scenario</h3>
+    <p class="small">Scenario-based testing changes the question from “failures per km” to “failures per
+    encounter with a specific, defined situation” — say, an aggressive cut-in at the edge of the ODD.
+    The statistics are identical; the cost of an encounter is not.</p>
+    <div class="grid g2">
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Target failure probability per encounter</span><span class="val" id="scPOut"></span></div>
+          <input type="range" id="scP" min="-7" max="-2" step="0.1" value="-5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>On the road, one such encounter every</span><span class="val" id="scEveryOut"></span></div>
+          <input type="range" id="scEvery" min="0" max="4" step="0.05" value="2">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Simulation runs per cluster-hour</span><span class="val" id="scSimOut"></span></div>
+          <input type="range" id="scSim" min="2" max="5" step="0.05" value="3.3">
+        </div>
+      </div>
+      <div>
+        <div class="grid g3" style="gap:8px">
+          <div class="bigstat"><span class="n" id="scEnc">—</span><span class="l">encounters needed</span></div>
+          <div class="bigstat bad"><span class="n" id="scRoad">—</span><span class="l">road km to meet them</span></div>
+          <div class="bigstat good"><span class="n" id="scSimH">—</span><span class="l">cluster-hours in simulation</span></div>
+        </div>
+        <div class="card mt1" id="scNote" style="min-height:120px"></div>
+      </div>
+    </div>
+    <p class="authored mt1 mb0">All results computed from the Poisson model: the required exposure is the
+    value m/λ at which the probability of seeing k or fewer failures falls to 1 − C, solved numerically.
+    The preset rates are orders of magnitude for illustration; only the US fatality figure is taken from a
+    source (RAND, 2016).</p>
+  </div>
+
+  <div class="grid g2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Why road testing alone cannot carry the argument</span>
+      <p class="mb0">RAND's well-known 2016 analysis put the distance needed to show, at 95% confidence, a
+      fatality rate no worse than human drivers at about <strong>275 million failure-free miles</strong>,
+      and to show it was 20% <em>better</em> at around <strong>8.8 billion miles</strong>. And every change
+      to the ML component — a retrain, a new dataset — weakens the claim that past kilometres still count.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Why simulation is necessary and not sufficient</span>
+      <p class="mb0">Simulation makes the per-scenario arithmetic affordable, and lets you sample the rare
+      cases deliberately. But a simulation result is only evidence if the <strong>simulator is validated
+      for that scenario</strong> — sensor models, physics, other agents. That validity is itself a claim with
+      its own evidence (modules 11.6 and 11.8). The working answer is a blend: analysis to find scenarios, simulation
+      to cover them, proving-ground tests to validate the simulator, road miles to catch what nobody
+      imagined.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li><b>~6 min.</b> Load the human fatality rate and read the number aloud. Then set the fleet to
+      something realistic for a manufacturer's test fleet and read the calendar time. Then set two observed
+      failures — the requirement jumps — and point out that every software release arguably resets it.</li>
+      <li>Switch to per-hour and load 10⁻⁸/h: around 300 million failure-free operating hours. That is the
+      intuition behind why nobody demonstrates ASIL D integrity by test.</li>
+      <li>The per-scenario panel is the constructive turn: same statistics, but simulation runs cost
+      seconds, not kilometres. Then immediately add the caveat about simulator validity — the engineers in
+      the room will raise it if you do not.</li>
+      <li>Expected question: “so how does anyone release an automated driving system?” With a safety case
+      combining all of the above, a restricted ODD, conservative architecture, and in-service monitoring —
+      which is exactly what the 2026 UN regulation asks for.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 20.7 -->
+<section class="chapter" id="case">
+  <h2>20.7 · The safety case for an ML component</h2>
+  <p>A safety case is a structured argument, supported by evidence, that a system is acceptably safe for
+  a given application in a given environment. Three parts: <strong>claims</strong> (what you assert),
+  <strong>arguments</strong> (why the evidence supports the claim), and <strong>evidence</strong> (the
+  artefacts). For an ML component, no single piece of evidence carries the claim; the strength is in the
+  combination, and in being explicit about what is still missing.</p>
+  <p>This is where the whole course comes together. Nearly every earlier module produces a piece of
+  evidence: the data work of <a href="07-data.html">module 7</a>, the evaluation of
+  <a href="08-evaluation.html">module 8</a>, the uncertainty estimates of module 16, the explanations of
+  module 17, the monitoring of module 19.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Assemble the argument</h3><span class="tag try">Load “Typical first prototype” and read the gaps</span></div>
+    <div class="btnrow">
+      <span class="small muted">Load:</span>
+      <button class="btn sm" data-sc="proto">Typical first prototype</button>
+      <button class="btn sm" data-sc="team">Good ML team, no safety process</button>
+      <button class="btn sm" data-sc="mature">Mature programme</button>
+      <button class="btn sm" id="scClear">Clear</button>
+    </div>
+    <div class="gsn-top"><span class="id">G0</span>The camera-based pedestrian detector is acceptably safe
+    as an element of the emergency-braking function, within its declared ODD.</div>
+    <div class="gsn-strat">Argued over: the domain, the data, the performance, self-knowledge, residual
+    insufficiencies, containment by architecture, and safety in the field.</div>
+    <div class="gsn-grid" id="gsnHost"></div>
+    <div class="split mt1">
+      <div class="verdict info" id="gsnVerdict"><span class="lvl">Nothing ticked</span>Tick the evidence that exists.</div>
+      <div class="card" id="gsnGaps" style="min-height:160px"></div>
+    </div>
+    <p class="authored mt1 mb0">The claim structure and evidence list are authored as a teaching example and
+    deliberately simplified; a real ML safety case under ISO/PAS 8800 or UL 4600 is far larger. The status
+    of each claim and the gap list are computed from what you tick.</p>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">What reviewers look for first</span>
+    <p class="mb0">Not the accuracy figure. They look for the <strong>ODD definition</strong>, the
+    <strong>data specification and its coverage of that ODD</strong>, <strong>performance broken down by
+    slice</strong> rather than averaged, and <strong>what the architecture does when the model is
+    wrong</strong>. A safety case built on one aggregate test-set number is a performance report, not a
+    safety case.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li><b>~6 min.</b> Load “Good ML team, no safety process” — it is the most realistic preset for most
+      companies starting out, and the gaps it shows are not ML gaps; they are ODD, architecture and
+      field-monitoring gaps.</li>
+      <li>Make the course-wide point: the evidence on this page is what modules 7, 8, 16, 17 and 19
+      taught people to produce. The safety case is the reason to produce it properly.</li>
+      <li>Expected question: “who writes the safety case — the ML team or the safety team?” Both; the
+      argument is owned by safety, the evidence is produced by the ML team, and they must start together.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 20.8 -->
+<section class="chapter" id="where">
+  <h2>20.8 · Where none of this is needed</h2>
+  <p>A module like this can leave the impression that AI in a car company is a regulatory minefield. It
+  is not. The heavy machinery of this page applies to ML that is <strong>on the vehicle and in a
+  safety-relevant path</strong>. Almost everything else is governed by the ordinary rules of modules 8 and
+  10 — and that is where most of the value is today.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="color:var(--good)">Fine today, with ordinary good practice</h4>
+      <ul class="small mb0">
+        <li><b>Engineering tools:</b> simulation surrogates, design-space exploration, test-data analysis,
+        requirements and document search (module 11). The validated method makes the decision; ML
+        accelerates getting there.</li>
+        <li><b>Plant:</b> visual inspection, predictive maintenance, scheduling, energy optimisation (modules
+        6, 15). Machinery-safety rules still apply where ML touches a safety function of a machine — and
+        note that machinery moved into Annex I Section B in 2026.</li>
+        <li><b>Office:</b> drafting, summarising, coding assistants, knowledge retrieval (modules 9, 12),
+        under the data rules of module 10.5.</li>
+        <li><b>Validation support:</b> ML that <em>finds</em> scenarios to test, mines fleet data for
+        triggering conditions, or prioritises test cases. It strengthens the safety process without being
+        part of the safety function — though if its output is used as safety evidence, the tool itself
+        needs qualification.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">On the vehicle: the rest of this page applies</h4>
+      <ul class="small mb0">
+        <li><b>QM functions:</b> infotainment, voice assistant, comfort, personalisation. Not safety
+        functions — but check the hazard analysis says so, keep them isolated from safety functions, and
+        note R155/R156 still apply to the software.</li>
+        <li><b>ADAS with ML perception:</b> emergency braking, lane keeping, speed-limit recognition.
+        ASIL-rated, safety-relevant, and the main home of ISO/PAS 8800 today.</li>
+        <li><b>Chassis and powertrain:</b> learned estimators for tyre grip, battery state, vehicle state —
+        often feeding safety functions indirectly, which is easy to overlook. Trace where the output
+        goes.</li>
+        <li><b>Automated driving:</b> the full stack of 20.2 to 20.7, plus the 2026 UN ADS regulation.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The question to ask of any proposal</span>
+    <p class="mb0">“If this output is wrong, can anyone get hurt — and if so, through which path?” If the
+    answer is no, use module 8. If the answer is yes, involve the functional-safety team before the
+    architecture is fixed, not after the model works.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li><b>~4 min.</b> End on the positive: the large majority of the value available in the next two
+      years is in the left-hand column, and none of it needs a safety case.</li>
+      <li>The indirect-path point in the right column is the one that catches people: a learned battery or
+      grip estimate that ends up as an input to a stability or torque function is safety-relevant, even if
+      nobody called it that.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>That completes Part IV and the taught material: from the perceptron to a safety case. The capstone
+  turns it around — you bring a real use case from your own work and take it through the whole course, from
+  data and evaluation to governance and, if it touches the vehicle, the questions on this page.</p>
+  <p><a href="21-capstone.html"><strong>Module 21 · Capstone →</strong></a></p>
+
+  <h3 class="mt2">Sources for this module</h3>
+  <ul class="sources">
+    <li>ISO — <i>ISO/PAS 8800:2024 Road vehicles — Safety and artificial intelligence</i>, first edition,
+    published December 2024. <span class="mono">iso.org/standard/83303.html</span>; summary in UL Solutions,
+    <i>Safety-related systems in road vehicles with artificial intelligence are addressed in ISO/PAS
+    8800:2024</i>. <span class="mono">ul.com/sis/blog</span> (accessed October 2026).</li>
+    <li>ISO — <i>ISO 21448:2022 Road vehicles — Safety of the intended functionality</i>; ISO catalogue lists
+    it as to be revised, with an edition 2 working draft (ISO/WD 21448) in progress in 2026.
+    <span class="mono">iso.org/standard/77490.html</span>, <span class="mono">iso.org/standard/93071.html</span>
+    (via search, October 2026).</li>
+    <li>ISO — <i>ISO 26262:2018 Road vehicles — Functional safety</i>; third-edition parts at DIS stage
+    (e.g. ISO/DIS 26262-3, -5, -6, -7) in 2026, publication expected 2027. UL Solutions, <i>What to expect
+    with version 3 of ISO 26262</i>. <span class="mono">iso.org/standard/90022.html</span> (via search,
+    October 2026).</li>
+    <li>Regulation (EU) 2024/1689 (AI Act) — Article 2(2), Article 107 (amending 2018/858), Article 109
+    (amending 2019/2144), Annex I Section B. <span class="mono">artificialintelligenceact.eu/article/2</span>,
+    <span class="mono">/article/107</span>, <span class="mono">/article/109</span> (accessed October 2026).</li>
+    <li>Regulation (EU) 2026/1744 (Digital Omnibus on AI) — adopted 8 July 2026, published 24 July 2026, in
+    force 27 July 2026; Annex I high-risk application moved to 2 August 2028; machinery moved from Section A
+    to Section B of Annex I. <span class="mono">euai-act.com/articles/eu-ai-act-digital-omnibus-2026</span>;
+    White &amp; Case, <i>EU AI Omnibus enters into force</i> (July 2026).</li>
+    <li>UNECE — WP.29 adoption of the UN Regulation and Global Technical Regulation on automated driving
+    systems, June 2026. UNECE press release <span class="mono">unece.org/media/press/414913</span>;
+    Covington Global Policy Watch, <i>UN Regulation and GTR on Automated Driving Systems: current state of
+    play</i> (May 2026).</li>
+    <li>Regulation (EU) 2018/858 (type-approval framework), Regulation (EU) 2019/2144 (General Safety
+    Regulation), Commission Implementing Regulation (EU) 2022/1426 (ADS of fully automated vehicles).
+    <span class="mono">eur-lex.europa.eu</span>.</li>
+    <li>UN Regulations No. 155, 156, 157 and 171 — scope as summarised here is from general knowledge of
+    the regulations, not re-verified for this edition.</li>
+    <li>Kalra, N. and Paddock, S. — <i>Driving to Safety: How Many Miles of Driving Would It Take to
+    Demonstrate Autonomous Vehicle Reliability?</i> RAND Corporation, RR-1478, 2016.</li>
+    <li>ISO 34503:2023 (ODD taxonomy), ISO 34502:2022 (scenario-based safety evaluation), ANSI/UL 4600
+    (safety case for autonomous products), ISO/IEC TR 5469:2024 (functional safety and AI) — named for
+    orientation; not re-verified for this edition.</li>
+  </ul>
+  <p class="small muted">Section 20.2 is the part of this course that will date fastest: two of the core
+  standards are mid-revision, the UN ADS regulation is new, and the type-approval acts that bring AI Act
+  requirements into vehicle law have yet to appear. Re-check it before every delivery.</p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+
+  /* ================================================ shared helpers */
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) {
+    var u = 0, v = 0;
+    while (!u) u = r();
+    while (!v) v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307 * v);
+  }
+  function pick(r, items, w) {
+    var s = 0, i, x = r();
+    for (i = 0; i < w.length; i++) s += w[i];
+    x *= s;
+    for (i = 0; i < w.length; i++) { x -= w[i]; if (x <= 0) return items[i]; }
+    return items[items.length - 1];
+  }
+  /* complementary error function, fractional error < 1.2e-7 (Numerical Recipes erfcc) */
+  function erfc(x) {
+    var z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+    var r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 +
+      t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 +
+      t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? r : 2 - r;
+  }
+  function Q(x) { return 0.5 * erfc(x / Math.SQRT2); }  /* upper normal tail */
+  function sciTxt(x, d) { return x <= 0 ? '0' : F.sci(x, d == null ? 1 : d); }
+  function bigNum(x) {
+    if (!isFinite(x)) return '—';
+    if (x >= 1e9) return F.sci(x, 1);
+    return F.c(x);
+  }
+  function setBox(id, cls) { document.getElementById(id).className = 'bigstat ' + cls; }
+  function chipGroup(hostId, items, state, onChange) {
+    var host = document.getElementById(hostId);
+    host.innerHTML = items.map(function (it) {
+      return '<button data-k="' + it[0] + '">' + it[1] + '</button>';
+    }).join('');
+    host.addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      var k = e.target.getAttribute('data-k');
+      state[k] = !state[k];
+      paintChips(hostId, state);
+      onChange();
+    });
+    paintChips(hostId, state);
+  }
+  function paintChips(hostId, state) {
+    AI.qsa('#' + hostId + ' button').forEach(function (b) {
+      b.classList.toggle('on', !!state[b.getAttribute('data-k')]);
+    });
+  }
+
+  /* ================================================ 20.3 SOTIF */
+  var SO = { seed: 1, pop: [], A: 2, S: 3, R: 4, M: 50, view: 'count' }, soPlot;
+  function soBuild() {
+    var r = rng(1009 + SO.seed * 7919), i;
+    SO.pop = [];
+    for (i = 0; i < 1500; i++) {
+      var f = Math.pow(10, -2 + 5 * r());            /* occurrences per million km */
+      var phi = Math.pow(r(), 1.3);                  /* foreseeability 0..1 */
+      var simOK = r() < 0.8;                         /* representable in the simulator */
+      var g = Math.pow(10, -6.5 + 4.5 * r());        /* hit probability per simulation run */
+      var unsafe = r() < (0.06 + 0.16 * (1 - phi));  /* unforeseeable ones more often unsafe */
+      SO.pop.push({ f: f, phi: phi, simOK: simOK, g: g, unsafe: unsafe, u: r(), um: r() });
+    }
+  }
+  function soEval() {
+    var A = SO.A, S = SO.S <= 0 ? 0 : Math.pow(10, SO.S), R = SO.R <= 0 ? 0 : Math.pow(10, SO.R);
+    var res = { a1: 0, a2: 0, a3: 0, a4: 0, w1: 0, w2: 0, w3: 0, w4: 0, risk: 0, risk0: 0,
+      byA: 0, byS: 0, byR: 0, byAll: 0, nUnsafe: 0 };
+    SO.pop.forEach(function (s) {
+      var pa = 1 - Math.exp(-0.4 * A * s.phi * s.phi);
+      var ps = s.simOK ? 1 - Math.exp(-S * s.g) : 0;
+      var pr = 1 - Math.exp(-R * s.f / 1e6);
+      var pall = 1 - (1 - pa) * (1 - ps) * (1 - pr);
+      var known = s.u < pall;
+      if (s.unsafe) {
+        res.nUnsafe++; res.risk0 += s.f;
+        if (s.u < pa) res.byA++;
+        if (s.u < ps) res.byS++;
+        if (s.u < pr) res.byR++;
+        if (known) res.byAll++;
+      }
+      var fixed = known && s.unsafe && s.um < SO.M / 100;
+      if (known && (!s.unsafe || fixed)) { res.a1++; res.w1 += s.f; }
+      else if (known) { res.a2++; res.w2 += s.f; res.risk += s.f; }
+      else if (s.unsafe) { res.a3++; res.w3 += s.f; res.risk += s.f; }
+      else { res.a4++; res.w4 += s.f; }
+    });
+    return res;
+  }
+  function drawSO() {
+    var r = soEval(), p = soPlot, g = p.ctx;
+    p.resize(); p.clear();
+    var exp = SO.view === 'exp';
+    var v1 = exp ? r.w1 : r.a1, v2 = exp ? r.w2 : r.a2, v3 = exp ? r.w3 : r.a3, v4 = exp ? r.w4 : r.a4;
+    var tot = v1 + v2 + v3 + v4;
+    var pad = 10, top = 26, W = p.w - 2 * pad, H = p.h - top - pad;
+    var kw = tot ? (v1 + v2) / tot : 0;
+    var colK = W * kw, colU = W - colK;
+    g.font = '700 11px system-ui, sans-serif'; g.textBaseline = 'middle';
+    g.fillStyle = C('--ink-3'); g.textAlign = 'center';
+    if (colK > 40) g.fillText('KNOWN', pad + colK / 2, 12);
+    if (colU > 40) g.fillText('UNKNOWN', pad + colK + colU / 2, 12);
+    function cell(x, y, w, h, fill, label, n, share) {
+      if (w <= 0 || h <= 0) return;
+      w = Math.max(w, 2); h = Math.max(h, 2);
+      g.fillStyle = fill; g.fillRect(x, y, w, h);
+      g.strokeStyle = C('--panel'); g.lineWidth = 2; g.strokeRect(x, y, w, h);
+      if (w > 70 && h > 34) {
+        g.fillStyle = C('--panel'); g.textAlign = 'center';
+        g.font = '700 12px system-ui, sans-serif';
+        g.fillText(label, x + w / 2, y + h / 2 - 9);
+        g.font = '600 11px ui-monospace, monospace';
+        g.fillText(n + ' · ' + (share * 100).toFixed(share < 0.1 ? 1 : 0) + '%', x + w / 2, y + h / 2 + 8);
+      }
+    }
+    if (tot > 0) {
+      var kT = v1 + v2, uT = v3 + v4;
+      var h2 = kT ? H * v2 / kT : 0, h3 = uT ? H * v3 / uT : 0;
+      var fmtN = function (c, w) { return exp ? 'exp. ' + F.c(w) : c; };
+      cell(pad, top, colK, h2, C('--warn'), '2 · known unsafe', fmtN(r.a2, r.w2), v2 / tot);
+      cell(pad, top + h2, colK, H - h2, C('--good'), '1 · known safe', fmtN(r.a1, r.w1), v1 / tot);
+      cell(pad + colK, top, colU, h3, C('--bad'), '3 · unknown unsafe', fmtN(r.a3, r.w3), v3 / tot);
+      cell(pad + colK, top + h3, colU, H - h3, C('--ink-3'), '4 · unknown safe', fmtN(r.a4, r.w4), v4 / tot);
+    }
+
+    document.getElementById('soA3').textContent = r.a3;
+    var rel = r.risk0 ? r.risk / r.risk0 : 0;
+    document.getElementById('soRisk').textContent = (rel * 100).toFixed(rel < 0.1 ? 1 : 0) + '%';
+    setBox('soRiskBox', rel < 0.05 ? 'good' : rel < 0.25 ? 'warn' : 'bad');
+
+    var bars = [['Analysis alone', r.byA, '--violet'], ['Simulation alone', r.byS, '--accent'],
+      ['Road testing alone', r.byR, '--warn'], ['All combined', r.byAll, '--good']];
+    document.getElementById('soBars').innerHTML = bars.map(function (b) {
+      var s = r.nUnsafe ? b[1] / r.nUnsafe : 0;
+      return '<div class="mbar"><span>' + b[0] + '</span><div class="tr"><div class="fi" style="width:' +
+        (s * 100).toFixed(1) + '%;background:var(' + b[2] + ')"></div></div><span class="vv">' +
+        (s * 100).toFixed(0) + '%</span></div>';
+    }).join('');
+
+    var km = SO.R <= 0 ? 0 : Math.pow(10, SO.R);
+    var n = '<h4>Reading it</h4>';
+    n += '<p class="small">' + r.nUnsafe + ' of 1,500 scenarios are unsafe for this function. ' +
+      '<b>' + r.byAll + '</b> have been discovered; <b>' + r.a3 + '</b> remain in area 3. ' +
+      'Exposure-weighted residual risk is <b>' + (rel * 100).toFixed(1) + '%</b> of where you started.</p>';
+    var roadShare = r.nUnsafe ? r.byR / r.nUnsafe : 0;
+    if (km >= 1e6 && roadShare < 0.6) {
+      n += '<p class="small mb0">' + F.c(km) + ' km of road testing found only ' + (roadShare * 100).toFixed(0) +
+        '% of the unsafe scenarios — but the frequent ones, which is why the exposure-weighted risk fell so far. ' +
+        'The remainder are rare by construction. Raise analysis and simulation to reach them.</p>';
+    } else if (r.a2 > 0 && SO.M < 100) {
+      n += '<p class="small mb0"><b>' + r.a2 + '</b> scenarios are known and unfixed (area 2). In a real ' +
+        'programme each needs a decision: improve the function, restrict the ODD, warn the driver, or argue the ' +
+        'residual risk is acceptable — and record which.</p>';
+    } else {
+      n += '<p class="small mb0">Note that area 3 never reaches zero, and in a real programme you could not ' +
+        'count it at all. The evidence that it is small is indirect: the discovery rate flattening as effort grows.</p>';
+    }
+    document.getElementById('soNote').innerHTML = n;
+  }
+
+  /* ================================================ 20.4 ODD */
+  var ROADS = [['mot', 'Motorway'], ['rur', 'Rural'], ['urb', 'Urban'], ['trk', 'Track / private']];
+  var WX = [['clr', 'Clear'], ['rain', 'Rain'], ['hvy', 'Heavy rain'], ['fog', 'Fog'], ['snow', 'Snow']];
+  var LIGHT = [['day', 'Day'], ['dusk', 'Dusk / dawn'], ['night', 'Night']];
+  var NAME = {};
+  ROADS.concat(WX, LIGHT).forEach(function (x) { NAME[x[0]] = x[1]; });
+  var SPEED = { mot: [115, 20], rur: [75, 18], urb: [40, 12], trk: [140, 45] };
+  var OD = { vmin: 60, vmax: 130, tmin: 0, tmax: 35, thr: 15, batch: 0,
+    road: { mot: true }, wx: { clr: true, rain: true }, light: { day: true, dusk: true },
+    train: [], scen: [] }, oddPlot;
+  function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+  function drawSample(r, field) {
+    var road = field ? pick(r, ['mot', 'rur', 'urb', 'trk'], [0.35, 0.3, 0.28, 0.07])
+                     : pick(r, ['mot', 'rur', 'urb', 'trk'], [0.55, 0.25, 0.15, 0.05]);
+    var wx = field ? pick(r, ['clr', 'rain', 'hvy', 'fog', 'snow'], [0.55, 0.2, 0.1, 0.07, 0.08])
+                   : pick(r, ['clr', 'rain', 'hvy', 'fog', 'snow'], [0.7, 0.17, 0.05, 0.04, 0.04]);
+    var light = field ? pick(r, ['day', 'dusk', 'night'], [0.6, 0.15, 0.25])
+                      : pick(r, ['day', 'dusk', 'night'], [0.72, 0.14, 0.14]);
+    var sp = SPEED[road], spread = field ? 1.3 : 1;
+    var v = clamp(sp[0] + gauss(r) * sp[1] * spread - (wx === 'hvy' || wx === 'fog' || wx === 'snow' ? 20 : 0), 5, 245);
+    var t = wx === 'snow' ? -3 + gauss(r) * 4 : (field ? 14 + gauss(r) * 11 : 18 + gauss(r) * 8);
+    if (light === 'night') t -= 3;
+    t = clamp(t, -29, 48);
+    return { road: road, wx: wx, light: light, v: v, t: t };
+  }
+  function oddBuildTrain() {
+    var r = rng(424242), i;
+    OD.train = [];
+    for (i = 0; i < 6000; i++) OD.train.push(drawSample(r, false));
+  }
+  function oddBuildScen() {
+    var r = rng(7777 + OD.batch * 131), i;
+    OD.scen = [];
+    for (i = 0; i < 40; i++) OD.scen.push(drawSample(r, true));
+  }
+  function inCells(s) { return OD.road[s.road] && OD.wx[s.wx] && OD.light[s.light]; }
+  function inODD(s) {
+    return inCells(s) && s.v >= OD.vmin && s.v <= OD.vmax && s.t >= OD.tmin && s.t <= OD.tmax;
+  }
+  function support(s) {
+    var n = 0;
+    for (var i = 0; i < OD.train.length; i++) {
+      var d = OD.train[i];
+      if (d.road === s.road && d.wx === s.wx && d.light === s.light &&
+          Math.abs(d.v - s.v) <= 15 && Math.abs(d.t - s.t) <= 6) n++;
+    }
+    return n;
+  }
+  function drawODD() {
+    var p = oddPlot, g;
+    p.resize(); p.clear(); g = p.ctx;
+    p.frame({ xticks: 5, yticks: 4, xlabel: 'speed (km/h)', ylabel: 'temperature (°C)' });
+    p.clip(function (ctx) {
+      /* ODD box */
+      ctx.fillStyle = C('--accent-soft');
+      var x0 = p.X(Math.min(OD.vmin, OD.vmax)), x1 = p.X(OD.vmax), y0 = p.Y(OD.tmax), y1 = p.Y(Math.min(OD.tmin, OD.tmax));
+      if (OD.vmax > OD.vmin && OD.tmax > OD.tmin) {
+        ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+        ctx.strokeStyle = C('--accent'); ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
+        ctx.strokeRect(x0, y0, x1 - x0, y1 - y0); ctx.setLineDash([]);
+      }
+      /* training cloud */
+      var inkFaint = C('--line'), ink = C('--ink-3');
+      ctx.globalAlpha = 0.5;
+      OD.train.forEach(function (d) {
+        var on = inCells(d);
+        ctx.fillStyle = on ? ink : inkFaint;
+        ctx.fillRect(p.X(d.v) - 1, p.Y(d.t) - 1, on ? 2.2 : 1.6, on ? 2.2 : 1.6);
+      });
+      ctx.globalAlpha = 1;
+    });
+    var ok = 0, thin = 0, out = 0, rows = [];
+    OD.scen.forEach(function (s) {
+      var st, sup = support(s);
+      if (!inODD(s)) { st = 'out'; out++; }
+      else if (sup < OD.thr) { st = 'thin'; thin++; }
+      else { st = 'ok'; ok++; }
+      s.st = st; s.sup = sup;
+      rows.push(s);
+    });
+    p.clip(function (ctx) {
+      rows.forEach(function (s) {
+        var x = p.X(s.v), y = p.Y(s.t);
+        ctx.beginPath(); ctx.arc(x, y, 5.5, 0, 6.2832);
+        if (s.st === 'out') { ctx.strokeStyle = C('--ink-3'); ctx.lineWidth = 1.8; ctx.stroke(); }
+        else { ctx.fillStyle = C(s.st === 'ok' ? '--good' : '--bad'); ctx.fill(); ctx.strokeStyle = C('--panel'); ctx.lineWidth = 1.5; ctx.stroke(); }
+      });
+    });
+    document.getElementById('oOk').textContent = ok;
+    document.getElementById('oThin').textContent = thin;
+    document.getElementById('oOut').textContent = out;
+
+    /* coverage table: weather x lighting over the selected road types */
+    var roadsSel = ROADS.filter(function (r) { return OD.road[r[0]]; });
+    var tab = '<thead><tr><th></th>' + LIGHT.map(function (l) { return '<th>' + l[1] + '</th>'; }).join('') + '</tr></thead><tbody>';
+    WX.forEach(function (w) {
+      tab += '<tr><th>' + w[1] + '</th>';
+      LIGHT.forEach(function (l) {
+        var n = 0;
+        OD.train.forEach(function (d) {
+          if (OD.road[d.road] && d.wx === w[0] && d.light === l[0] &&
+              d.v >= OD.vmin && d.v <= OD.vmax && d.t >= OD.tmin && d.t <= OD.tmax) n++;
+        });
+        var sel = OD.wx[w[0]] && OD.light[l[0]] && roadsSel.length;
+        var cls = !sel ? 'off' : n < 30 ? 'lo' : n < 150 ? 'mid' : 'hi';
+        tab += '<td class="' + cls + '">' + n + '</td>';
+      });
+      tab += '</tr>';
+    });
+    tab += '</tbody>';
+    document.getElementById('oCov').innerHTML = tab;
+
+    var order = { thin: 0, out: 1, ok: 2 };
+    rows.sort(function (a, b) { return order[a.st] - order[b.st] || a.sup - b.sup; });
+    document.getElementById('oList').innerHTML = rows.map(function (s) {
+      var lab = s.st === 'out' ? 'out of ODD' : s.sup + ' similar';
+      return '<div class="s ' + s.st + '"><span>' + NAME[s.road] + ' · ' + NAME[s.light] + ' · ' + NAME[s.wx] +
+        ' · ' + Math.round(s.v) + ' km/h · ' + Math.round(s.t) + ' °C</span><b>' + lab + '</b></div>';
+    }).join('');
+
+    var inOdd = ok + thin;
+    var n = '<h4>Reading it</h4>';
+    n += '<p class="small"><b>' + out + ' of 40</b> scenarios fall outside the declared ODD — the function should ' +
+      'recognise this and hand over or not engage. That is an availability cost, and it is the safe outcome.</p>';
+    if (thin > 0) {
+      n += '<p class="small"><b style="color:var(--bad)">' + thin + ' of the ' + inOdd + ' in-ODD scenarios are under-covered.</b> ' +
+        'The function will run in them, and the training data has fewer than ' + OD.thr + ' comparable examples. ' +
+        'Any performance claim for these conditions rests on extrapolation. Either collect data for those cells or ' +
+        'take them out of the ODD.</p>';
+    } else if (inOdd > 0) {
+      n += '<p class="small" style="color:var(--good)"><b>Every in-ODD scenario is backed by data.</b> The declared ODD and ' +
+        'the evidence agree — at the cost of the ' + out + ' scenarios where the function is unavailable.</p>';
+    }
+    n += '<p class="small mb0">Coverage here is necessary, not sufficient: enough similar samples says the model has ' +
+      'seen such conditions, not that it performs well in them. That needs per-slice evaluation (module 8).</p>';
+    document.getElementById('oNote').innerHTML = n;
+  }
+  var ODD_PRESETS = {
+    pilot: { vmin: 60, vmax: 130, tmin: 0, tmax: 35, road: { mot: true }, wx: { clr: true, rain: true }, light: { day: true, dusk: true } },
+    wide:  { vmin: 0, vmax: 250, tmin: -30, tmax: 50, road: { mot: true, rur: true, urb: true, trk: true },
+             wx: { clr: true, rain: true, hvy: true, fog: true, snow: true }, light: { day: true, dusk: true, night: true } },
+    mid:   { vmin: 0, vmax: 180, tmin: -5, tmax: 40, road: { mot: true, rur: true, urb: true },
+             wx: { clr: true, rain: true }, light: { day: true, dusk: true, night: true } }
+  };
+  var oddRanges = {};
+  function applyODD(k) {
+    var pr = ODD_PRESETS[k];
+    OD.road = JSON.parse(JSON.stringify(pr.road));
+    OD.wx = JSON.parse(JSON.stringify(pr.wx));
+    OD.light = JSON.parse(JSON.stringify(pr.light));
+    paintChips('oRoad', OD.road); paintChips('oWx', OD.wx); paintChips('oLight', OD.light);
+    oddRanges.vmin.set(pr.vmin); oddRanges.vmax.set(pr.vmax);
+    oddRanges.tmin.set(pr.tmin); oddRanges.tmax.set(pr.tmax);
+    drawODD();
+  }
+
+  /* ================================================ 20.5 doer / checker */
+  var DC = { rate: -4, sep: 7, thr: 4.5, cc: 0.005 }, dcPlot;
+  var CHECKS = 36000, TDEG = 30, PF = 1e-4, TARGET = 1e-8;
+  function dcEval(thr) {
+    var lam = Math.pow(10, DC.rate), c = DC.cc;
+    var caught = (1 - c) * Q(thr - DC.sep) + c * Q(thr);
+    var resid = lam * (1 - caught) + lam * caught * PF;
+    var ints = CHECKS * Q(thr) + lam * caught;              /* interventions per hour */
+    var load = ints * TDEG / 3600;
+    var unav = load / (1 + load);
+    return { resid: resid, unav: unav, avail: 1 - unav, nuis: CHECKS * Q(thr), caught: caught, lam: lam };
+  }
+  function drawDC() {
+    var p = dcPlot;
+    p.resize(); p.clear();
+    p.dom = [0, 6]; p.ran = [-12, -1];
+    p.frame({ xticks: 6, yticks: 11, xlabel: 'availability of the full function', ylabel: 'residual hazard rate per hour',
+      xfmt: function (x) { return x === 0 ? '0%' : (100 * (1 - Math.pow(10, -x))).toFixed(Math.max(0, x - 2)) + '%'; },
+      yfmt: function (y) { return '10' + F.sup(Math.round(y)); } });
+    var pts = [];
+    for (var t = -1; t <= 9; t += 0.02) {
+      var e = dcEval(t);
+      var x = clamp(-Math.log10(Math.max(e.unav, 1e-12)), 0, 6);
+      var y = clamp(Math.log10(Math.max(e.resid, 1e-13)), -12.5, -0.5);
+      pts.push([x, y]);
+    }
+    var cur = dcEval(DC.thr);
+    var floor = cur.lam * DC.cc;
+    p.clip(function (g) {
+      p.line([[0, -8], [6, -8]], C('--good'), 1.4, [6, 4]);
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left'; g.fillStyle = C('--good');
+      g.fillText('illustrative target 10⁻⁸ /h', p.X(0.1), p.Y(-8) - 7);
+      if (floor > 0) {
+        var fy = Math.log10(floor);
+        p.line([[0, fy], [6, fy]], C('--bad'), 1.4, [3, 3]);
+        g.fillStyle = C('--bad'); g.textAlign = 'right';
+        g.fillText('common-cause floor', p.X(5.9), p.Y(fy) - 7);
+      }
+      var ly = Math.log10(cur.lam);
+      p.line([[0, ly], [6, ly]], C('--ink-3'), 1, [2, 4]);
+      g.fillStyle = C('--ink-3'); g.textAlign = 'left';
+      g.fillText('doer alone', p.X(0.1), p.Y(ly) - 7);
+      p.line(pts, C('--accent'), 2.6);
+      var cx = clamp(-Math.log10(Math.max(cur.unav, 1e-12)), 0, 6), cy = clamp(Math.log10(Math.max(cur.resid, 1e-13)), -12.5, -0.5);
+      p.dot(cx, cy, 7, C('--warn'), C('--panel'));
+    });
+
+    document.getElementById('dHaz').textContent = sciTxt(cur.resid);
+    setBox('dHazBox', cur.resid <= TARGET ? 'good' : cur.resid <= 1e-6 ? 'warn' : 'bad');
+    var av = cur.avail;
+    document.getElementById('dAv').textContent = av > 0.9999 ? '>99.99%' : (av * 100).toFixed(av > 0.99 ? 2 : 1) + '%';
+    setBox('dAvBox', av > 0.999 ? 'good' : av > 0.98 ? 'warn' : 'bad');
+    document.getElementById('dNuis').textContent = bigNum(cur.nuis * 1000);
+    document.getElementById('dGain').textContent = F.c(cur.lam / Math.max(cur.resid, 1e-15)) + '×';
+
+    var n = '<h4>Reading it</h4>';
+    var minResid = 1, bestAv = 0;
+    for (var t2 = -1; t2 <= 9; t2 += 0.02) {
+      var e2 = dcEval(t2);
+      if (e2.avail >= 0.999 && e2.resid < minResid) { minResid = e2.resid; }
+      if (e2.resid <= TARGET && e2.avail > bestAv) bestAv = e2.avail;
+    }
+    if (cur.avail < 0.98) {
+      n += '<p class="small"><b style="color:var(--bad)">The checker is stopping the feature constantly</b> — ' +
+        bigNum(cur.nuis * 1000) + ' nuisance interventions per 1,000 hours. Safe, and useless: a function this ' +
+        'unavailable will be switched off by drivers or loosened by the next engineer who touches it.</p>';
+    } else if (cur.resid > 1e-6) {
+      n += '<p class="small"><b style="color:var(--warn)">Available, but the checker is letting hazards through.</b> ' +
+        'Residual ' + sciTxt(cur.resid) + ' per hour against ' + sciTxt(cur.lam) + ' for the doer alone.</p>';
+    } else {
+      n += '<p class="small">Residual hazard <b>' + sciTxt(cur.resid) + ' /h</b> at <b>' + (cur.avail * 100).toFixed(2) +
+        '%</b> availability: a ' + F.c(cur.lam / Math.max(cur.resid, 1e-15)) + '× improvement on the doer alone.</p>';
+    }
+    if (cur.lam * PF > TARGET) {
+      n += '<p class="small mb0">Even a perfect checker cannot reach the illustrative target here: every true intervention ' +
+        'puts demand on the fallback, and at ' + sciTxt(cur.lam) + ' hazardous outputs per hour a fallback that fails once in ' +
+        '10,000 demands contributes ' + sciTxt(cur.lam * PF) + ' /h on its own. A better doer reduces how often the safety ' +
+        'net is used — which is why the doer\'s quality still matters.</p>';
+    } else if (DC.cc > 0 && floor > TARGET) {
+      n += '<p class="small mb0">With ' + (DC.cc * 100).toFixed(1) + '% of doer failures invisible to the checker, the ' +
+        'floor is ' + sciTxt(floor) + ' /h — <b>above the target whatever the threshold</b>. Only more independence ' +
+        '(a different sensor, principle or dataset) moves the floor; tuning cannot.</p>';
+    } else if (bestAv > 0) {
+      n += '<p class="small mb0">The best availability at which this design meets the illustrative target is <b>' +
+        (bestAv * 100).toFixed(3) + '%</b>. Improve the checker\'s separation and that number rises.</p>';
+    } else {
+      n += '<p class="small mb0">No threshold meets the illustrative target with this checker. Better separation — a more ' +
+        'discriminating plausibility check — is what helps.</p>';
+    }
+    document.getElementById('dcNote').innerHTML = n;
+  }
+
+  /* ================================================ 20.6 statistics */
+  var ST = { unit: 'km', lam: -8, cl: 1.3, k: 0, fleet: 100, use: 400 }, stPlot;
+  function poisCdf(k, m) {
+    var term = Math.exp(-m), s = term;
+    for (var i = 1; i <= k; i++) { term *= m / i; s += term; }
+    return s;
+  }
+  /* the m at which P(N <= k | m) = 1 - C */
+  function solveM(k, conf) {
+    var lo = 0, hi = 200, tgt = 1 - conf;
+    for (var it = 0; it < 80; it++) {
+      var mid = (lo + hi) / 2;
+      if (poisCdf(k, mid) > tgt) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+  function confFromX(x) { return 1 - Math.pow(10, -x); }
+  function fmtTime(days) {
+    if (!isFinite(days)) return '—';
+    if (days < 1) return (days * 24).toFixed(1) + ' h';
+    if (days < 365) return days.toFixed(0) + ' days';
+    var y = days / 365;
+    return (y < 100 ? y.toFixed(1) : F.c(y)) + ' years';
+  }
+  function drawST() {
+    var p = stPlot, lam = Math.pow(10, ST.lam), conf = confFromX(ST.cl), unit = ST.unit === 'km' ? 'km' : 'h';
+    p.resize(); p.clear();
+    var lo = Math.floor(Math.log10(solveM(0, confFromX(0.05)) / lam)), hi = Math.ceil(Math.log10(solveM(3, 0.999) / lam));
+    p.dom = [0, 3]; p.ran = [lo, Math.max(hi, lo + 2)];
+    p.frame({ xticks: 3, yticks: p.ran[1] - p.ran[0], xlabel: 'confidence', ylabel: 'failure-free ' + unit + ' needed',
+      xfmt: function (x) { var c = confFromX(x) * 100; return (c < 99 ? c.toFixed(0) : c.toFixed(1)) + '%'; },
+      yfmt: function (y) { return '10' + F.sup(Math.round(y)); } });
+    var cols = ['--accent', '--warn', '--violet', '--bad'];
+    p.clip(function (g) {
+      for (var k = 0; k <= 3; k++) {
+        var pts = [];
+        for (var x = 0.05; x <= 3.001; x += 0.025) pts.push([x, Math.log10(solveM(k, confFromX(x)) / lam)]);
+        p.line(pts, C(cols[k]), k === ST.k ? 3 : 1.6);
+        g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left'; g.fillStyle = C(cols[k]);
+        g.fillText(k + ' failure' + (k === 1 ? '' : 's'), p.X(0.12), p.Y(pts[2][1]) - 9);
+      }
+      p.dot(ST.cl, Math.log10(solveM(ST.k, conf) / lam), 7, C(cols[ST.k]), C('--panel'));
+    });
+    var m = solveM(ST.k, conf), n = m / lam;
+    document.getElementById('stN').textContent = bigNum(n);
+    document.getElementById('stNl').textContent = (ST.k ? 'test ' : 'failure-free ') + unit + ' needed (m = ' + m.toFixed(2) + ')';
+    var days = n / (ST.fleet * ST.use);
+    document.getElementById('stT').textContent = fmtTime(days);
+    setBox('stTBox', days < 365 ? 'good' : days < 365 * 5 ? 'warn' : 'bad');
+  }
+  var stUse;
+
+  var SC = { p: -5, every: 2, sim: 3.3 };
+  function drawSC() {
+    var p = Math.pow(10, SC.p), every = Math.pow(10, SC.every), sim = Math.pow(10, SC.sim);
+    var enc = solveM(0, 0.95) / p;
+    var road = enc * every, simH = enc / sim;
+    document.getElementById('scEnc').textContent = bigNum(enc);
+    document.getElementById('scRoad').textContent = bigNum(road);
+    document.getElementById('scSimH').textContent = bigNum(simH);
+    document.getElementById('scNote').innerHTML =
+      '<p class="small">To show a failure probability below <b>' + sciTxt(p) + '</b> per encounter at 95% confidence ' +
+      'you need about <b>' + bigNum(enc) + '</b> failure-free encounters. On the road, at one every ' + F.c(every) +
+      ' km, that is <b>' + bigNum(road) + ' km</b>. In simulation it is <b>' + bigNum(simH) + ' cluster-hours</b>.</p>' +
+      '<p class="small mb0">Scenario-based testing wins by orders of magnitude — <em>for scenarios you have thought of, in a ' +
+      'simulator validated for them</em>. Both conditions are claims in the safety case, with their own evidence.</p>';
+  }
+
+  /* ================================================ 20.7 safety case */
+  var GSN = [
+    { id: 'G1', c: 'The ODD is defined, and the vehicle detects when it leaves it', ev: [
+      ['odd', 'ODD specification using a recognised taxonomy', '20.4'],
+      ['oddmon', 'Runtime ODD monitor, verified', '20.4'] ] },
+    { id: 'G2', c: 'Training and test data are adequate for the ODD', ev: [
+      ['dspec', 'Dataset requirements and provenance records', 'M7'],
+      ['dcov', 'Coverage analysis of data against every ODD cell', 'M7 · 20.4'],
+      ['dlab', 'Label-quality audit with measured error rate', 'M7'] ] },
+    { id: 'G3', c: 'Performance meets the derived safety requirements in every ODD slice', ev: [
+      ['test', 'Held-out test results broken down by slice', 'M8'],
+      ['cost', 'Error analysis weighted by consequence (missed pedestrian ≠ false alarm)', 'M8'],
+      ['statc', 'Statistical confidence on the rates, not point estimates', '20.6'] ] },
+    { id: 'G4', c: 'The component signals when it should not be trusted', ev: [
+      ['cal', 'Calibration measured on held-out data', 'M16'],
+      ['ood', 'Out-of-distribution detection, evaluated', 'M16'] ] },
+    { id: 'G5', c: 'Residual functional insufficiencies are identified and understood', ev: [
+      ['trig', 'SOTIF triggering-condition analysis', '20.3'],
+      ['xai', 'Failure analysis of errors, with explanations reviewed', 'M17'] ] },
+    { id: 'G6', c: 'The architecture contains the residual errors', ev: [
+      ['mon', 'Deterministic safety monitor and fallback, to the required ASIL', '20.5'],
+      ['ccf', 'Independence / common-cause analysis of doer and checker', '20.5'] ] },
+    { id: 'G7', c: 'The component stays safe in the field and through change', ev: [
+      ['field', 'Field monitoring and drift detection in service', 'M19'],
+      ['chg', 'Change control for retraining, with regression evidence (R156)', 'M18 · M19'] ] }
+  ];
+  var GSN_PRE = {
+    proto: ['test'],
+    team: ['dspec', 'dlab', 'test', 'cal', 'xai', 'statc'],
+    mature: ['odd', 'oddmon', 'dspec', 'dcov', 'dlab', 'test', 'cost', 'statc', 'cal', 'ood', 'trig', 'xai', 'mon', 'ccf', 'field', 'chg']
+  };
+  var GSNQ = {
+    odd: 'Where exactly is this component claimed to work?',
+    oddmon: 'How does the vehicle know it has left the ODD — and how was that verified?',
+    dspec: 'What was the data supposed to contain, and where did it come from?',
+    dcov: 'Which ODD cells have little or no data?',
+    dlab: 'How wrong are the labels, and how do you know?',
+    test: 'What is the performance in the worst slice, not on average?',
+    cost: 'Which errors are dangerous, and how often do those specific errors happen?',
+    statc: 'What is the confidence bound on that rate, given the test size?',
+    cal: 'When it says 95%, is it right 95% of the time?',
+    ood: 'What happens on an input unlike anything in training?',
+    trig: 'Which conditions trigger hazardous behaviour, and how were they searched for?',
+    xai: 'Do you understand why the errors happen, or only that they do?',
+    mon: 'What stops a wrong output from reaching the actuator?',
+    ccf: 'What do the doer and the checker share?',
+    field: 'How will you know if it starts failing after release?',
+    chg: 'When you retrain, what evidence carries over and what must be redone?'
+  };
+  var GS = {};
+  function drawGSN() {
+    var host = document.getElementById('gsnHost');
+    if (!host.dataset.built) {
+      host.innerHTML = GSN.map(function (g) {
+        return '<div class="gsn" data-g="' + g.id + '"><span class="cl"><span class="id">' + g.id + '</span>' + g.c + '</span>' +
+          g.ev.map(function (e) {
+            return '<label><input type="checkbox" data-e="' + e[0] + '"><span>' + e[1] + ' <span class="m">' + e[2] + '</span></span></label>';
+          }).join('') + '<span class="st"></span></div>';
+      }).join('');
+      host.dataset.built = '1';
+      host.addEventListener('change', function (e) {
+        var k = e.target.getAttribute('data-e');
+        if (k) { GS[k] = e.target.checked; drawGSN(); }
+      });
+    }
+    var full = 0, part = 0, gaps = [], have = 0, total = 0;
+    GSN.forEach(function (g) {
+      var got = 0;
+      g.ev.forEach(function (e) {
+        total++;
+        if (GS[e[0]]) { got++; have++; } else gaps.push([g.id, e[0]]);
+      });
+      var node = AI.qs('.gsn[data-g="' + g.id + '"]', host);
+      var cls = got === g.ev.length ? 'ok' : got > 0 ? 'part' : 'none';
+      if (cls === 'ok') full++; else if (cls === 'part') part++;
+      node.className = 'gsn ' + cls;
+      AI.qs('.st', node).textContent = cls === 'ok' ? 'Supported' : cls === 'part' ? 'Partly supported' : 'Unsupported';
+      AI.qsa('input', node).forEach(function (cb) { cb.checked = !!GS[cb.getAttribute('data-e')]; });
+    });
+    var v = document.getElementById('gsnVerdict');
+    if (!have) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nothing ticked</span>Tick the evidence that exists, or load a preset.';
+    } else if (full === GSN.length) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">All seven sub-claims supported</span><p class="small mb0">An argument an assessor can engage with. ' +
+        'Not a guarantee: each item still has to be good, and the field-monitoring evidence keeps arriving after release.</p>';
+    } else if (full + part === GSN.length && full >= 4) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">' + full + ' of 7 supported, the rest partly</span><p class="small mb0">A case with known holes, ' +
+        'which is a normal state mid-programme. The holes are the plan.</p>';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">' + full + ' of 7 supported · ' + (GSN.length - full - part) + ' with no evidence</span>' +
+        '<p class="small mb0">' + have + ' of ' + total + ' evidence items. Not yet a safety case — and note that a high test-set ' +
+        'accuracy alone supports only one of the seven claims.</p>';
+    }
+    var h = '<h4>What a reviewer will ask first</h4>';
+    if (!gaps.length) h += '<p class="small mb0" style="color:var(--good)">Nothing missing from this simplified structure.</p>';
+    else {
+      h += '<ul class="small mb0">' + gaps.slice(0, 6).map(function (x) {
+        return '<li><b>' + x[0] + ':</b> ' + GSNQ[x[1]] + '</li>';
+      }).join('') + (gaps.length > 6 ? '<li class="muted">…and ' + (gaps.length - 6) + ' more.</li>' : '') + '</ul>';
+    }
+    document.getElementById('gsnGaps').innerHTML = h;
+  }
+
+  /* ================================================ init */
+  window.PAGE_INIT = function () {
+    /* 20.3 */
+    soPlot = new AI.Plot(document.getElementById('soCv'), { pad: { l: 0, r: 0, t: 0, b: 0 } });
+    soBuild();
+    AI.bindRange('soA', function (v) { return v === 0 ? 'none' : v.toFixed(1) + ' / 10'; }, function (v) { SO.A = v; drawSO(); });
+    AI.bindRange('soS', function (v) { return v <= 0 ? 'none' : F.c(Math.pow(10, v)) + ' runs'; }, function (v) { SO.S = v; drawSO(); });
+    AI.bindRange('soR', function (v) { return v <= 0 ? 'none' : F.c(Math.pow(10, v)) + ' km'; }, function (v) { SO.R = v; drawSO(); });
+    AI.bindRange('soM', function (v) { return v + '%'; }, function (v) { SO.M = v; drawSO(); });
+    AI.segmented(document.getElementById('soView'), function (v) { SO.view = v; drawSO(); });
+    AI.on(document.getElementById('soSeed'), 'click', function () { SO.seed++; soBuild(); drawSO(); });
+    AI.onRedraw(drawSO); drawSO();
+
+    /* 20.4 */
+    oddPlot = new AI.Plot(document.getElementById('oddCv'),
+      { dom: [0, 250], ran: [-30, 50], pad: { l: 46, r: 12, t: 12, b: 40 } });
+    oddBuildTrain(); oddBuildScen();
+    chipGroup('oRoad', ROADS, OD.road, drawODD);
+    chipGroup('oWx', WX, OD.wx, drawODD);
+    chipGroup('oLight', LIGHT, OD.light, drawODD);
+    oddRanges.vmin = AI.bindRange('oVmin', function (v) { return v + ' km/h'; }, function (v) { OD.vmin = v; drawODD(); });
+    oddRanges.vmax = AI.bindRange('oVmax', function (v) { return v + ' km/h'; }, function (v) { OD.vmax = v; drawODD(); });
+    oddRanges.tmin = AI.bindRange('oTmin', function (v) { return v + ' °C'; }, function (v) { OD.tmin = v; drawODD(); });
+    oddRanges.tmax = AI.bindRange('oTmax', function (v) { return v + ' °C'; }, function (v) { OD.tmax = v; drawODD(); });
+    AI.bindRange('oThr', function (v) { return v; }, function (v) { OD.thr = v; drawODD(); });
+    AI.qsa('[data-odd]').forEach(function (b) {
+      b.addEventListener('click', function () { applyODD(b.getAttribute('data-odd')); });
+    });
+    AI.on(document.getElementById('oddNew'), 'click', function () { OD.batch++; oddBuildScen(); drawODD(); });
+    AI.onRedraw(drawODD); drawODD();
+
+    /* 20.5 */
+    dcPlot = new AI.Plot(document.getElementById('dcCv'),
+      { dom: [0, 6], ran: [-12, -1], pad: { l: 60, r: 30, t: 14, b: 42 } });
+    AI.bindRange('dRate', function (v) { return sciTxt(Math.pow(10, v), 1) + ' /h'; }, function (v) { DC.rate = v; drawDC(); });
+    AI.bindRange('dSep', function (v) { return v.toFixed(1) + ' σ'; }, function (v) { DC.sep = v; drawDC(); });
+    AI.bindRange('dThr', function (v) { return v.toFixed(2) + ' σ'; }, function (v) { DC.thr = v; drawDC(); });
+    AI.bindRange('dCC', function (v) { return v.toFixed(1) + '%'; }, function (v) { DC.cc = v / 100; drawDC(); });
+    AI.onRedraw(drawDC); drawDC();
+
+    /* 20.6 */
+    stPlot = new AI.Plot(document.getElementById('stCv'),
+      { dom: [0, 3], ran: [7, 10], pad: { l: 56, r: 22, t: 14, b: 42 } });
+    AI.bindRange('stLam', function (v) {
+      return sciTxt(Math.pow(10, v), 1) + (ST.unit === 'km' ? ' /km' : ' /h');
+    }, function (v) { ST.lam = v; drawST(); });
+    AI.bindRange('stC', function (v) { var c = confFromX(v) * 100; return (c < 99 ? c.toFixed(1) : c.toFixed(2)) + '%'; },
+      function (v) { ST.cl = v; drawST(); });
+    AI.bindRange('stK', function (v) { return v; }, function (v) { ST.k = v; drawST(); });
+    AI.bindRange('stFleet', function (v) { return v + ' vehicles'; }, function (v) { ST.fleet = v; drawST(); });
+    stUse = AI.bindRange('stUse', function (v) { return v + (ST.unit === 'km' ? ' km' : ' h'); }, function (v) { ST.use = v; drawST(); });
+    AI.segmented(document.getElementById('stUnit'), function (v) {
+      ST.unit = v;
+      var el = document.getElementById('stUse');
+      if (v === 'h') { el.min = 1; el.max = 24; el.step = 1; stUse.set(10); }
+      else { el.min = 10; el.max = 1000; el.step = 10; stUse.set(400); }
+      document.getElementById('stLamOut').textContent = sciTxt(Math.pow(10, ST.lam), 1) + (v === 'km' ? ' /km' : ' /h');
+      drawST();
+    });
+    var stUnitSeg = { pick: function (v) { AI.qsa('#stUnit button').forEach(function (b) { if (b.getAttribute('data-v') === v && !b.classList.contains('on')) b.click(); }); } };
+    var stLamR = { set: function (v) { var el = document.getElementById('stLam'); el.value = v; el.dispatchEvent(new Event('input')); } };
+    AI.qsa('[data-st]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = b.getAttribute('data-st');
+        if (k === 'fatal') { stUnitSeg.pick('km'); stLamR.set(Math.log10(1.09e-8 / 1.609344)); }
+        else if (k === 'inj') { stUnitSeg.pick('km'); stLamR.set(-6); }
+        else { stUnitSeg.pick('h'); stLamR.set(-8); }
+      });
+    });
+    AI.onRedraw(drawST); drawST();
+
+    AI.bindRange('scP', function (v) { return sciTxt(Math.pow(10, v), 1); }, function (v) { SC.p = v; drawSC(); });
+    AI.bindRange('scEvery', function (v) { return F.c(Math.pow(10, v)) + ' km'; }, function (v) { SC.every = v; drawSC(); });
+    AI.bindRange('scSim', function (v) { return F.c(Math.pow(10, v)) + ' runs'; }, function (v) { SC.sim = v; drawSC(); });
+
+    /* 20.7 */
+    drawGSN();
+    AI.qsa('[data-sc]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        GS = {};
+        GSN_PRE[b.getAttribute('data-sc')].forEach(function (k) { GS[k] = true; });
+        drawGSN();
+      });
+    });
+    AI.on(document.getElementById('scClear'), 'click', function () { GS = {}; drawGSN(); });
+  };
+})();
+</script>
+</body>
+</html>

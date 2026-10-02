@@ -351,8 +351,142 @@
 </section>
 
 <!-- ============================================= 11.6 -->
+<section class="chapter" id="simreal">
+  <h2>11.6 · Synthetic data and the sim-to-real gap</h2>
+  <p>Labelled real data is slow and expensive (module 7.7 puts a number on it). Simulated data is
+  neither: a solver or a renderer produces as many labelled examples as you have cluster time for, with
+  perfect labels and no privacy questions. So teams increasingly train on it:</p>
+
+  <div class="grid g3">
+    <div class="card"><h4>Rendered images</h4><p class="small mb0">CAD geometry rendered under varied
+    lighting and pose, with defects painted in, to train an inspection model before the line has made
+    enough faulty parts to learn from. Every pixel is labelled for free.</p></div>
+    <div class="card"><h4>CFD and FE results</h4><p class="small mb0">Every surrogate on this page is
+    trained on simulated data. That is fine when the question is “reproduce the solver”, and less fine
+    the moment the model is used to predict what the car will do.</p></div>
+    <div class="card"><h4>Augmented telemetry</h4><p class="small mb0">Real logs time-warped, noise-injected,
+    or with simulated faults spliced in, so an anomaly detector sees failure modes the fleet has not
+    produced yet.</p></div>
+  </div>
+
+  <p class="mt2">The catch is in one sentence: <strong>a model trained on a simulator learns the
+  simulator</strong>, including everything the simulator gets wrong. The difference between the
+  simulated world and the real one is the <em>domain gap</em>. It comes from missing physics (tyre
+  thermal behaviour, compliance, wear, a flow feature the mesh does not resolve), from idealised inputs
+  (renders that are too clean, sensors without drift), and from operating conditions the simulation
+  campaign never covered (section 11.5 again). None of it shows up in a test on more simulated data.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Train on the simulator, test on the car</h3><span class="tag try">Add a handful of real samples, then switch on randomisation</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="srCv" class="cv" style="height:320px"></canvas>
+        <p class="small muted mt1 mb0">Grey dots: 240 simulator runs used for training. Dashed: what
+        the real system does. Blue: the model trained on simulation only. Green: the same model after
+        calibration on the orange real samples.</p>
+        <canvas id="srKCv" class="cv-sm mt1" style="height:200px"></canvas>
+        <p class="small muted mt1 mb0">Error on real test data against the number of real samples,
+        averaged over 12 draws of those samples. Recomputed whenever you change the simulator or the
+        noise.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Missing physics in the simulator</span><span class="val" id="srBOut"></span></div>
+          <input type="range" id="srB" min="0" max="1" step="0.02" value="0.6">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Noise (simulator and measurements)</span><span class="val" id="srNOut"></span></div>
+          <input type="range" id="srN" min="0.005" max="0.12" step="0.005" value="0.03">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Real samples available</span><span class="val" id="srKOut"></span></div>
+          <input type="range" id="srK" min="0" max="40" step="1" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>How the real samples are used</span></div>
+          <div class="segmented" id="srFixSeg">
+            <button data-v="bias">Bias offset</button>
+            <button data-v="resid" class="on">Residual model</button>
+            <button data-v="real">Real data only</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Domain randomisation</span></div>
+          <div class="segmented" id="srDRSeg">
+            <button data-v="off" class="on">Off — nominal simulator</button>
+            <button data-v="on">On — randomise the physics</button>
+          </div>
+        </div>
+        <div class="btnrow"><button class="btn sm" id="srNew">Draw different real samples</button></div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsSrSim"><span class="n" id="srSim">—</span><span class="l">error on sim test data</span></div>
+          <div class="bigstat" id="bsSrReal"><span class="n" id="srReal">—</span><span class="l">error on real test data</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">sim-only on real</span><span class="v" id="srBase">—</span></div>
+          <div class="m"><span class="k">domain gap, sim-only (real ÷ sim)</span><span class="v" id="srGap">—</span></div>
+          <div class="m"><span class="k">noise floor</span><span class="v" id="srFloor">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="srNote" style="min-height:120px"></div>
+    <p class="small muted mt1 mb0">Authored set-up, computed live: the real response (think brake-disc
+    temperature against speed, both normalised) is a smooth curve with a ripple, plus a heat-soak-like term
+    <i>B·0.6·x²</i> that the nominal simulator leaves out; the first slider sets <i>B</i>. The model is a
+    ridge regression on 13 Gaussian bumps plus a linear trend — a small, smooth learner, like a
+    one-layer network. <b>Bias offset</b> adds the mean real-minus-predicted error. <b>Residual model</b>
+    fits a regularised quadratic to the real-minus-predicted errors and adds it to the simulator-trained
+    model (often called delta or discrepancy learning). <b>Real data only</b> trains the same model on the
+    real samples alone. With randomisation on, every simulator run draws its heat-soak coefficient at
+    random between 0 and 1 and the inputs cover the full range. Errors are RMS on 300 held-out points: “sim
+    test” uses held-out runs of the <em>nominal</em> simulator; “real test” uses the real system.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Calibrate with a little real data</span>
+      <p class="mb0">The simulator gets the complicated structure right; what it misses is often smooth.
+      So a <strong>handful of real measurements used to correct the simulator-trained model</strong> beats
+      the same handful used on its own, by a wide margin. In a neural network the same idea is fine-tuning:
+      pre-train on simulation, then retrain the last layers on real data. Watch the lower chart: the
+      residual curve falls fast, real-only needs many more samples to catch up.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Domain randomisation</span>
+      <p class="mb0">If you do not know the missing parameter, randomise it: train across a wide
+      spread of friction, lighting, sensor gain or heat transfer, so the real world looks like
+      <em>one more variation</em>. It buys robustness, not accuracy. Note what happens to the sim test
+      error when you switch it on — it gets worse, because the model is no longer tuned to the nominal
+      simulator. That is the point, and a reason not to judge the model on simulated data.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Always test on real data</span>
+      <p class="mb0">Error on held-out simulation measures how well you learned the simulator. It says
+      nothing about the gap. Keep a <strong>real test set</strong> that is never used for calibration,
+      report sim and real error side by side, and treat the ratio as a number to track. If you have no
+      real test data, you do not know how good the model is — only how good the simulator thinks it is.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Start with randomisation off, missing physics at 0.6 and zero real samples. Point at the two
+      big numbers: the sim test says the model is excellent, the car says it is several times worse. That
+      ratio is the domain gap, and it is invisible unless you measure on real data.</li>
+      <li>Then drag the real samples to about 5 with the residual model. Most of the gap closes. Switch to
+      “real data only” at the same 5 samples — far worse. That comparison is the business case for keeping
+      the simulator and buying a few real measurements, rather than choosing one or the other.</li>
+      <li>Set missing physics to zero to show the honest baseline: when the simulator is right, a model
+      trained on it transfers almost perfectly, and the real samples add nothing but noise.</li>
+      <li>Domain randomisation helps most when you do not know how wrong the simulator is. Try missing
+      physics at 0 and at 1 with it on: neither is perfect, neither is a disaster.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 11.7 -->
 <section class="chapter" id="patterns">
-  <h2>11.6 · The other patterns worth knowing</h2>
+  <h2>11.7 · The other patterns worth knowing</h2>
   <div class="grid g2">
     <div class="card"><div class="patcard"><div class="ic">◲</div><div>
       <h3>Vision inspection</h3>
@@ -419,9 +553,9 @@
   </div>
 </section>
 
-<!-- ============================================= 11.7 -->
+<!-- ============================================= 11.8 -->
 <section class="chapter" id="vv">
-  <h2>11.7 · Validation, and the conversation with certification</h2>
+  <h2>11.8 · Validation, and the conversation with certification</h2>
   <p>Simulation earned its place in engineering through decades of verification and validation practice.
   Learned models have to earn it the same way, and the good news is that the framework already exists —
   you are adding a component to it, not inventing a new discipline.</p>
@@ -438,6 +572,8 @@
         <li><strong>Uncertainty:</strong> report surrogate error as an additional, separate contribution
         to the total uncertainty budget. Do not fold it into solver error and hope.</li>
         <li><strong>Envelope:</strong> stated explicitly, and enforced in the tooling (section 11.5).</li>
+        <li><strong>Synthetic training data:</strong> if any of it came from simulation or augmentation,
+        report error on real data separately from error on simulated data (section 11.6).</li>
       </ul>
     </div>
     <div class="card">
@@ -915,6 +1051,204 @@
       '<p class="small mb0">A reviewer looking only at the curve, without the shaded region drawn on it, would have no way to tell. That is why the envelope has to be documented and enforced in code rather than remembered.</p>';
   }
 
+  /* ================================================ 11.6 sim-to-real */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function gaussR(r) {
+    var u = 0, v = 0;
+    while (!u) u = r();
+    while (!v) v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+  }
+  /* ridge regression; the first column (intercept) is not penalised */
+  function ridgeFit(rows, y, lam) {
+    var n = rows[0].length, A = [], b = [], i, j, k;
+    for (i = 0; i < n; i++) { A.push(new Array(n).fill(0)); b.push(0); }
+    for (k = 0; k < rows.length; k++) for (i = 0; i < n; i++) {
+      b[i] += rows[k][i] * y[k];
+      for (j = 0; j < n; j++) A[i][j] += rows[k][i] * rows[k][j];
+    }
+    for (i = 1; i < n; i++) A[i][i] += lam;
+    A[0][0] += 1e-9;
+    return solve(A, b);
+  }
+  var SR = { B: 0.6, sig: 0.03, k: 0, fix: 'resid', dr: false, seed: 1, c: null, sim: [], simTest: [], realTest: [], curves: null };
+  var SR_CEN = []; (function () { for (var i = 0; i <= 12; i++) SR_CEN.push(i / 12); })();
+  var SR_KMAX = 40, SR_REPS = 12;
+  function srF(x) { return 0.3 + 0.45 * x + 0.14 * Math.sin(9 * x); }       /* physics both worlds share */
+  function srH(x) { return 0.6 * x * x; }                                    /* the term the simulator lacks */
+  function srReal(x) { return srF(x) + SR.B * srH(x); }
+  function srBasis(x) {
+    var r = [1, x];
+    for (var i = 0; i < SR_CEN.length; i++) { var d = x - SR_CEN[i]; r.push(Math.exp(-d * d / 0.0098)); }
+    return r;
+  }
+  function srEval(c, x) { var b = srBasis(x), s = 0; for (var i = 0; i < c.length; i++) s += c[i] * b[i]; return s; }
+  function srTrain() {
+    /* simulator campaign: nominal runs, or randomised physics over a wider input range */
+    var r = mulberry32(7), X = [], Y = [], i;
+    SR.sim = [];
+    for (i = 0; i < 240; i++) {
+      var x = SR.dr ? r() : 0.05 + 0.9 * r();
+      var th = SR.dr ? r() : 0;
+      var y = srF(x) + th * srH(x) + SR.sig * gaussR(r);
+      SR.sim.push([x, y]); X.push(srBasis(x)); Y.push(y);
+    }
+    SR.c = ridgeFit(X, Y, 1e-3);
+    /* held-out test sets: nominal simulator, and the real system */
+    var rs = mulberry32(55), rr = mulberry32(77);
+    SR.simTest = []; SR.realTest = [];
+    for (i = 0; i < 300; i++) {
+      var xs = 0.05 + 0.9 * rs(); SR.simTest.push([xs, srF(xs) + SR.sig * gaussR(rs)]);
+      var xr = 0.05 + 0.9 * rr(); SR.realTest.push([xr, srReal(xr) + SR.sig * gaussR(rr)]);
+    }
+  }
+  function srSamples(k, seed) {
+    var r = mulberry32(1000 + seed * 7919), out = [];
+    for (var i = 0; i < k; i++) { var x = 0.05 + 0.9 * r(); out.push([x, srReal(x) + SR.sig * gaussR(r)]); }
+    return out;
+  }
+  /* returns a predictor using k real samples in the chosen way */
+  function srCorrect(S, fix) {
+    var c = SR.c;
+    if (!S.length) return function (x) { return srEval(c, x); };
+    if (fix === 'real') {
+      var cr = ridgeFit(S.map(function (p) { return srBasis(p[0]); }), S.map(function (p) { return p[1]; }), 0.01);
+      return function (x) { return srEval(cr, x); };
+    }
+    var res = S.map(function (p) { return p[1] - srEval(c, p[0]); });
+    if (fix === 'bias') {
+      var off = res.reduce(function (a, b) { return a + b; }, 0) / res.length;
+      return function (x) { return srEval(c, x) + off; };
+    }
+    var q = ridgeFit(S.map(function (p) { return [1, p[0], p[0] * p[0]]; }), res, 0.1);
+    return function (x) { return srEval(c, x) + q[0] + q[1] * x + q[2] * x * x; };
+  }
+  function srRmse(fn, T) {
+    var s = 0;
+    for (var i = 0; i < T.length; i++) { var e = fn(T[i][0]) - T[i][1]; s += e * e; }
+    return Math.sqrt(s / T.length);
+  }
+  function srCurves() {
+    var out = { bias: [], resid: [], real: [] }, base = srRmse(srCorrect([], 'bias'), SR.realTest);
+    for (var k = 0; k <= SR_KMAX; k += 2) {
+      var acc = { bias: 0, resid: 0, real: 0 };
+      for (var rep = 0; rep < SR_REPS; rep++) {
+        var S = srSamples(k, 500 + rep);
+        ['bias', 'resid', 'real'].forEach(function (m) {
+          acc[m] += (k === 0 ? (m === 'real' ? NaN : base) : srRmse(srCorrect(S, m), SR.realTest)) / SR_REPS;
+        });
+      }
+      ['bias', 'resid', 'real'].forEach(function (m) { if (isFinite(acc[m])) out[m].push([k, acc[m]]); });
+    }
+    out.base = base;
+    SR.curves = out;
+  }
+  var srPlot, srKPlot;
+  function srRefit() { srTrain(); srCurves(); drawSr(); }
+  function drawSr() {
+    if (!SR.c) return;
+    var S = srSamples(SR.k, SR.seed);
+    var pred = srCorrect(S, SR.fix), base = function (x) { return srEval(SR.c, x); };
+    /* both headline errors are for the model as currently configured */
+    var eSim = srRmse(pred, SR.simTest), eReal = srRmse(pred, SR.realTest), eBase = srRmse(base, SR.realTest);
+
+    /* main plot */
+    srPlot.resize(); srPlot.clear();
+    srPlot.dom = [0, 1]; srPlot.ran = [0.1, 1.7];
+    srPlot.frame({ xticks: 5, yticks: 4, xlabel: 'operating point (normalised speed)', ylabel: 'response',
+      xfmt: function (v) { return v.toFixed(1); }, yfmt: function (v) { return v.toFixed(1); } });
+    var i;
+    srPlot.clip(function (g) {
+      if (SR.dr) {
+        /* the band of simulated worlds the randomised campaign covers */
+        g.beginPath();
+        for (i = 0; i <= 100; i++) { var xa = i / 100; if (i) g.lineTo(srPlot.X(xa), srPlot.Y(srF(xa))); else g.moveTo(srPlot.X(xa), srPlot.Y(srF(xa))); }
+        for (i = 100; i >= 0; i--) { var xb = i / 100; g.lineTo(srPlot.X(xb), srPlot.Y(srF(xb) + srH(xb))); }
+        g.closePath(); g.fillStyle = C('--accent-soft'); g.fill();
+      }
+      SR.sim.forEach(function (p) { srPlot.dot(p[0], p[1], 2.2, C('--ink-3') + '66'); });
+      var tr = [], sm = [], md = [], cr = [];
+      for (i = 0; i <= 200; i++) {
+        var x = i / 200;
+        tr.push([x, srReal(x)]); sm.push([x, srF(x)]); md.push([x, base(x)]); cr.push([x, pred(x)]);
+      }
+      srPlot.line(sm, C('--ink-3'), 1.4, [2, 4]);
+      srPlot.line(tr, C('--ink'), 2.2, [6, 4]);
+      srPlot.line(md, C('--accent'), 2.4);
+      if (S.length) srPlot.line(cr, C('--good'), 3);
+      S.forEach(function (p) { srPlot.dot(p[0], p[1], 5, C('--warn'), C('--panel')); });
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      var lx = srPlot.pad.l + 8, ly = srPlot.pad.t + 14;
+      g.fillStyle = C('--ink'); g.fillText('real system', lx, ly);
+      g.fillStyle = C('--ink-3'); g.fillText('nominal simulator', lx, ly + 15);
+      g.fillStyle = C('--accent'); g.fillText('trained on sim', lx, ly + 30);
+      if (S.length) { g.fillStyle = C('--good'); g.fillText(SR.fix === 'real' ? 'trained on real only' : 'sim + real calibration', lx, ly + 45); }
+      if (SR.dr) { g.fillStyle = C('--accent'); g.textAlign = 'right'; g.fillText('randomised physics range', srPlot.pad.l + srPlot.pw - 8, srPlot.pad.t + srPlot.ph - 10); }
+    });
+
+    /* error against k */
+    var cv = SR.curves, ymax = 0;
+    ['bias', 'resid', 'real'].forEach(function (m) { cv[m].forEach(function (p) { ymax = Math.max(ymax, Math.min(p[1], cv.base * 2.2 + 0.05)); }); });
+    ymax = Math.max(ymax, cv.base, SR.sig) * 1.12;
+    srKPlot.resize(); srKPlot.clear();
+    srKPlot.dom = [0, SR_KMAX]; srKPlot.ran = [0, ymax];
+    srKPlot.frame({ xticks: 4, yticks: 3, xlabel: 'real samples used', ylabel: 'real-test error',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(2); } });
+    srKPlot.clip(function (g) {
+      srKPlot.line([[0, SR.sig], [SR_KMAX, SR.sig]], C('--line'), 1.4, [3, 3]);
+      srKPlot.line([[0, cv.base], [SR_KMAX, cv.base]], C('--accent'), 1.8, [6, 4]);
+      srKPlot.line(cv.real, C('--ink-3'), SR.fix === 'real' ? 3 : 1.8);
+      srKPlot.line(cv.bias, C('--warn'), SR.fix === 'bias' ? 3 : 1.8);
+      srKPlot.line(cv.resid, C('--good'), SR.fix === 'resid' ? 3 : 1.8);
+      srKPlot.line([[SR.k, 0], [SR.k, ymax]], C('--ink'), 1, [2, 3]);
+      g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'right';
+      var rx = srKPlot.pad.l + srKPlot.pw - 6, ry = srKPlot.pad.t + 12;
+      g.fillStyle = C('--accent'); g.fillText('sim only', rx, ry);
+      g.fillStyle = C('--warn'); g.fillText('bias offset', rx, ry + 13);
+      g.fillStyle = C('--good'); g.fillText('residual model', rx, ry + 26);
+      g.fillStyle = C('--ink-3'); g.fillText('real data only', rx, ry + 39);
+      g.fillText('noise floor', rx, srKPlot.Y(SR.sig) - 4);
+    });
+
+    /* readouts */
+    var ratio = eReal / Math.max(eSim, 1e-6);
+    var gapBase = eBase / Math.max(srRmse(base, SR.simTest), 1e-6);   /* the domain gap of the sim-only model */
+    document.getElementById('srSim').textContent = eSim.toFixed(3);
+    document.getElementById('srReal').textContent = eReal.toFixed(3);
+    document.getElementById('srBase').textContent = eBase.toFixed(3);
+    document.getElementById('srGap').textContent = gapBase.toFixed(1) + '×';
+    document.getElementById('srFloor').textContent = SR.sig.toFixed(3);
+    var rel = eReal / SR.sig;
+    document.getElementById('bsSrReal').className = 'bigstat ' + (rel < 1.4 ? 'good' : rel < 2.5 ? 'warn' : 'bad');
+    document.getElementById('bsSrSim').className = 'bigstat ' + (eSim / SR.sig < 1.4 ? 'good' : 'warn');
+
+    var n = '<h4>Reading it</h4>';
+    if (!S.length) {
+      if (SR.B < 0.05 && !SR.dr) n += '<p class="small mb0"><b style="color:var(--good)">The simulator is right.</b> With no missing physics, a model trained on simulation transfers to the real system with essentially no loss: real error ' +
+        eReal.toFixed(3) + ' against a noise floor of ' + SR.sig.toFixed(3) + '. This is the case everyone assumes they are in.</p>';
+      else if (ratio > 1.8) n += '<p class="small mb0"><b style="color:var(--bad)">The domain gap.</b> On held-out simulator runs the model scores ' + eSim.toFixed(3) +
+        '; on the real system ' + eReal.toFixed(3) + ' — <b>' + ratio.toFixed(1) + '× worse</b>. Every validation step done in simulation would have passed it. Now add real samples.</p>';
+      else n += '<p class="small mb0">Real error ' + eReal.toFixed(3) + ', sim error ' + eSim.toFixed(3) + '. ' +
+        (SR.dr ? 'Randomisation has traded accuracy on the nominal simulator for robustness on the real system: the model now hedges across the whole band of plausible physics.' : 'A modest gap.') + '</p>';
+    } else {
+      var how = SR.fix === 'bias' ? 'a single bias offset' : SR.fix === 'resid' ? 'a residual model' : 'training on the real samples alone';
+      n += '<p class="small">With <b>' + SR.k + ' real sample' + (SR.k > 1 ? 's' : '') + '</b> used as ' + how + ', real-test error is <b>' + eReal.toFixed(3) +
+        '</b>, against ' + eBase.toFixed(3) + ' from simulation alone.</p>';
+      if (SR.fix === 'real') n += '<p class="small mb0">This throws the simulator away. With few samples it is far worse than calibrating the simulator-trained model; it only catches up once you have enough real data to learn the ripple from scratch — see the grey curve.</p>';
+      else if (SR.fix === 'bias') n += '<p class="small mb0">An offset fixes the average level but not the shape: the missing term grows with speed, so a constant correction is too much at low speed and too little at high speed. Cheap and robust; switch to the residual model to fix the shape too.</p>';
+      else n += '<p class="small mb0">The residual model keeps everything the simulator got right and learns only the smooth part it missed — which needs far fewer samples than learning the whole response. Note it also moves the sim-test error (now ' +
+        eSim.toFixed(3) + '): the calibrated model fits the car, not the simulator, and that is correct.</p>';
+    }
+    document.getElementById('srNote').innerHTML = n;
+  }
+
   window.PAGE_INIT = function () {
     tPlot = new AI.Plot(document.getElementById('truthCv'), { dom: [-1, 1], ran: [-1, 1], pad: { l: 38, r: 10, t: 10, b: 34 } });
     sPlot = new AI.Plot(document.getElementById('surrCv'), { dom: [-1, 1], ran: [-1, 1], pad: { l: 38, r: 10, t: 10, b: 34 } });
@@ -959,6 +1293,18 @@
     AI.bindRange('eRange', function (v) { return '±' + v.toFixed(2); }, function (v) { EX.range = v; drawExt(); });
     AI.bindRange('eN', function (v) { return v; }, function (v) { EX.n = v; drawExt(); });
     AI.onRedraw(drawExt); drawExt();
+
+    srPlot = new AI.Plot(document.getElementById('srCv'),
+      { dom: [0, 1], ran: [0.1, 1.7], pad: { l: 46, r: 14, t: 14, b: 42 } });
+    srKPlot = new AI.Plot(document.getElementById('srKCv'),
+      { dom: [0, 40], ran: [0, 0.3], pad: { l: 52, r: 14, t: 12, b: 38 } });
+    AI.bindRange('srB', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { SR.B = v; srRefit(); });
+    AI.bindRange('srN', function (v) { return v.toFixed(3); }, function (v) { SR.sig = v; srRefit(); });
+    AI.bindRange('srK', function (v) { return v; }, function (v) { SR.k = v; drawSr(); });
+    AI.segmented(document.getElementById('srFixSeg'), function (v) { SR.fix = v; drawSr(); });
+    AI.segmented(document.getElementById('srDRSeg'), function (v) { SR.dr = v === 'on'; srRefit(); });
+    AI.on(document.getElementById('srNew'), 'click', function () { SR.seed += 1; drawSr(); });
+    AI.onRedraw(drawSr);
   };
 })();
 </script>

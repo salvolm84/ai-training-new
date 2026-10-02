@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>15 · Capstone — AI Foundations</title>
+<title>21 · Capstone — AI Foundations</title>
 <link rel="stylesheet" href="assets/style.css">
 <style>
   .cv { width: 100%; height: 400px; }
@@ -48,10 +48,10 @@
   }
 </style>
 </head>
-<body data-page="p15">
+<body data-page="p21">
 
 <header class="pagehead wrap">
-  <span class="eyebrow">Module 15 · Part III — Applying it</span>
+  <span class="eyebrow">Module 21 · Part IV — Shipping it</span>
   <h1>Capstone</h1>
   <p class="lead">Fourteen modules of general material. This one produces something: a specific use case
   from your own work, run through everything the course covered, with an honest scorecard and three
@@ -68,9 +68,9 @@
   with their gaps named</strong>, which is what the person sponsoring this series actually wanted.</p>
 </div>
 
-<!-- ============================================= 15.1 -->
+<!-- ============================================= 21.1 -->
 <section class="chapter" id="canvas">
-  <h2>15.1 · The use-case canvas</h2>
+  <h2>21.1 · The use-case canvas</h2>
   <p>Fill it in for one use case. Everything is saved in this browser, so you can come back to it.</p>
 
   <div class="lab">
@@ -182,9 +182,9 @@
   </div>
 </section>
 
-<!-- ============================================= 15.2 -->
+<!-- ============================================= 21.2 -->
 <section class="chapter" id="scorecard">
-  <h2>15.2 · The scorecard</h2>
+  <h2>21.2 · The scorecard</h2>
   <div class="lab">
     <div class="lab-head"><h3>Assessment</h3><span class="tag">Computed from the canvas</span></div>
     <div class="split-wide">
@@ -227,9 +227,9 @@
   </div>
 </section>
 
-<!-- ============================================= 15.3 -->
+<!-- ============================================= 21.3 -->
 <section class="chapter" id="portfolioSection">
-  <h2>15.3 · The portfolio</h2>
+  <h2>21.3 · The portfolio</h2>
   <p>Every use case you have saved, plotted. Bubble size is risk. This is the picture to take to the
   sponsor — not the individual canvases.</p>
 
@@ -252,9 +252,9 @@
   </div>
 </section>
 
-<!-- ============================================= 15.4 -->
+<!-- ============================================= 21.4 -->
 <section class="chapter" id="agenda">
-  <h2>15.4 · Workshop agenda</h2>
+  <h2>21.4 · Workshop agenda</h2>
   <div class="lab">
     <div class="lab-head"><h3>75 minutes</h3><span class="tag">For the facilitator</span></div>
     <div class="agenda" id="agendaHost"></div>
@@ -270,9 +270,9 @@
   </div>
 </section>
 
-<!-- ============================================= 15.5 -->
+<!-- ============================================= 21.5 -->
 <section class="chapter" id="close">
-  <h2>15.5 · Closing the series</h2>
+  <h2>21.5 · Closing the series</h2>
   <div class="grid g2">
     <div class="card">
       <h3>What we covered</h3>
@@ -282,7 +282,10 @@
         <li><strong>Part II</strong> — how to engineer with it: the right algorithm for the data, the
         data itself, honest evaluation, agents and their permissions, and the law.</li>
         <li><strong>Part III</strong> — how it lands: engineering applications, prompting as a skill,
-        the human factors that decide adoption, the limits, and your own use case.</li>
+        the human factors that decide adoption, and the limits.</li>
+        <li><strong>Part IV</strong> — how it ships: telemetry and time series, honest uncertainty,
+        explanations, adapting models, running them in production, the safety case on the vehicle,
+        and your own use case.</li>
       </ul>
     </div>
     <div class="card">
@@ -312,14 +315,14 @@
     <ul>
       <li>Collect the canvases. Even half-completed, they are the most accurate picture of AI readiness
       in the organisation that anyone will produce this year, and they are evidence for the AI inventory
-      in module 10.8.</li>
+      in module 10.9.</li>
       <li>Expect two or three genuinely good ideas from a room of twenty, and expect at least one to be
       something nobody in the AI programme had thought of, because the people with the problems are in
       the room and the people with the technology were guessing.</li>
       <li>End by telling people what happens next and who decides. A capstone that produces a list
       nobody actions is worse than no capstone, because it teaches the room that this was theatre.</li>
       <li>Finally: record attendance across the series. It is your AI-literacy evidence under module
-      10.8, and it is the easiest compliance box any of us will ever tick.</li>
+      10.9, and it is the easiest compliance box any of us will ever tick.</li>
     </ul>
   </div>
 </section>
@@ -348,6 +351,7 @@
     ['classify', 'Classify or route'],
     ['predict', 'Predict a number or outcome'],
     ['vision', 'Judge an image'],
+    ['signal', 'Monitor or forecast sensor data'],
     ['optimise', 'Optimise a design or plan'],
     ['act', 'Take actions in systems']
   ];
@@ -357,7 +361,8 @@
     ['ext', 'Output goes outside the company'],
     ['cert', 'Touches certified or homologated work'],
     ['auto', 'Would run unattended'],
-    ['untrusted', 'Reads documents from outside the company']
+    ['untrusted', 'Reads documents from outside the company'],
+    ['vehicle', 'Runs on the vehicle or affects how it behaves']
   ];
 
   var CUR = null, LIST = [];
@@ -442,7 +447,10 @@
       note: 'Not a language-model problem. Trees will beat a neural network here, train in minutes, need no GPU, and tell you which columns mattered. Start with a logistic or linear baseline you must beat.' },
     vision: { feas: 1, mat: 'medium', llm: false, tok: 0,
       app: 'Convolutional network, or anomaly detection on good parts (modules 3.5, 6.6)',
-      note: 'High value and the biggest project on this list, because the labelling is the schedule. If defects are rare or unlabelled, invert it: train on healthy parts and flag deviation. Budget the labelling explicitly (module 7.6).' },
+      note: 'High value and the biggest project on this list, because the labelling is the schedule. If defects are rare or unlabelled, invert it: train on healthy parts and flag deviation. Budget the labelling explicitly (module 7.7).' },
+    signal: { feas: 2, mat: 'medium', llm: false, tok: 0,
+      app: 'Window features plus gradient boosting, or anomaly detection on healthy runs (modules 15, 6.6)',
+      note: 'Split by time, never at random, and beat a persistence baseline before claiming anything (module 15). Decide early whether it runs in the cloud, on a test bench or on the vehicle — module 19 — because that sets the model size.' },
     optimise: { feas: 2, mat: 'medium', llm: false, tok: 0,
       app: 'Surrogate model plus infill optimisation (module 11.3)',
       note: 'Often the highest-return engineering application and the least discussed. Document the validity envelope and verify every proposed design with a real solver run (module 11.5).' },
@@ -474,6 +482,7 @@
     if (CUR.risk.cert) risk += 0.14;
     if (CUR.risk.auto) risk += 0.12;
     if (CUR.risk.untrusted) risk += 0.08;
+    if (CUR.risk.vehicle) risk += 0.2;
     if (CUR.task.act) risk += 0.1;
     if (!CUR.review.trim()) risk += 0.08;
     s.risk = Math.max(0.02, Math.min(1, risk));
@@ -554,8 +563,9 @@
     if (!CUR.who.trim()) steps.push(['Name the person', 'Go and find the colleague whose week this improves, and ask them whether they want it. If nobody surfaces, stop here — module 13.6.']);
     if (CUR.label < 2) steps.push(['Write down what a correct answer is', 'One page, with three borderline examples, agreed by two experts. This is the highest-leverage week of the project and it blocks everything downstream — module 7.2.']);
     if (CUR.baseline < 2) steps.push(['Measure the current process', 'Time 20 real instances and record how often the current answer turns out to be wrong. Without this you cannot claim an improvement or defend a business case — module 8.5.']);
-    if (CUR.data < 2) steps.push(['Establish data access', 'Not “we have the data” but a pipeline that can read it, legally and technically, today. In most organisations this is the longest-lead item — module 7.7.']);
+    if (CUR.data < 2) steps.push(['Establish data access', 'Not “we have the data” but a pipeline that can read it, legally and technically, today. In most organisations this is the longest-lead item — module 7.8.']);
     steps.push(['Write the evaluation set', 'Thirty real cases with expected answers, including five where the correct answer is “not in the sources” and two awkward ones your experts argue about. An afternoon’s work, and it is the artefact the whole project hangs on — module 8.7.']);
+    if (CUR.risk.vehicle) steps.push(['Bring functional safety in now', 'Anything on the vehicle needs a safety case, a declared operational design domain and a deterministic fallback before it needs a model. Talk to the safety team this week, not at sign-off — module 20.']);
     if (s.risk > 0.5) steps.push(['Check the regulatory tier and design the review', 'Run this use case through module 10.4, and decide now who reviews the output, when, and with how much allocated time — module 13.3.']);
     steps.push(['Build the smallest thing that could pass the evaluation', 'Prompt and retrieval before fine-tuning; a linear or tree baseline before a neural network. Measure, then decide whether anything more is justified.']);
     document.getElementById('steps').innerHTML = steps.slice(0, 5).map(function (st, i) {
