@@ -120,6 +120,19 @@ Three sections date quickly and are sourced on the page:
 
 Check all three before each delivery.
 
+## Releasing an update
+
+Every page shows a byline under its title: the author, the date that page was last updated, and the
+release date of the site. The dates live in `assets/app.js` (`upd` per page, `RELEASE` for the site).
+Refresh them just before committing a release:
+
+```
+python3 scripts/stamp-dates.py
+```
+
+It sets each page's date from the last commit that touched it (or today, if it has uncommitted
+changes) and sets the release date to today.
+
 ## Licence and use
 
-Internal training material.
+Internal training material by Salvatore La Malfa.
