@@ -47,11 +47,11 @@ Speaker notes also appear when a page is printed to PDF.
 | 9 | Agents and tool use | agent loop simulator, prompt-injection demo, permission designer, quadratic cost |
 | 10 | Governance and the AI Act | risk-tier tool, timeline, data-in-prompt matrix, adversarial attack and backdoor labs, vendor questions |
 
-### Part III — Applying it (≈3½ h)
+### Part III — Applying it (≈4 h)
 
 | # | Module | Interactive |
 | --- | --- | --- |
-| 11 | AI in engineering and simulation | surrogate models, sampling plans, infill optimisation, physics-informed fit, extrapolation, sim-to-real gap |
+| 11 | AI in engineering and simulation | surrogate models, sampling plans, infill optimisation, physics-informed fit, extrapolation, sim-to-real gap, POD reduced-order model, solver warm start, peak-value trap, live PINN, hard vs soft constraints, equation discovery (SINDy) |
 | 12 | Prompting | prompt builder, rewrite gallery, decomposition exercise, troubleshooting, myth-busting, AI coding assistants |
 | 13 | Human factors and adoption | automation-bias experiment, reliance curve, workflow design check |
 | 14 | Limits and open questions | reliability compounding, interpretability, three positions, claim assessment |
@@ -104,7 +104,7 @@ repository must be public, which makes the material world-readable and indexable
 Almost everything computes live: the networks really train by backpropagation, the surrogate models
 really fit, the statistics are really calculated. Three things are authored rather than live and are
 labelled as such on the page itself — the tokenizer in module 4.1, the next-token probabilities in
-4.3, and the attention maps in 4.4. Labs added later (4.9–4.10, 7.6, 10.6, 11.6, 12.7 and modules 15–20) run
+4.3, and the attention maps in 4.4. Labs added later (4.9–4.10, 7.6, 10.6, 11.6–11.8, 12.7 and modules 15–20) run
 on seeded synthetic data; where an input is invented for teaching — a document corpus, a planted code
 defect, a scenario distribution, an error budget — the page says so next to it.
 

@@ -26,7 +26,7 @@
     { id: 'p9',  n: '9',  file: '09-agents.html',     short: 'Agents & tools',   title: 'Agents and tool use', part: 1, mins: 45 },
     { id: 'p10', n: '10', file: '10-governance.html', short: 'Governance',       title: 'Governance, security and the AI Act', part: 1, mins: 55 },
 
-    { id: 'p11', n: '11', file: '11-engineering.html',short: 'Engineering use',  title: 'AI in engineering and simulation', part: 2, mins: 60 },
+    { id: 'p11', n: '11', file: '11-engineering.html',short: 'Engineering use',  title: 'AI in engineering and simulation', part: 2, mins: 85 },
     { id: 'p12', n: '12', file: '12-prompting.html',  short: 'Prompting lab',    title: 'Prompting: a working skill', part: 2, mins: 70 },
     { id: 'p13', n: '13', file: '13-human.html',      short: 'Human factors',    title: 'Human factors and adoption', part: 2, mins: 40 },
     { id: 'p14', n: '14', file: '14-limits.html',     short: 'Limits',           title: 'Limits and open questions', part: 2, mins: 35 },

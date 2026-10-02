@@ -26,6 +26,10 @@
   .eqbox .hi2 { color: var(--warn); font-weight: 700; }
   .eqbox small { display: block; font-family: var(--sans); font-size: .8rem; color: var(--ink-3); margin-top: .5em; }
   .patcard { display: grid; grid-template-columns: 46px 1fr; gap: 14px; align-items: start; }
+  .maps4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+  @media (max-width: 900px) { .maps4 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  .cv-mode { width: 100%; aspect-ratio: 1 / 1; height: auto; }
+  .cv-fld { width: 100%; aspect-ratio: 1 / 1; height: auto; max-width: 380px; }
   .patcard .ic {
     width: 46px; height: 46px; border-radius: 11px; display: grid; place-items: center;
     background: var(--accent-soft); color: var(--accent); font-size: 1.3rem; font-weight: 700;
@@ -300,6 +304,8 @@
       </ul>
     </div>
   </div>
+  <p class="small muted mt1 mb0">Section 11.8 goes further: a real PINN you can train, where they fail and
+  how people fix it, and the alternative of building the physics into the model's structure.</p>
 </section>
 
 <!-- ============================================= 11.5 -->
@@ -485,8 +491,784 @@
 </section>
 
 <!-- ============================================= 11.7 -->
+<section class="chapter" id="fields">
+  <h2>11.7 · Learning the physics: ML inside CFD and FEM</h2>
+  <p>Every surrogate so far returned one number per design: an efficiency, a peak, a drag value. That is
+  not how you look at a simulation. You look at the pressure on the underbody, the temperature map on a
+  battery module, the stress around a fillet. This section is about machine learning applied to the
+  <strong>field</strong> — the solution itself — and about the quieter option of putting the learning
+  <em>inside</em> the solver instead of in place of it.</p>
+
+  <h3 class="mt2" id="fields-why">From a number to a field</h3>
+  <div class="grid g3">
+    <div class="card"><h4>The output is enormous</h4><p class="small mb0">A scalar surrogate predicts one
+    value. A field model predicts one value per mesh node — 10⁵ for a modest surface, 10⁷ or more for a
+    volume. You cannot fit an independent model per node from a few hundred runs; the model has to learn
+    the structure that links neighbouring nodes.</p></div>
+    <div class="card"><h4>The mesh changes between designs</h4><p class="small mb0">Change the geometry
+    and the mesher gives you a different number of nodes, connected differently. Stacking results into a
+    tidy table — what every method in modules 3 and 6 assumes — no longer works. Either you interpolate
+    everything onto a common grid, or you use a model that works on the mesh directly.</p></div>
+    <div class="card"><h4>The important part is small</h4><p class="small mb0">A separation line, a hot
+    spot, the peak stress at a notch: the features that decide a design occupy a tiny fraction of the
+    domain. A model can be excellent on average and wrong exactly there. The third lab in this section
+    is about that trap.</p></div>
+  </div>
+
+  <h3 class="mt2" id="fields-pod">Reduced-order models: proper orthogonal decomposition</h3>
+  <p>The classic method, in use for decades in fluids and structures, and the one to try first. Run the
+  solver for a set of parameter values and store each solution field as a column — the
+  <em>snapshot matrix</em>. A singular value decomposition of that matrix finds the handful of spatial
+  patterns, the <em>modes</em>, that between them reproduce almost every snapshot. A new solution is then
+  approximated as the mean field plus a weighted sum of those modes; only the weights depend on the
+  parameters, so you interpolate a few numbers instead of a whole field.</p>
+
+  <div class="eqbox">
+    T(x; μ) ≈ <span class="hi">T̄(x)</span> + Σ<sub>k=1…r</sub> <span class="hi2">a<sub>k</sub>(μ)</span> · φ<sub>k</sub>(x)
+    <small>mean field · <span style="color:var(--warn)">coefficients interpolated across the design parameters μ</span> · modes from the SVD of the snapshots</small>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · A POD reduced-order model of a heated plate</h3><span class="tag try">Change the modes and snapshots, then push the query outside the envelope</span></div>
+    <div class="maps">
+      <div><h4>Truth — finite-difference solve</h4><canvas id="romTruthCv" class="cv-fld"></canvas></div>
+      <div><h4>Reduced-order model</h4><canvas id="romPredCv" class="cv-fld"></canvas></div>
+      <div><h4>Absolute error</h4><canvas id="romErrCv" class="cv-fld"></canvas></div>
+    </div>
+    <div class="split-wide mt1">
+      <div>
+        <div class="grid g2" style="gap:14px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Query: heat-source position</span><span class="val" id="romSOut"></span></div>
+            <input type="range" id="romS" min="0.1" max="0.9" step="0.01" value="0.46">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Query: face cooling β</span><span class="val" id="romBOut"></span></div>
+            <input type="range" id="romB" min="0.5" max="3" step="0.02" value="1.62">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Snapshots (solver runs)</span><span class="val" id="romMOut"></span></div>
+            <input type="range" id="romM" min="4" max="40" step="1" value="16">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Modes kept</span><span class="val" id="romROut"></span></div>
+            <input type="range" id="romR" min="1" max="12" step="1" value="5">
+          </div>
+        </div>
+        <div class="btnrow">
+          <button class="btn sm" id="romOutBtn">Push the query outside the envelope</button>
+          <button class="btn sm" id="romInBtn">Back inside</button>
+          <span class="pill" id="romEnv">—</span>
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsRomRms"><span class="n" id="romRms">—</span><span class="l">RMS error, % of peak temperature</span></div>
+          <div class="bigstat" id="bsRomPk"><span class="n" id="romPk">—</span><span class="l">error in the peak temperature</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">energy captured</span><span class="v" id="romEn">—</span></div>
+          <div class="m"><span class="k">heat-balance error</span><span class="v" id="romBal">—</span></div>
+          <div class="m"><span class="k">full solve</span><span class="v" id="romTs">—</span></div>
+          <div class="m"><span class="k">ROM evaluation</span><span class="v" id="romTr">—</span></div>
+        </div>
+      </div>
+      <div>
+        <h4>Parameter space</h4>
+        <canvas id="romParCv" class="cv-sm" style="height:220px"></canvas>
+        <div class="card mt1" id="romNote" style="min-height:150px"></div>
+      </div>
+    </div>
+    <h4 class="mt2">The first four modes — patterns found in the snapshots, not designed by anyone</h4>
+    <div class="maps4">
+      <div><canvas id="romMode0" class="cv-mode"></canvas><span class="small muted" id="romModeL0">mode 1</span></div>
+      <div><canvas id="romMode1" class="cv-mode"></canvas><span class="small muted" id="romModeL1">mode 2</span></div>
+      <div><canvas id="romMode2" class="cv-mode"></canvas><span class="small muted" id="romModeL2">mode 3</span></div>
+      <div><canvas id="romMode3" class="cv-mode"></canvas><span class="small muted" id="romModeL3">mode 4</span></div>
+    </div>
+    <div class="grid g3 mt1">
+      <div><h4>Energy not captured</h4><canvas id="romEnCv" class="cv-sm"></canvas></div>
+      <div><h4>Error against modes kept</h4><canvas id="romErrRCv" class="cv-sm"></canvas></div>
+      <div><h4>Error against snapshots</h4><canvas id="romErrMCv" class="cv-sm"></canvas></div>
+    </div>
+    <p class="small muted mt1 mb0">Authored set-up, computed live. A square plate, edges held at coolant
+    temperature, a Gaussian heat source whose position along the plate is one design parameter, and face
+    cooling β (a convective loss term) as the second. The “solver” is a 40 × 40 finite-difference
+    discretisation of −∇²T + βT = q, solved by conjugate gradients to a relative residual of 10⁻¹⁰:
+    1,600 unknowns, about a millisecond in a browser. Training runs are placed by a Halton sequence inside the shaded
+    envelope (source 0.30–0.70, β 10–200). POD: centred snapshots, eigen-decomposition of the snapshot
+    correlation matrix (the “method of snapshots”, equivalent to an SVD). Mode coefficients are
+    interpolated with a thin-plate spline plus a linear trend. “Error against snapshots” averages 12
+    held-out designs inside the envelope (solid) and shows the current query (dashed). Heat balance is the
+    net imbalance of heat in and out over the whole plate, as a fraction of the heat put in.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Look at the energy curve</span>
+      <p class="mb0">Two or three modes hold almost all of the variation in sixteen snapshots. That is
+      why POD works: physical solutions over a family of designs are far less varied than their size
+      suggests. Each mode is a field you can plot and argue about — the method is
+      <strong>explainable by construction</strong>, which matters in a review.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Where it struggles</span>
+      <p class="mb0">Things that <em>move</em> are expensive for POD: a travelling heat source, a shock,
+      a separation point that shifts with the design. A shifted peak is a new pattern, so you need more
+      modes and more snapshots. Raise β to its top training value and watch the error climb as the
+      hot spot sharpens.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Outside the envelope</span>
+      <p class="mb0">Press the button. The modes cannot represent a field they have never seen, and the
+      coefficient interpolation is now an extrapolation — section 11.5 for a whole field at once. Note
+      that the heat-balance error moves too: a physical check you can compute <strong>without</strong>
+      knowing the true answer.</p>
+    </div>
+  </div>
+
+  <h3 class="mt2" id="fields-gnn">Graph networks and neural operators</h3>
+  <p>POD needs every snapshot on the same mesh and handles a few parameters well. The two families of
+  deep-learning field models aim at what it cannot do: geometry that changes and meshes that differ.</p>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Mesh-based graph neural networks</h3>
+      <p class="small">Treat the mesh as a graph: nodes carry the local state, edges carry relative
+      position. The network learns a <em>local</em> update rule — how a node is influenced by its
+      neighbours — and applies it many times, which is structurally close to what a solver does. Because
+      the rule is local, it runs on any mesh, including one it has never seen.</p>
+      <p class="small mb0"><b>Promise:</b> native on unstructured meshes, generalisation across related
+      geometries. <b>Cost:</b> memory grows with the mesh, and long-range effects (pressure in
+      incompressible flow) need many message-passing steps or a multi-scale variant.</p>
+    </div>
+    <div class="card">
+      <h3>Neural operators (FNO, DeepONet)</h3>
+      <p class="small">Learn a map from an input <em>function</em> (a geometry, a boundary condition, a
+      load field) to an output function. The Fourier neural operator mixes information in frequency space
+      on a regular grid; DeepONet uses one network to encode the input and another to evaluate the output
+      at any query point.</p>
+      <p class="small mb0"><b>Promise:</b> train at one resolution, evaluate at another. <b>Read that
+      carefully:</b> it means the model can be <em>queried</em> on a finer grid, not that it becomes more
+      accurate than the data it was trained on.</p>
+    </div>
+  </div>
+
+  <div class="tablewrap mt1">
+    <table>
+      <thead><tr><th>Approach</th><th>Mesh handling</th><th>Training runs, typically</th><th>Where it stands in 2026</th></tr></thead>
+      <tbody>
+        <tr><td><b>POD + interpolation</b></td><td>One fixed mesh, or everything mapped to one</td><td>Tens, for a few parameters</td><td>Mature and well understood. Explainable modes, cheap, robust inside its envelope.</td></tr>
+        <tr><td><b>Graph network on the mesh</b></td><td>Native, meshes may differ</td><td>Hundreds to thousands</td><td>In use in some preliminary-design workflows for families of similar geometry; active research elsewhere.</td></tr>
+        <tr><td><b>Fourier neural operator</b></td><td>Regular grids; irregular-geometry variants exist</td><td>Hundreds to thousands</td><td>Strong on research benchmarks with simple domains; less proven on industrial geometry.</td></tr>
+        <tr><td><b>DeepONet</b></td><td>Output at any point</td><td>Hundreds to thousands</td><td>Research and niche applications; attractive for inverse and multi-fidelity set-ups.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted mt1">The run counts are orders of magnitude, not rules, and each of those runs is
+  a full solve you pay for. Field models are typically accurate to a few per cent on designs like the
+  training set — useful for screening and ranking, not for a value you sign off. The open question,
+  as of 2026, is generalisation to genuinely new geometry: a model trained on one vehicle family says
+  little about a different architecture, and nothing flags when it has stopped knowing.</p>
+
+  <h3 class="mt2" id="fields-inside">ML inside the solver, rather than replacing it</h3>
+  <p>The other route keeps the validated solver and uses learning to make it faster or to supply a piece
+  of physics it lacks. Two very different levels of risk sit under this heading.</p>
+  <div class="grid g2">
+    <div class="card"><div class="patcard"><div class="ic">⇥</div><div>
+      <h3>Warm starts and initial guesses</h3>
+      <p class="small mb0">Start the iterative solver from a predicted field instead of a uniform one.
+      The converged answer is whatever the solver converges to, so the ML can only cost or save
+      iterations. The lab below makes this concrete.</p>
+    </div></div></div>
+    <div class="card"><div class="patcard"><div class="ic">▦</div><div>
+      <h3>Learned preconditioners</h3>
+      <p class="small mb0">A preconditioner reshapes the linear system so the solver converges in fewer
+      steps; a learned one is tuned to the systems your workflow actually produces. Same safety property
+      as a warm start — the solver still enforces the tolerance — and the same honest limit: gains are
+      modest unless the classical preconditioner was poorly matched.</p>
+    </div></div></div>
+    <div class="card"><div class="patcard"><div class="ic">◫</div><div>
+      <h3>Mesh adaptation</h3>
+      <p class="small mb0">Predict where the mesh needs refining — wakes, boundary layers, notches — from
+      the geometry or a coarse solution, instead of several adapt-and-resolve cycles. A bad prediction
+      gives a worse mesh, which a mesh-convergence check still catches.</p>
+    </div></div></div>
+    <div class="card"><div class="patcard"><div class="ic">≋</div><div>
+      <h3>Turbulence-model corrections for RANS</h3>
+      <p class="small mb0">Learn a correction to the eddy viscosity or the Reynolds stresses from
+      high-fidelity LES or DNS data. Here the ML <em>changes the answer</em>, so the risk is of a different
+      kind. A closure trained on a family of separated flows has learned those flows; on a new geometry it
+      can be worse than the baseline model, and nothing in the solution says so. Corrections also have to
+      respect invariance and realisability, or they destabilise the solver.</p>
+    </div></div></div>
+    <div class="card"><div class="patcard"><div class="ic">⊞</div><div>
+      <h3>Data-driven material models in FEM</h3>
+      <p class="small mb0">Replace a fitted constitutive law with one learned from coupon tests or from
+      micro-scale simulations of a composite or a lattice. The finite-element solver is unchanged; only the
+      stress–strain routine is learned. The risks are strain states never tested (multiaxial, cyclic) and
+      models that are not thermodynamically consistent — section 11.8 shows how to build that in.</p>
+    </div></div></div>
+    <div class="card"><div class="patcard"><div class="ic">∂</div><div>
+      <h3>Physics-informed networks</h3>
+      <p class="small mb0">The section 11.4 idea at full scale. Useful for inverse problems and sparse
+      measurements, generally not faster than a classical solver for a forward problem. Section 11.8 goes
+      into how they work, where they fail, and what has replaced them in some uses.</p>
+    </div></div></div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · An ML warm start for an iterative solver</h3><span class="tag try">Switch to the bad surrogate — it still converges</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="wsCv" class="cv" style="height:320px"></canvas>
+        <p class="small muted mt1 mb0">Relative residual against iteration, log scale. Grey: started from
+        zero. Coloured: started from the chosen initial guess. Dashed: the tolerance both must reach.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Initial guess</span></div>
+          <div class="segmented" id="wsGuessSeg">
+            <button data-v="rom" class="on">Good ROM</button>
+            <button data-v="crude">Crude ROM</button>
+            <button data-v="bad">Bad surrogate</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Iterative method</span></div>
+          <div class="segmented" id="wsMethSeg">
+            <button data-v="gs" class="on">Gauss–Seidel</button>
+            <button data-v="cg">Conjugate gradient</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Convergence tolerance</span><span class="val" id="wsTolOut"></span></div>
+          <input type="range" id="wsTol" min="-9" max="-2" step="1" value="-6">
+        </div>
+        <div class="grid g2" style="gap:14px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Source position</span><span class="val" id="wsSOut"></span></div>
+            <input type="range" id="wsS" min="0.3" max="0.7" step="0.01" value="0.55">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Face cooling β</span><span class="val" id="wsBOut"></span></div>
+            <input type="range" id="wsB" min="1" max="2.3" step="0.02" value="1.3">
+          </div>
+        </div>
+        <div class="grid g2 mt1" style="gap:10px">
+          <div class="bigstat"><span class="n" id="wsCold">—</span><span class="l">iterations from zero</span></div>
+          <div class="bigstat" id="bsWsWarm"><span class="n" id="wsWarm">—</span><span class="l">iterations from the guess</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">initial-guess error</span><span class="v" id="wsGErr">—</span></div>
+          <div class="m"><span class="k">speed-up</span><span class="v" id="wsSpd">—</span></div>
+          <div class="m"><span class="k">difference between final answers</span><span class="v" id="wsDiff">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="wsNote" style="min-height:110px"></div>
+    <p class="small muted mt1 mb0">Computed live on the same 40 × 40 plate problem. Both solves run the
+    real iteration, a few hundred steps per animation frame, until the relative residual
+    ‖b − Ax‖ / ‖b‖ falls below the tolerance. <b>Good ROM</b>: POD from 20 snapshots, 8 modes.
+    <b>Crude ROM</b>: 6 snapshots, 2 modes. <b>Bad surrogate</b>: the solution for a different design,
+    scaled by 1.6, with 10% random noise added — a stand-in for a model that is simply wrong. “Difference
+    between final answers” is the largest pointwise difference between the two converged fields, as a
+    fraction of the peak temperature.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Why this is the pattern that gets past certification</span>
+    <p class="mb0">Look at the last number: the two final answers agree to the solver tolerance whatever
+    initial guess you pick. The ML model <strong>cannot change the result</strong>, only how long it takes
+    to get there — and a bad model costs a few iterations, not a wrong design. That is a claim you can
+    make to a certification engineer without a new validation campaign, which is why warm starts,
+    preconditioners and mesh prediction are where field ML enters production first. Note also what the
+    lab shows honestly: the gain is a factor of two or three for tight tolerances, more for loose ones,
+    and with conjugate gradients it can be close to nothing — CG is already good at the smooth error a
+    ROM removes.</p>
+  </div>
+
+  <h3 class="mt2" id="fields-trust">The trust question for fields</h3>
+  <p>A field model's headline accuracy is almost always an average over the domain. Engineers rarely
+  care about the average. The last lab is the problem in its purest form: the stress field around a hole
+  in a plate under tension, where the peak at the edge of the hole is three times the nominal stress —
+  the textbook stress concentration — and a smooth model of the whole field.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · The peak-value trap</h3><span class="tag try">Read the RMS error, then the peak error</span></div>
+    <div class="maps">
+      <div><h4>Truth — von Mises stress</h4><canvas id="pkTruthCv" class="cv-fld"></canvas></div>
+      <div><h4>Smooth field model</h4><canvas id="pkPredCv" class="cv-fld"></canvas></div>
+      <div><h4>Absolute error</h4><canvas id="pkErrCv" class="cv-fld"></canvas></div>
+    </div>
+    <div class="split-wide mt1">
+      <div>
+        <canvas id="pkLigCv" class="cv-sm" style="height:230px"></canvas>
+        <p class="small muted mt1 mb0">Stress along the ligament, from the top of the hole (where the peak
+        sits) up to the plate edge. Dashed: truth. Solid: the model.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Model capacity (basis functions per side)</span><span class="val" id="pkKOut"></span></div>
+          <input type="range" id="pkK" min="4" max="16" step="1" value="8">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Hole radius</span><span class="val" id="pkAOut"></span></div>
+          <input type="range" id="pkA" min="0.12" max="0.4" step="0.01" value="0.25">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Training samples</span></div>
+          <div class="segmented" id="pkSampSeg">
+            <button data-v="uni" class="on">Uniform over the plate</button>
+            <button data-v="ref">Refined and weighted at the hole</button>
+          </div>
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat good" id="bsPkRms"><span class="n" id="pkRms">—</span><span class="l">RMS error over the plate</span></div>
+          <div class="bigstat bad" id="bsPkPk"><span class="n" id="pkPk">—</span><span class="l">error at the peak</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">true peak</span><span class="v" id="pkTrue">—</span></div>
+          <div class="m"><span class="k">predicted peak</span><span class="v" id="pkPred">—</span></div>
+          <div class="m"><span class="k">worst error at</span><span class="v" id="pkWhere">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="pkNote" style="min-height:110px"></div>
+    <p class="small muted mt1 mb0">Computed live. Truth is the analytic Kirsch solution for a circular hole
+    in a wide plate under uniaxial tension along x, nominal stress 100 MPa (an authored value), shown as
+    von Mises stress in a window two plate-widths across; peak 300 MPa at the top and bottom of the hole.
+    The model is a least-squares fit of a grid of Gaussian basis functions to the stress sampled on a
+    36 × 36 grid of points in the material — a deliberately simple stand-in for any smooth field model of
+    limited capacity, whether a ROM, a coarse output grid or a small network. Errors are measured on a
+    100 × 100 grid plus 360 points around the hole edge. “Worst error at” gives the angle from the load
+    axis and the distance from the hole centre in hole radii.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">What to check before believing a field model</span>
+    <ol class="mb0">
+      <li><strong>The quantities you design to, separately from the average.</strong> Peak stress and its
+      location, peak temperature, separation and reattachment points, integrated forces. Report them as
+      their own error lines; an RMS over the domain is not evidence about any of them.</li>
+      <li><strong>The sign of the error at the critical point.</strong> Smooth models shave peaks, so they
+      tend to under-predict exactly where under-prediction is unsafe. Non-conservative by default.</li>
+      <li><strong>Conservation.</strong> Mass, momentum and energy balances, net forces against reactions.
+      These can be checked on every prediction without knowing the true answer, and a violated balance is
+      a strong signal that the model is out of its depth.</li>
+      <li><strong>Where the training data is dense.</strong> Refining samples at the critical feature helps,
+      as the lab shows — and moves error elsewhere. Your loss function decides where the error goes.</li>
+      <li><strong>A solver run on the final design</strong>, as section 11.5 insisted for scalar
+      surrogates. For a field model it is the only check that covers what you did not think to check.</li>
+    </ol>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>About 10–12 minutes. Open with the question: “who here looks at a contour plot rather than a
+      single number?” — everyone. That is why scalar surrogates feel incomplete to this audience.</li>
+      <li>POD lab (4 min): start at 16 snapshots, 5 modes. Show the modes first — they are physically
+      readable (overall heating, left–right shift, sharpening). Drop to 1 mode, then 3: the energy curve
+      explains the jump. Then press “push outside” and point at the heat-balance error moving with it.</li>
+      <li>Warm-start lab (3 min): run Gauss–Seidel with the good ROM, then the bad surrogate. The key
+      sentence: the difference between final answers stays at the tolerance — the model cannot make the
+      answer wrong. Switch to CG to show the gain can vanish; this is the honest result.</li>
+      <li>Peak trap (3 min): capacity 8, hole 0.25. RMS error about 11 MPa — under 4% of the peak — looks
+      excellent; the predicted peak is nearly half the true one. Raise the capacity to 16 to show it takes
+      a much bigger model to get within 10%. Then switch to refined sampling: peak improves, RMS gets worse. “The loss function decides
+      where the error goes.”</li>
+      <li>Expected: <em>“Can this replace our CFD?”</em> — Not for sign-off, and not outside the family it
+      was trained on. It can replace some of the runs you do to explore and rank, and it can make the runs
+      you keep faster.</li>
+      <li>Expected: <em>“How many runs do we need?”</em> — POD: tens for a few parameters. Graph networks
+      and operators: hundreds to thousands, on a consistent set-up. If you do not already have an archive
+      of consistent runs, building it is the project.</li>
+      <li>Expected: <em>“What about the commercial tools that claim this?”</em> — Ask three questions:
+      error on held-out designs the vendor did not choose, error at the peak rather than averaged, and
+      behaviour on a geometry outside the training family. Then run your own test with your own runs
+      before buying.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 11.8 -->
+<section class="chapter" id="piml">
+  <h2>11.8 · Physics-informed and physics-constrained learning: the research frontier</h2>
+  <div class="callout">
+    <span class="ctitle">Optional deep dive · about 15 minutes · as of 2026</span>
+    <p class="mb0">This section goes further than the rest of the module and can be skipped in a shorter
+    delivery. It is for the people in the room who will read the papers, evaluate the vendor claims, or
+    supervise a thesis student. Section 11.4 showed the idea in one lab; this one covers how it works,
+    where it fails, the alternatives that build physics into the model's structure, and which parts are
+    ready for engineering use.</p>
+  </div>
+
+  <h3 class="mt2" id="piml-pinn">Physics-informed neural networks in detail</h3>
+  <p>A physics-informed neural network (PINN) is an ordinary network u<sub>θ</sub>(x, t) whose loss
+  includes the governing equation. Training penalises three things at once:</p>
+  <div class="eqbox">
+    L(θ) = <span class="hi">w<sub>d</sub> · mean ‖u<sub>θ</sub>(x<sub>i</sub>) − data<sub>i</sub>‖²</span>
+    + <span class="hi2">λ · mean ‖𝒩[u<sub>θ</sub>](x<sub>c</sub>) − f(x<sub>c</sub>)‖²</span>
+    + w<sub>b</sub> · mean ‖boundary and initial conditions‖²
+    <small><span style="color:var(--accent)">misfit at the sensors</span> · <span style="color:var(--warn)">PDE residual at collocation points x<sub>c</sub></span> · boundary terms</small>
+  </div>
+  <p>The derivatives inside 𝒩 — ∂u/∂x, ∂²u/∂x², ∂u/∂t — are derivatives of the network with respect to its
+  <em>inputs</em>, obtained by automatic differentiation; no mesh is involved. Collocation points are just
+  places in the domain where the residual is evaluated, and they can be anywhere.</p>
+  <div class="grid g3">
+    <div class="card"><h4>Forward problem</h4><p class="small mb0">Equation, coefficients and boundary
+    conditions known; find u. This is what your solver already does, and a PINN is usually the slower,
+    less accurate way to do it.</p></div>
+    <div class="card"><h4>Inverse problem</h4><p class="small mb0">Some coefficient is unknown — a
+    conductivity, a damping value, a heat-transfer coefficient — and you have sparse sensors. Make the
+    coefficient a trainable parameter alongside the weights. This is where PINNs earn their keep.</p></div>
+    <div class="card"><h4>Data assimilation</h4><p class="small mb0">Measurements and an imperfect model
+    combined into a best estimate of the full state: reconstruct a temperature field from a dozen
+    thermocouples, or a flow field from a few pressure taps. Classical alternatives (Kalman filters,
+    adjoint methods) exist and should be the baseline.</p></div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Train a real PINN</h3><span class="tag try">Try inverse mode, then the high-frequency source with and without Fourier features</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="fpCv" class="cv" style="height:300px"></canvas>
+        <canvas id="fpLossCv" class="cv-sm mt1" style="height:200px"></canvas>
+        <p class="small muted mt1 mb0">Top: temperature along a rod. Dashed: exact solution. Orange: sensors.
+        Red: plain network trained on the sensors only. Blue: the PINN. Bottom: each loss term during
+        training, log scale.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Problem</span></div>
+          <div class="segmented" id="fpModeSeg">
+            <button data-v="fwd" class="on">Forward — k known</button>
+            <button data-v="inv">Inverse — learn k</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Heat source</span></div>
+          <div class="segmented" id="fpSrcSeg">
+            <button data-v="smooth" class="on">Smooth</button>
+            <button data-v="hf">High-frequency</button>
+          </div>
+        </div>
+        <div class="grid g2" style="gap:14px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Sensors</span><span class="val" id="fpNOut"></span></div>
+            <input type="range" id="fpN" min="2" max="14" step="1" value="5">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Sensor noise</span><span class="val" id="fpNoiseOut"></span></div>
+            <input type="range" id="fpNoise" min="0" max="0.1" step="0.005" value="0.03">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Physics weight λ</span><span class="val" id="fpLamOut"></span></div>
+            <input type="range" id="fpLam" min="0" max="7" step="1" value="5">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Collocation points</span><span class="val" id="fpColOut"></span></div>
+            <input type="range" id="fpCol" min="5" max="100" step="5" value="40">
+          </div>
+        </div>
+        <div class="flex mt1" style="gap:18px">
+          <label class="check"><input type="checkbox" id="fpFF"> Fourier features</label>
+          <label class="check"><input type="checkbox" id="fpRes" checked> Resample collocation points</label>
+        </div>
+        <div class="btnrow"><button class="btn sm" id="fpGo">Retrain from a new start</button><span class="small muted" id="fpIt"></span></div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsFpPlain"><span class="n" id="fpEPlain">—</span><span class="l">plain network error</span></div>
+          <div class="bigstat" id="bsFpPinn"><span class="n" id="fpEPinn">—</span><span class="l">PINN error</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">conductivity k, learned</span><span class="v" id="fpK">—</span></div>
+          <div class="m"><span class="k">true k</span><span class="v">0.600</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="fpNote" style="min-height:110px"></div>
+    <p class="small muted mt1 mb0">Computed live. Steady conduction along a rod, −k u″ = f(x), ends held at
+    zero, with a source f chosen so the exact solution is known (an authored set-up). The network has one
+    hidden layer of 24 tanh units — small enough that every derivative, u″ with respect to x and the
+    gradient of each loss term with respect to every weight, is coded by hand; a real PINN gets the same
+    quantities from automatic differentiation. Adam optimiser, 4,000 full-batch steps (5,000 for the
+    high-frequency source), run in animation frames. Both networks also see the two boundary values.
+    Fourier features feed sin and cos of 2πmx for m = 1…3 alongside x. In inverse mode k starts at 1.5
+    and is trained with the weights. Error is RMS against the exact solution on 201 points.</p>
+  </div>
+
+  <div class="tablewrap mt2">
+    <table>
+      <thead><tr><th>Failure mode</th><th>What you see</th><th>Remedies in use</th></tr></thead>
+      <tbody>
+        <tr><td><b>Spectral bias</b></td><td>Smooth parts converge, high frequencies and sharp gradients never do (the lab's high-frequency case).</td><td>Fourier-feature inputs; multi-scale architectures; domain decomposition.</td></tr>
+        <tr><td><b>Stiff and multi-scale problems</b></td><td>Boundary layers, reaction fronts and large coefficient contrasts stall training.</td><td>Non-dimensionalising carefully; variable scaling; splitting the domain; often, a classical solver.</td></tr>
+        <tr><td><b>Loss-term imbalance</b></td><td>One term dominates the gradient; the boundary conditions or the data are quietly ignored.</td><td>Adaptive weights, e.g. from gradient statistics or the neural tangent kernel (Wang et al.).</td></tr>
+        <tr><td><b>Causality in time</b></td><td>The network fits later times before the initial condition is resolved and converges to a wrong but self-consistent solution.</td><td>Causal weighting of the residual in time; time-marching in windows.</td></tr>
+        <tr><td><b>Collocation sampling</b></td><td>Residual is small at the points and large between them — the network has fitted the points, not the equation.</td><td>Random resampling each step; adaptive, residual-based sampling that adds points where the residual is large.</td></tr>
+        <tr><td><b>Boundary conditions</b></td><td>Soft penalties are met approximately and trade off against everything else.</td><td>Hard enforcement: build the output so it satisfies the condition exactly, e.g. u = x(1 − x)·N(x).</td></tr>
+        <tr><td><b>Scale</b></td><td>One network for a large or complex domain trains slowly and poorly.</td><td>Domain-decomposition variants: XPINN, FBPINN — several small networks on overlapping subdomains.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout caution mt2">
+    <span class="ctitle">The honest verdict on PINNs</span>
+    <p class="mb0">For a well-posed forward problem that a finite-volume or finite-element code already
+    solves, a PINN is generally <strong>slower to train than the solver is to run, and less accurate</strong>.
+    Their value is in <strong>inverse problems</strong>, in <strong>sparse, noisy data</strong> with partly
+    known physics, and in problems where meshing is the obstacle. If someone proposes a PINN for a forward
+    problem, ask what the solver baseline was and how long it took.</p>
+  </div>
+
+  <h3 class="mt2" id="piml-hard">Hard constraints versus soft penalties</h3>
+  <p>A loss-function penalty asks the model to respect the physics and lets it trade that against fitting
+  the data. The alternative is to <strong>build the physics into the architecture</strong>, so the model
+  cannot violate it whatever its weights are.</p>
+  <div class="grid g3">
+    <div class="card"><h4>Divergence-free by construction</h4><p class="small mb0">Predict a stream function
+    ψ (2-D) or a vector potential (3-D) and take derivatives: u = ∂ψ/∂y, v = −∂ψ/∂x is incompressible
+    for any ψ. The lab below does exactly this.</p></div>
+    <div class="card"><h4>Conservative fluxes</h4><p class="small mb0">Predict fluxes across cell faces, as
+    a finite-volume scheme does, and update each cell by the net flux. Whatever leaves one cell enters its
+    neighbour, so the total is conserved exactly.</p></div>
+    <div class="card"><h4>Symmetry and equivariance</h4><p class="small mb0">If rotating the input should
+    rotate the output, use a network that does that by construction — E(3)-equivariant graph networks in
+    molecular and particle simulation are the established example. It removes a whole class of errors and
+    usually reduces the data needed.</p></div>
+    <div class="card"><h4>Energy-conserving dynamics</h4><p class="small mb0">Hamiltonian and Lagrangian
+    neural networks learn a scalar energy or Lagrangian and derive the motion from it, so a learned
+    undamped system conserves energy instead of drifting. Damping and forcing are then added explicitly.</p></div>
+    <div class="card"><h4>Thermodynamically consistent materials</h4><p class="small mb0">For FEM material
+    models: learn a strain-energy function with an input-convex network, or a polyconvex form for
+    hyperelasticity, and derive stress from it. The model is then stable, objective and dissipation-free
+    by construction — properties a free-form network of stress against strain does not have.</p></div>
+    <div class="card"><h4>The trade-off</h4><p class="small mb0">Hard constraints restrict what the model
+    can represent. That is the point when the constraint is right; when it is wrong (the flow is not
+    incompressible, the material is dissipative) the model cannot fit the truth at all. Choose
+    constraints you would defend in a design review.</p></div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Mass conservation: penalty or construction</h3><span class="tag try">Raise the penalty weight — the divergence falls, but never to zero</span></div>
+    <div class="maps">
+      <div><h4>Unconstrained u, v</h4><canvas id="hcCv0" class="cv-fld"></canvas></div>
+      <div><h4>Soft penalty on ∇·u</h4><canvas id="hcCv1" class="cv-fld"></canvas></div>
+      <div><h4>Stream function (hard)</h4><canvas id="hcCv2" class="cv-fld"></canvas></div>
+    </div>
+    <div class="tablewrap mt1">
+      <table>
+        <thead><tr><th></th><th class="num">velocity error</th><th class="num">RMS divergence</th><th class="num">net leak through the box</th></tr></thead>
+        <tbody>
+          <tr><td>Unconstrained</td><td class="num" id="hcE0">—</td><td class="num" id="hcD0">—</td><td class="num" id="hcL0">—</td></tr>
+          <tr><td>Soft penalty</td><td class="num" id="hcE1">—</td><td class="num" id="hcD1">—</td><td class="num" id="hcL1">—</td></tr>
+          <tr><td>Stream function</td><td class="num" id="hcE2">—</td><td class="num" id="hcD2">—</td><td class="num" id="hcL2">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid g3 mt1" style="gap:14px">
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>Velocity samples</span><span class="val" id="hcNOut"></span></div>
+        <input type="range" id="hcN" min="8" max="100" step="2" value="40">
+      </div>
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>Measurement noise</span><span class="val" id="hcNoiseOut"></span></div>
+        <input type="range" id="hcNoise" min="0" max="0.5" step="0.01" value="0.05">
+      </div>
+      <div class="ctrl mb0">
+        <div class="ctrl-label"><span>Penalty weight</span><span class="val" id="hcLamOut"></span></div>
+        <input type="range" id="hcLam" min="0" max="6" step="1" value="3">
+      </div>
+    </div>
+    <div class="btnrow"><button class="btn sm" id="hcNew">Draw new sample locations</button></div>
+    <div class="card mt1" id="hcNote" style="min-height:100px"></div>
+    <p class="small muted mt1 mb0">Computed live. The true flow is an authored, incompressible cellular
+    flow on the unit square (two superposed stream-function modes). Velocity is sampled at random points
+    with Gaussian noise, its standard deviation given as a percentage of the velocity scale π; arrows show each model's velocity, colour shows its divergence ∇·u (blue negative,
+    red positive, same scale in all three panels, white is zero). All three models use the same 8 × 8 grid
+    of Gaussian basis functions and are fitted by regularised least squares: the first two represent u and
+    v directly, the third represents ψ and differentiates it analytically. The penalty adds the squared
+    divergence at a 16 × 16 grid of collocation points. Leak is the net volume flux out of the dashed box,
+    as a percentage of the flow crossing its boundary; velocity error is relative RMS on a 30 × 30 grid.</p>
+  </div>
+
+  <h3 class="mt2" id="piml-hybrid">Hybrids: keep the physics model, learn the gap</h3>
+  <div class="grid g2">
+    <div class="card"><h4>Physics-informed neural operators</h4><p class="small mb0">A neural operator
+    (section 11.7) trained on solver data <em>and</em> a PDE residual. The residual term reduces the data
+    needed and lets the model be refined on a new case without new solver runs. Research-stage, with
+    promising results on benchmark flows.</p></div>
+    <div class="card"><h4>Differentiable solvers and solver-in-the-loop</h4><p class="small mb0">Write the
+    solver so gradients flow through it, then train a network to correct a <em>coarse</em> solver step by
+    step, with the loss measured after many steps through the solver. The network learns what the coarse
+    mesh misses, and the solver keeps the result stable and physical. Promising for accelerating
+    unsteady simulation; needs a differentiable code, which most commercial ones are not.</p></div>
+    <div class="card"><h4>Universal differential equations and neural ODEs</h4><p class="small mb0">Keep
+    the equations you trust and add a small learned term for the part you do not: dx/dt = f<sub>known</sub>(x)
+    + NN(x). The network is trained through an ODE solver. The learned term is small and inspectable, and
+    it can sometimes be distilled into a formula — see equation discovery below.</p></div>
+    <div class="card"><h4>Grey-box models for vehicles</h4><p class="small mb0">The engineering version of
+    the same idea, and the most mature: a physical vehicle-dynamics or thermal network model with a learned
+    correction for tyre behaviour, an unmodelled heat path or a component nonlinearity. It is section 11.6's
+    residual model applied inside a dynamic model, and it inherits that section's advice: test on real data.</p></div>
+  </div>
+
+  <h3 class="mt2" id="piml-sindy">Discovering the equations</h3>
+  <p>Sometimes the aim is not a model that predicts but the equation itself. <strong>Symbolic
+  regression</strong> searches over formulas for one that fits the data. <strong>Sparse
+  identification</strong> (SINDy) is the tractable version: build a library of candidate terms — 1, x, v,
+  x², xv, x³ … — and find the <em>fewest</em> terms that reproduce the measured derivatives, by least
+  squares with small coefficients repeatedly set to zero. The result is a readable equation an engineer
+  can check against physical intuition.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Discover the equation of a damped oscillator</h3><span class="tag try">Raise the noise until terms appear that are not in the physics</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="syCv" class="cv" style="height:260px"></canvas>
+        <canvas id="syBarCv" class="cv-sm mt1" style="height:200px"></canvas>
+        <p class="small muted mt1 mb0">Top: measured displacement (dots), the true motion (dashed) and a
+        simulation of the discovered equation from the same start (solid). Bottom: coefficients of the
+        acceleration equation, true (outline) against discovered (filled), for every library term.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Measurement noise</span><span class="val" id="syNoiseOut"></span></div>
+          <input type="range" id="syNoise" min="0" max="0.4" step="0.01" value="0.05">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Sparsity threshold</span><span class="val" id="syThrOut"></span></div>
+          <input type="range" id="syThr" min="0.005" max="0.6" step="0.005" value="0.1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Derivative estimate</span></div>
+          <div class="segmented" id="sySmSeg">
+            <button data-v="raw">Raw finite difference</button>
+            <button data-v="sm" class="on">Smoothed (local fit)</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="syNoCube"> Remove x³ from the library</label>
+        <div class="eqbox" id="syEq" style="text-align:left;font-size:.92rem">—</div>
+        <div class="verdict info" id="syVerdict"><span class="lvl">—</span><span class="small"></span></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Computed live. The system is an authored nonlinear oscillator — think a
+    suspension with a progressive spring: ẍ = −2x − 0.3ẋ − x³, released from x = 2 at rest and integrated
+    by fourth-order Runge–Kutta, 800 samples at 50 Hz. Noise is added to both measured displacement and
+    velocity. Derivatives are estimated by central differences, or by a local linear fit over 9 samples
+    with the states averaged over the same window. The library holds the ten polynomial terms up to
+    degree three in x and v; sequentially thresholded least squares is run to convergence (at most ten
+    passes). The discovered equation is then integrated from the same start.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">When equation discovery is realistic</span>
+      <p class="mb0">A few state variables, clean or well-filtered measurements, derivatives you can estimate,
+      and a library that contains the right terms. Low-dimensional mechanical, thermal and electrical systems
+      on a rig fit that description well, and the result is an equation you can put into an existing
+      simulation tool.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">When it is not</span>
+      <p class="mb0">Turbulent flows, many interacting variables, noisy derivatives, or a library that is
+      missing the true term — tick the box in the lab and it confidently finds a different equation that
+      fits nearly as well. It cannot discover a term you did not think to offer it, and a sparse answer is
+      not automatically a true one.</p>
+    </div>
+  </div>
+
+  <h3 class="mt2" id="piml-frontier">The frontier and its open problems, as of 2026</h3>
+  <div class="grid g2">
+    <div class="card"><h4>Foundation models for PDEs</h4><p class="small mb0">Models pre-trained on
+    solutions of many equations, then fine-tuned on a new one with few examples — the module 18 pattern
+    applied to physics. Published results (for example Poseidon, 2024) show real sample-efficiency gains on
+    fluid benchmarks. Benchmarks are mostly regular grids and simple geometry; industrial meshes and
+    certification-grade accuracy are not yet what they are measured on.</p></div>
+    <div class="card"><h4>Weather: the proof that learned simulators can win</h4><p class="small mb0">Learned
+    weather models now match or beat physics-based forecasts on many headline scores, and ECMWF has run
+    its machine-learned AIFS operationally since February 2025, alongside its physics model. Why that does
+    not transfer automatically to vehicle CFD: weather has decades of consistent global reanalysis data on
+    one fixed geometry, the planet. Engineering has thousands of runs, on geometry that changes every
+    project, and a certification process that asks why.</p></div>
+    <div class="card"><h4>Uncertainty-aware physics ML</h4><p class="small mb0">Bayesian PINNs, ensembles of
+    operators and conformal intervals on field outputs. A field model that reports where it does not know
+    is far more useful than one that does not; module 16 covers the methods, and the gap between research
+    and tooling is still wide.</p></div>
+    <div class="card"><h4>Generalisation across geometry</h4><p class="small mb0">The central open problem
+    for engineering use. Models interpolate well within a family of designs and degrade on a new one,
+    without warning. Expect progress claims here to be the ones that matter most and need the most
+    scrutiny.</p></div>
+    <div class="card"><h4>Benchmarking</h4><p class="small mb0">A 2024 systematic review (McGreivy &amp;
+    Hakim) found that most papers claiming ML beats a standard numerical method for fluid-related PDEs had
+    compared against a weak baseline — an unoptimised solver, or one run at a higher accuracy than needed —
+    and found evidence of reporting bias. Treat speed-up claims as unproven until the baseline is one your
+    own CFD team would accept.</p></div>
+    <div class="card"><h4>How to read a claim</h4><p class="small mb0">Use the checklist in module 14.5, and
+    add four questions specific to physics ML: <b>what was the solver baseline</b>, at what accuracy and on
+    what hardware; <b>was training time counted</b>; <b>is the test geometry outside the training
+    family</b>; and <b>is the error reported at the quantity you design to</b>, or averaged over the
+    domain.</p></div>
+  </div>
+
+  <h4 class="mt2">Sources</h4>
+  <ul class="sources">
+    <li>Raissi, Perdikaris &amp; Karniadakis (2019), physics-informed neural networks, <i>J. Comput. Phys.</i> 378.</li>
+    <li>Karniadakis, Kevrekidis, Lu, Perdikaris, Wang &amp; Yang (2021), physics-informed machine learning (review), <i>Nat. Rev. Phys.</i> 3.</li>
+    <li>Wang, Yu &amp; Perdikaris (2022), when and why PINNs fail to train: a neural tangent kernel perspective, <i>J. Comput. Phys.</i> 449. †</li>
+    <li>Wang, Sankaran &amp; Perdikaris (2024), respecting causality for training PINNs, <i>Comput. Methods Appl. Mech. Eng.</i> 421. †</li>
+    <li>Krishnapriyan et al. (2021), characterising possible failure modes in PINNs, NeurIPS.</li>
+    <li>Tancik et al. (2020), Fourier features let networks learn high-frequency functions, NeurIPS; Wang, Wang &amp; Perdikaris (2021), Fourier features in PINNs, <i>CMAME</i>.</li>
+    <li>Jagtap &amp; Karniadakis (2020), extended PINNs (XPINN), <i>Commun. Comput. Phys.</i>; Moseley, Markham &amp; Nissen-Meyer (2023), finite basis PINNs (FBPINN), <i>Adv. Comput. Math.</i> 49. †</li>
+    <li>Li et al. (2020, ICLR 2021), Fourier neural operator; Lu et al. (2021), DeepONet, <i>Nat. Mach. Intell.</i> 3; Li et al. (2021), physics-informed neural operator (PINO), arXiv.</li>
+    <li>Pfaff et al. (2021), learning mesh-based simulation with graph networks (MeshGraphNets), ICLR.</li>
+    <li>Um, Brand, Fei, Holl &amp; Thuerey (2020), solver-in-the-loop, NeurIPS. † Kochkov et al. (2021), machine-learning-accelerated CFD, <i>PNAS</i>.</li>
+    <li>Chen et al. (2018), neural ordinary differential equations, NeurIPS; Rackauckas et al. (2020), universal differential equations, arXiv.</li>
+    <li>Greydanus, Dzamba &amp; Yosinski (2019), Hamiltonian neural networks, NeurIPS; Cranmer et al. (2020), Lagrangian neural networks, ICLR workshop.</li>
+    <li>Satorras, Hoogeboom &amp; Welling (2021), E(n)-equivariant graph neural networks, ICML; Amos, Xu &amp; Kolter (2017), input convex neural networks, ICML; Linden et al. (2023), neural networks meet hyperelasticity, <i>J. Mech. Phys. Solids</i>.</li>
+    <li>Brunton, Proctor &amp; Kutz (2016), sparse identification of nonlinear dynamics (SINDy), <i>PNAS</i> 113.</li>
+    <li>Duraisamy, Iaccarino &amp; Xiao (2019), turbulence modelling in the age of data, <i>Annu. Rev. Fluid Mech.</i> 51.</li>
+    <li>Yang, Meng &amp; Karniadakis (2021), Bayesian PINNs, <i>J. Comput. Phys.</i>.</li>
+    <li>Herde et al. (2024), Poseidon: efficient foundation models for PDEs, NeurIPS. †</li>
+    <li>ECMWF (25 February 2025), “ECMWF’s AI forecasts become operational”, ecmwf.int news. †</li>
+    <li>McGreivy &amp; Hakim (2024), weak baselines and reporting biases lead to overoptimism in ML for fluid-related PDEs, <i>Nat. Mach. Intell.</i> †</li>
+  </ul>
+  <p class="srcnote">† checked against the publisher, proceedings or organisation page in October 2026.
+  Other entries are cited from the author's knowledge of the literature; check volume and venue details
+  before quoting them externally.</p>
+
+  <div class="note">
+    <ul>
+      <li>Optional deep dive, about 15 minutes. Skip it in a shorter delivery and say so — the rest of the
+      module does not depend on it. It suits a session for simulation specialists.</li>
+      <li>PINN lab (5 min): forward mode first with 5 sensors — both look reasonable, the PINN a little
+      better. Drop the sensors to 2: the plain network collapses and the PINN barely notices, because the
+      equation is doing the work. Switch to inverse mode and watch k converge towards 0.6 — that is the use case. Then the
+      high-frequency source: without Fourier features the PINN gets the smooth part and misses the
+      ripple; tick the box and it trains. Then, still on the high-frequency source, untick “resample” and set
+      20 collocation points: it fits the points instead of the equation. If asked, inverse mode on the
+      high-frequency source fails to find k — a good illustration that an inverse problem needs
+      measurements that can see what you are identifying.</li>
+      <li>Constraint lab (3 min): the punchline is the stream-function row — zero divergence and zero
+      leak, to rounding, whatever you do to the data. The penalty gets close but not there, and at high
+      weight starts to fight the data. Honest point: the hard constraint guarantees conservation, not
+      accuracy.</li>
+      <li>SINDy (3 min): at low noise it recovers the four true terms almost exactly. Raise the noise with
+      raw derivatives and extra terms appear; switch to smoothed derivatives and they go. Then remove x³:
+      it still returns a tidy, plausible, wrong equation.</li>
+      <li>Expected: <em>“Is a PINN faster than our solver?”</em> — For a forward problem, almost never,
+      once you count training. It can be competitive when you need many inverse solves on the same set-up.</li>
+      <li>Expected: <em>“Can it replace wind-tunnel calibration?”</em> — No. It can help use fewer
+      measurements to estimate a field or a coefficient, but the calibration is what the physics model
+      and the ML are both validated against.</li>
+      <li>Expected: <em>“Which of these is production-ready?”</em> — Grey-box models with a learned
+      correction, POD-based ROMs, warm starts, and equation discovery on low-dimensional rig data: yes,
+      with normal validation. PINNs for inverse problems: in specialist use. Neural operators and PDE
+      foundation models for industrial CFD: not yet, as of 2026.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 11.9 -->
 <section class="chapter" id="patterns">
-  <h2>11.7 · The other patterns worth knowing</h2>
+  <h2>11.9 · The other patterns worth knowing</h2>
   <div class="grid g2">
     <div class="card"><div class="patcard"><div class="ic">◲</div><div>
       <h3>Vision inspection</h3>
@@ -530,7 +1312,8 @@
       <p class="small">Learned models that accelerate the unglamorous parts: mesh generation, initial
       guesses for iterative solvers, turbulence closure, super-resolution of coarse simulation fields.</p>
       <p class="small mb0"><b>Why this is the quiet winner:</b> a 3× speed-up of an existing validated
-      workflow needs no new sign-off process, and compounds across every project that uses it.</p>
+      workflow needs no new sign-off process, and compounds across every project that uses it. Section 11.7
+      has a lab on exactly this.</p>
     </div></div></div>
 
     <div class="card"><div class="patcard"><div class="ic">▤</div><div>
@@ -553,9 +1336,9 @@
   </div>
 </section>
 
-<!-- ============================================= 11.8 -->
+<!-- ============================================= 11.10 -->
 <section class="chapter" id="vv">
-  <h2>11.8 · Validation, and the conversation with certification</h2>
+  <h2>11.10 · Validation, and the conversation with certification</h2>
   <p>Simulation earned its place in engineering through decades of verification and validation practice.
   Learned models have to earn it the same way, and the good news is that the framework already exists —
   you are adding a component to it, not inventing a new discipline.</p>
@@ -574,6 +1357,9 @@
         <li><strong>Envelope:</strong> stated explicitly, and enforced in the tooling (section 11.5).</li>
         <li><strong>Synthetic training data:</strong> if any of it came from simulation or augmentation,
         report error on real data separately from error on simulated data (section 11.6).</li>
+        <li><strong>Field outputs:</strong> report error at the quantities you design to — peak values and
+        their location, integrated forces, conservation balances — not only an average over the domain
+        (section 11.7).</li>
       </ul>
     </div>
     <div class="card">
@@ -1305,6 +2091,1208 @@
     AI.segmented(document.getElementById('srDRSeg'), function (v) { SR.dr = v === 'on'; srRefit(); });
     AI.on(document.getElementById('srNew'), 'click', function () { SR.seed += 1; drawSr(); });
     AI.onRedraw(drawSr);
+  };
+})();
+</script>
+<script>
+/* ==========================================================================
+   11.7 — field models: POD reduced-order model, solver warm start, peak trap.
+   Separate IIFE; chains onto the PAGE_INIT defined above. Exposes a few
+   helpers as window.AI11 for the 11.8 script.
+   ========================================================================== */
+(function () {
+  var C = AI.cssVar;
+
+  /* ------------------------------------------------ shared helpers */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) {
+    var u = 0, v = 0;
+    while (!u) u = r();
+    while (!v) v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307 * v);
+  }
+  function solveDense(A, b) {
+    var n = b.length, i, j, k;
+    A = A.map(function (r) { return Array.prototype.slice.call(r); }); b = b.slice();
+    for (i = 0; i < n; i++) {
+      var p = i;
+      for (k = i + 1; k < n; k++) if (Math.abs(A[k][i]) > Math.abs(A[p][i])) p = k;
+      var t = A[i]; A[i] = A[p]; A[p] = t;
+      var tb = b[i]; b[i] = b[p]; b[p] = tb;
+      if (Math.abs(A[i][i]) < 1e-14) A[i][i] = 1e-14;
+      for (k = i + 1; k < n; k++) {
+        var f = A[k][i] / A[i][i];
+        if (!f) continue;
+        for (j = i; j < n; j++) A[k][j] -= f * A[i][j];
+        b[k] -= f * b[i];
+      }
+    }
+    var x = new Array(n).fill(0);
+    for (i = n - 1; i >= 0; i--) {
+      var s = b[i];
+      for (j = i + 1; j < n; j++) s -= A[i][j] * x[j];
+      x[i] = s / A[i][i];
+    }
+    return x;
+  }
+  /* parse a CSS colour (#rgb, #rrggbb or rgb()) into [r,g,b] */
+  function rgbOf(name) {
+    var s = C(name), m;
+    if (s.charAt(0) === '#') {
+      if (s.length === 4) s = '#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+      return [parseInt(s.substr(1, 2), 16), parseInt(s.substr(3, 2), 16), parseInt(s.substr(5, 2), 16)];
+    }
+    m = s.match(/(\d+(\.\d+)?)/g);
+    return m ? [+m[0], +m[1], +m[2]] : [128, 128, 128];
+  }
+  function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  var VIR = [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]];
+  function viridis(t) {
+    t = Math.max(0, Math.min(1, t));
+    var s = t * (VIR.length - 1), i = Math.min(VIR.length - 2, Math.floor(s)), f = s - i;
+    return mix(VIR[i], VIR[i + 1], f);
+  }
+  /* theme-aware maps: built from the current CSS variables at draw time */
+  function cmapErr() {
+    var p = rgbOf('--panel'), w = rgbOf('--warn'), b = rgbOf('--bad');
+    return function (t) { t = Math.max(0, Math.min(1, t)); return t < 0.5 ? mix(p, w, t * 2) : mix(w, b, (t - 0.5) * 2); };
+  }
+  function cmapDiv() {
+    var p = rgbOf('--panel'), a = rgbOf('--accent'), b = rgbOf('--bad');
+    return function (t) { t = Math.max(-1, Math.min(1, t)); return t < 0 ? mix(p, a, -t) : mix(p, b, t); };
+  }
+  /* draw a field held as data[j*nx+i] (j = 0 at the bottom) into a Plot */
+  var offc = document.createElement('canvas');
+  function drawHeat(plot, data, nx, ny, cmap, lo, hi, o) {
+    o = o || {};
+    plot.resize(); plot.clear();
+    offc.width = nx; offc.height = ny;
+    var g2 = offc.getContext('2d'), img = g2.createImageData(nx, ny), pan = rgbOf('--panel');
+    for (var j = 0; j < ny; j++) for (var i = 0; i < nx; i++) {
+      var v = data[j * nx + i], c = (v !== v) ? pan : cmap(o.signed ? v / hi : (v - lo) / (hi - lo));
+      var q = ((ny - 1 - j) * nx + i) * 4;
+      img.data[q] = c[0]; img.data[q + 1] = c[1]; img.data[q + 2] = c[2]; img.data[q + 3] = 255;
+    }
+    g2.putImageData(img, 0, 0);
+    var g = plot.ctx;
+    g.save(); g.imageSmoothingEnabled = o.smooth !== false;
+    g.drawImage(offc, plot.pad.l, plot.pad.t, plot.pw, plot.ph);
+    g.restore();
+    if (o.after) plot.clip(o.after);
+    plot.frame({ xticks: o.xt || 1, yticks: o.yt || 1, xlabel: o.xlabel, ylabel: o.ylabel,
+      xfmt: o.xfmt || function (v) { return v.toFixed(1); }, yfmt: o.yfmt || function (v) { return v.toFixed(1); } });
+  }
+  function setText(id, s) { var e = document.getElementById(id); if (e) e.textContent = s; }
+  function setCls(id, c) { var e = document.getElementById(id); if (e) e.className = c; }
+  function lg(v) { return Math.log(Math.max(v, 1e-300)) / Math.LN10; }
+  function supFmt(v) { return '10' + AI.F.sup(Math.round(v)); }
+  window.AI11 = { mulberry32: mulberry32, gauss: gauss, solveDense: solveDense, rgbOf: rgbOf, mix: mix,
+    viridis: viridis, cmapErr: cmapErr, cmapDiv: cmapDiv, drawHeat: drawHeat, setText: setText, setCls: setCls,
+    lg: lg, supFmt: supFmt };
+
+  /* ------------------------------------------------ the plate problem */
+  var NG = 40, NN = NG * NG, H = 1 / (NG + 1), SIG = 0.07, YC = 0.5;
+  var ENV = { s0: 0.3, s1: 0.7, b0: 1.0, b1: 2.3 };   /* training envelope: source position, log10 beta */
+  function uOf(s) { return (s - ENV.s0) / (ENV.s1 - ENV.s0); }
+  function vOf(lb) { return (lb - ENV.b0) / (ENV.b1 - ENV.b0); }
+  function srcVec(s) {   /* right-hand side, already multiplied by h^2 */
+    var q = new Float64Array(NN);
+    for (var j = 0; j < NG; j++) for (var i = 0; i < NG; i++) {
+      var x = (i + 1) * H, y = (j + 1) * H, d2 = (x - s) * (x - s) + (y - YC) * (y - YC);
+      q[j * NG + i] = H * H * 40 * Math.exp(-d2 / (2 * SIG * SIG));
+    }
+    return q;
+  }
+  function applyA(u, out, beta) {   /* (4u - neighbours) + beta h^2 u, zero Dirichlet edges */
+    var c = 4 + beta * H * H;
+    for (var j = 0; j < NG; j++) for (var i = 0; i < NG; i++) {
+      var k = j * NG + i, s = c * u[k];
+      if (i > 0) s -= u[k - 1];
+      if (i < NG - 1) s -= u[k + 1];
+      if (j > 0) s -= u[k - NG];
+      if (j < NG - 1) s -= u[k + NG];
+      out[k] = s;
+    }
+  }
+  function dot(a, b) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+  function nrm(a) { return Math.sqrt(dot(a, a)); }
+  /* stepwise solvers: init returns a state, step advances one iteration */
+  function cgInit(b, beta, x0) {
+    var S = { b: b, beta: beta, x: x0 ? Float64Array.from(x0) : new Float64Array(NN),
+      r: new Float64Array(NN), p: new Float64Array(NN), Ap: new Float64Array(NN), bn: nrm(b), it: 0 };
+    applyA(S.x, S.Ap, beta);
+    for (var i = 0; i < NN; i++) { S.r[i] = b[i] - S.Ap[i]; S.p[i] = S.r[i]; }
+    S.rr = dot(S.r, S.r); S.res = Math.sqrt(S.rr) / S.bn; S.hist = [S.res];
+    return S;
+  }
+  function cgStep(S) {
+    applyA(S.p, S.Ap, S.beta);
+    var a = S.rr / dot(S.p, S.Ap), i;
+    for (i = 0; i < NN; i++) { S.x[i] += a * S.p[i]; S.r[i] -= a * S.Ap[i]; }
+    var rn = dot(S.r, S.r), bt = rn / S.rr;
+    for (i = 0; i < NN; i++) S.p[i] = S.r[i] + bt * S.p[i];
+    S.rr = rn; S.it++; S.res = Math.sqrt(rn) / S.bn; S.hist.push(S.res);
+  }
+  function gsRes(S) {
+    applyA(S.x, S.r, S.beta);
+    var s = 0;
+    for (var i = 0; i < NN; i++) { var d = S.b[i] - S.r[i]; s += d * d; }
+    return Math.sqrt(s) / S.bn;
+  }
+  function gsInit(b, beta, x0) {
+    var S = { b: b, beta: beta, x: x0 ? Float64Array.from(x0) : new Float64Array(NN), r: new Float64Array(NN),
+      bn: nrm(b), it: 0, c: 4 + beta * H * H };
+    S.res = gsRes(S); S.hist = [S.res];
+    return S;
+  }
+  function gsStep(S) {
+    var x = S.x, b = S.b, c = S.c;
+    for (var j = 0; j < NG; j++) for (var i = 0; i < NG; i++) {
+      var k = j * NG + i, s = b[k];
+      if (i > 0) s += x[k - 1];
+      if (i < NG - 1) s += x[k + 1];
+      if (j > 0) s += x[k - NG];
+      if (j < NG - 1) s += x[k + NG];
+      x[k] = s / c;
+    }
+    S.it++; S.res = gsRes(S); S.hist.push(S.res);
+  }
+  function solveTruth(s, lb) {
+    var S = cgInit(srcVec(s), Math.pow(10, lb), null);
+    while (S.res > 1e-10 && S.it < 3000) cgStep(S);
+    return S.x;
+  }
+  function halton(i, b) { var f = 1, r = 0; while (i > 0) { f /= b; r += f * (i % b); i = Math.floor(i / b); } return r; }
+
+  /* snapshot pool (nested Halton design) and held-out test designs */
+  var POOL = [], TESTS = [], GRAM = [], PMAX = 40, POOL_READY = false;
+  function buildPool(done) {
+    var n = 0;
+    function chunk() {
+      for (var c = 0; c < 8 && n < PMAX + 12; c++, n++) {
+        if (n < PMAX) {
+          var u = halton(n + 1, 2), v = halton(n + 1, 3);
+          var s = ENV.s0 + u * (ENV.s1 - ENV.s0), lb = ENV.b0 + v * (ENV.b1 - ENV.b0);
+          POOL.push({ u: u, v: v, s: s, lb: lb, x: solveTruth(s, lb) });
+        } else {
+          var t = n - PMAX, ut = 0.05 + 0.9 * halton(t + 1, 5), vt = 0.05 + 0.9 * halton(t + 1, 7);
+          TESTS.push({ u: ut, v: vt, x: solveTruth(ENV.s0 + ut * (ENV.s1 - ENV.s0), ENV.b0 + vt * (ENV.b1 - ENV.b0)) });
+        }
+      }
+      if (n < PMAX + 12) { setTimeout(chunk, 0); return; }
+      for (var i = 0; i < PMAX; i++) { GRAM.push([]); for (var j = 0; j < PMAX; j++) GRAM[i].push(j < i ? GRAM[j][i] : dot(POOL[i].x, POOL[j].x)); }
+      POOL_READY = true; done();
+    }
+    chunk();
+  }
+
+  /* symmetric eigen-decomposition (cyclic Jacobi), sorted descending */
+  function eigSym(S) {
+    var n = S.length, A = S.map(function (r) { return r.slice(); }), V = [], i, j, k;
+    for (i = 0; i < n; i++) { V.push(new Array(n).fill(0)); V[i][i] = 1; }
+    var tot = 0; for (i = 0; i < n; i++) for (j = 0; j < n; j++) tot += A[i][j] * A[i][j];
+    for (var sw = 0; sw < 50; sw++) {
+      var off = 0;
+      for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) off += A[i][j] * A[i][j];
+      if (off < 1e-26 * tot) break;
+      for (var p = 0; p < n; p++) for (var q = p + 1; q < n; q++) {
+        if (Math.abs(A[p][q]) < 1e-300) continue;
+        var th = (A[q][q] - A[p][p]) / (2 * A[p][q]);
+        var t = (th >= 0 ? 1 : -1) / (Math.abs(th) + Math.sqrt(th * th + 1));
+        var c = 1 / Math.sqrt(t * t + 1), s = t * c;
+        for (k = 0; k < n; k++) { var akp = A[k][p], akq = A[k][q]; A[k][p] = c * akp - s * akq; A[k][q] = s * akp + c * akq; }
+        for (k = 0; k < n; k++) { var apk = A[p][k], aqk = A[q][k]; A[p][k] = c * apk - s * aqk; A[q][k] = s * apk + c * aqk; }
+        for (k = 0; k < n; k++) { var vkp = V[k][p], vkq = V[k][q]; V[k][p] = c * vkp - s * vkq; V[k][q] = s * vkp + c * vkq; }
+      }
+    }
+    var idx = []; for (i = 0; i < n; i++) idx.push(i);
+    idx.sort(function (a, b) { return A[b][b] - A[a][a]; });
+    return { val: idx.map(function (i) { return Math.max(0, A[i][i]); }),
+      vec: idx.map(function (i) { return V.map(function (r) { return r[i]; }); }) };
+  }
+  /* thin-plate spline with a linear trend, in normalised parameter space */
+  function tpsK(d2) { return d2 > 0 ? 0.5 * d2 * Math.log(d2) : 0; }
+  function tpsBuild(pts) {
+    var m = pts.length, A = [], i, j;
+    for (i = 0; i < m + 3; i++) A.push(new Array(m + 3).fill(0));
+    for (i = 0; i < m; i++) {
+      for (j = 0; j < m; j++) A[i][j] = tpsK(Math.pow(pts[i][0] - pts[j][0], 2) + Math.pow(pts[i][1] - pts[j][1], 2));
+      A[i][i] += 1e-10;
+      A[i][m] = A[m][i] = 1; A[i][m + 1] = A[m + 1][i] = pts[i][0]; A[i][m + 2] = A[m + 2][i] = pts[i][1];
+    }
+    return function (vals) {
+      var w = solveDense(A, vals.concat([0, 0, 0]));
+      return function (x, y) {
+        var s = w[m] + w[m + 1] * x + w[m + 2] * y;
+        for (var k = 0; k < m; k++) s += w[k] * tpsK(Math.pow(x - pts[k][0], 2) + Math.pow(y - pts[k][1], 2));
+        return s;
+      };
+    };
+  }
+  /* POD from the first m pool snapshots, up to rmax modes */
+  function buildROM(m, rmax) {
+    var i, j, k, q;
+    var mean = new Float64Array(NN);
+    for (j = 0; j < m; j++) for (k = 0; k < NN; k++) mean[k] += POOL[j].x[k] / m;
+    /* centred correlation matrix from the stored Gram matrix */
+    var rb = [], gb = 0;
+    for (i = 0; i < m; i++) { var s = 0; for (j = 0; j < m; j++) s += GRAM[i][j]; rb.push(s / m); gb += s; }
+    gb /= m * m;
+    var Gc = [];
+    for (i = 0; i < m; i++) { Gc.push([]); for (j = 0; j < m; j++) Gc[i].push(GRAM[i][j] - rb[i] - rb[j] + gb); }
+    var E = eigSym(Gc), r = Math.min(rmax, m - 1), modes = [], fns = [];
+    var tps = tpsBuild(POOL.slice(0, m).map(function (P) { return [P.u, P.v]; }));
+    for (q = 0; q < r; q++) {
+      var sl = Math.sqrt(Math.max(E.val[q], 1e-300)), ph = new Float64Array(NN);
+      for (j = 0; j < m; j++) { var c = E.vec[q][j] / sl, X = POOL[j].x; for (k = 0; k < NN; k++) ph[k] += c * (X[k] - mean[k]); }
+      modes.push(ph);
+      fns.push(tps(E.vec[q].map(function (vv) { return vv * sl; })));
+    }
+    var tot = E.val.reduce(function (a, b) { return a + b; }, 0);
+    return { m: m, r: r, mean: mean, modes: modes, fns: fns, val: E.val, tot: tot,
+      coef: function (u, v, rr) { var a = []; for (var q = 0; q < Math.min(rr, r); q++) a.push(fns[q](u, v)); return a; },
+      field: function (a) {
+        var out = Float64Array.from(mean);
+        for (var q = 0; q < a.length; q++) { var ph = modes[q], aq = a[q]; for (var k = 0; k < NN; k++) out[k] += aq * ph[k]; }
+        return out;
+      } };
+  }
+  function peak(x) { var m = -1e9; for (var k = 0; k < NN; k++) if (x[k] > m) m = x[k]; return m; }
+  function rmsDiff(a, b) { var s = 0; for (var k = 0; k < NN; k++) { var d = a[k] - b[k]; s += d * d; } return Math.sqrt(s / NN); }
+
+  /* ------------------------------------------------ lab (a): POD ROM */
+  var RM = { s: 0.46, lb: 1.62, m: 16, r: 5, truth: null, tkey: '', tms: 0, rom: null, romKey: '', curveM: null, curveT: 0 };
+  var RMAX = 12, rp = {};
+  function romTruth() {
+    var key = RM.s.toFixed(3) + '|' + RM.lb.toFixed(3);
+    if (key !== RM.tkey) {
+      var t0 = performance.now();
+      RM.truth = solveTruth(RM.s, RM.lb);
+      RM.tms = performance.now() - t0; RM.tkey = key;
+    }
+    return RM.truth;
+  }
+  function getROM(m) {
+    if (RM.romKey !== m) { RM.rom = buildROM(m, RMAX); RM.romKey = m; }
+    return RM.rom;
+  }
+  function inEnv(s, lb) { return s >= ENV.s0 - 1e-9 && s <= ENV.s1 + 1e-9 && lb >= ENV.b0 - 1e-9 && lb <= ENV.b1 + 1e-9; }
+  function heatBalance(x, s, lb) {
+    var b = srcVec(s), Ax = new Float64Array(NN), sb = 0, sr = 0;
+    applyA(x, Ax, Math.pow(10, lb));
+    for (var k = 0; k < NN; k++) { sb += b[k]; sr += Ax[k] - b[k]; }
+    return Math.abs(sr) / sb;
+  }
+  function romUpdate() {
+    if (!POOL_READY) return;
+    var T = romTruth(), R = getROM(RM.m), u = uOf(RM.s), v = vOf(RM.lb);
+    var r = Math.min(RM.r, R.r);
+    var t0 = performance.now(), a = R.coef(u, v, r), P = R.field(a), trom = performance.now() - t0;
+    var pkT = peak(T), pkP = peak(P), err = new Float64Array(NN), emax = 0;
+    for (var k = 0; k < NN; k++) { err[k] = Math.abs(P[k] - T[k]); if (err[k] > emax) emax = err[k]; }
+    var rms = rmsDiff(P, T) / pkT;
+    /* curves against modes: projection (best possible) and ROM */
+    var proj = [], romc = [], q, j;
+    var dT = new Float64Array(NN); for (k = 0; k < NN; k++) dT[k] = T[k] - R.mean[k];
+    var bproj = R.modes.map(function (ph) { return dot(ph, dT); });
+    var aall = R.coef(u, v, R.r);
+    for (q = 1; q <= R.r; q++) {
+      proj.push([q, rmsDiff(R.field(bproj.slice(0, q)), T) / pkT]);
+      romc.push([q, rmsDiff(R.field(aall.slice(0, q)), T) / pkT]);
+    }
+    RM.view = { T: T, P: P, err: err, emax: emax, pkT: pkT, pkP: pkP, rms: rms, r: r, R: R, proj: proj, romc: romc, trom: trom };
+    var cum = 0; for (q = 0; q < r; q++) cum += R.val[q];
+    var en = R.tot > 0 ? cum / R.tot : 1;
+    var inside = inEnv(RM.s, RM.lb), bal = heatBalance(P, RM.s, RM.lb);
+    setText('romRms', (rms * 100).toFixed(2) + '%');
+    setText('romPk', ((pkP - pkT) / pkT * 100 >= 0 ? '+' : '') + ((pkP - pkT) / pkT * 100).toFixed(1) + '%');
+    setText('romEn', (en * 100).toFixed(en > 0.9999 ? 3 : 2) + '%');
+    setText('romBal', (bal * 100).toFixed(bal < 0.001 ? 3 : 1) + '%');
+    setText('romTs', RM.tms.toFixed(1) + ' ms');
+    setText('romTr', trom < 0.1 ? '< 0.1 ms' : trom.toFixed(2) + ' ms');
+    setCls('bsRomRms', 'bigstat ' + (rms < 0.01 ? 'good' : rms < 0.04 ? 'warn' : 'bad'));
+    var pe = Math.abs(pkP - pkT) / pkT;
+    setCls('bsRomPk', 'bigstat ' + (pe < 0.02 ? 'good' : pe < 0.08 ? 'warn' : 'bad'));
+    var envEl = document.getElementById('romEnv');
+    envEl.textContent = inside ? 'inside the training envelope' : 'outside the training envelope';
+    envEl.className = 'pill ' + (inside ? 'ok' : 'no');
+    setCls('romOutBtn', 'btn sm' + (inside ? '' : ' on'));
+
+    var n = '<h4>Reading it</h4>';
+    if (!inside) n += '<p class="small mb0"><b style="color:var(--bad)">Extrapolating.</b> RMS error ' + (rms * 100).toFixed(1) +
+      '% and the peak off by ' + (pe * 100).toFixed(0) + '%. The modes were learned from fields that never looked like this one, so no choice of coefficients can reproduce it — and the coefficients themselves are being extrapolated. The heat balance is now off by ' +
+      (bal * 100).toFixed(1) + '%: a check that needs no true answer.</p>';
+    else if (r <= 1) n += '<p class="small mb0">One mode captures ' + (en * 100).toFixed(0) + '% of the variation, and that is not enough: it can scale the mean field up and down but cannot move the hot spot. Add modes and watch the error drop in steps.</p>';
+    else n += '<p class="small mb0"><b style="color:' + (rms < 0.02 ? 'var(--good)' : 'var(--warn)') + '">' + r + ' modes from ' + RM.m + ' runs</b>: RMS error ' +
+      (rms * 100).toFixed(2) + '% of the peak, evaluated in ' + (trom < 0.1 ? 'well under a tenth of a millisecond' : trom.toFixed(2) + ' ms') +
+      ' against ' + RM.tms.toFixed(1) + ' ms for the solve. On a real CFD case the solve is hours and the ratio is what makes design sweeps possible. ' +
+      (r >= R.r ? 'You are using every mode these snapshots can give; more accuracy now needs more snapshots.' : 'Compare the two curves at the bottom: the gap between them is interpolation error, not a lack of modes.') + '</p>';
+    document.getElementById('romNote').innerHTML = n;
+    drawRom();
+    scheduleCurveM();
+  }
+  function curveM() {
+    if (!POOL_READY) return;
+    var T = romTruth(), u = uOf(RM.s), v = vOf(RM.lb), out = [], outQ = [], pkT = peak(T);
+    for (var m = 4; m <= PMAX; m += 2) {
+      var R = buildROM(m, Math.min(RM.r, m - 1)), r = R.r, e = 0;
+      TESTS.forEach(function (Tt) { e += rmsDiff(R.field(R.coef(Tt.u, Tt.v, r)), Tt.x) / peak(Tt.x); });
+      out.push([m, e / TESTS.length]);
+      outQ.push([m, rmsDiff(R.field(R.coef(u, v, r)), T) / pkT]);
+    }
+    RM.curveM = { test: out, q: outQ };
+    drawCurveM();
+  }
+  function scheduleCurveM() { clearTimeout(RM.curveT); RM.curveT = setTimeout(curveM, 90); }
+
+  function plateMarks(plot, showSrc) {
+    return function (g) {
+      if (!showSrc) return;
+      g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(plot.X(RM.s), plot.Y(YC), 5, 0, 6.2832); g.stroke();
+    };
+  }
+  function drawRom() {
+    var V = RM.view; if (!V) return;
+    var opt = { xlabel: 'x', ylabel: 'y' };
+    drawHeat(rp.truth, V.T, NG, NG, viridis, 0, V.pkT, { xlabel: 'x', ylabel: 'y', after: plateMarks(rp.truth, true) });
+    drawHeat(rp.pred, V.P, NG, NG, viridis, 0, V.pkT, opt);
+    drawHeat(rp.err, V.err, NG, NG, cmapErr(), 0, Math.max(V.emax, V.pkT * 0.01), { xlabel: 'x', ylabel: 'y',
+      after: function (g) { g.font = '600 11px system-ui,sans-serif'; g.fillStyle = C('--ink'); g.textAlign = 'right';
+        g.fillText('max ' + (V.emax / V.pkT * 100).toFixed(1) + '% of peak', rp.err.pad.l + rp.err.pw - 6, rp.err.pad.t + 14); } });
+    /* modes */
+    for (var q = 0; q < 4; q++) {
+      var pl = rp.modes[q];
+      if (q < V.R.modes.length) {
+        var ph = V.R.modes[q], mx = 0; for (var k = 0; k < NN; k++) mx = Math.max(mx, Math.abs(ph[k]));
+        drawHeat(pl, ph, NG, NG, cmapDiv(), -mx, mx, { signed: true, xfmt: function () { return ''; }, yfmt: function () { return ''; } });
+        setText('romModeL' + q, 'mode ' + (q + 1) + ' · ' + (V.R.val[q] / V.R.tot * 100).toFixed(V.R.val[q] / V.R.tot < 0.01 ? 2 : 1) + '% of energy' + (q < V.r ? '' : ' · not used'));
+      } else { pl.resize(); pl.clear(); setText('romModeL' + q, 'mode ' + (q + 1) + ' · needs more snapshots'); }
+    }
+    drawPar(); drawEnergy(); drawErrR(); drawCurveM();
+  }
+  function drawPar() {
+    var p = rp.par; p.resize(); p.clear();
+    p.dom = [0.1, 0.9]; p.ran = [0.5, 3];
+    p.frame({ xticks: 4, yticks: 5, xlabel: 'heat-source position', ylabel: 'log₁₀ β',
+      xfmt: function (v) { return v.toFixed(1); }, yfmt: function (v) { return v.toFixed(1); } });
+    p.clip(function (g) {
+      g.fillStyle = C('--accent-soft');
+      g.fillRect(p.X(ENV.s0), p.Y(ENV.b1), p.X(ENV.s1) - p.X(ENV.s0), p.Y(ENV.b0) - p.Y(ENV.b1));
+      g.strokeStyle = C('--accent'); g.lineWidth = 1.2; g.setLineDash([4, 3]);
+      g.strokeRect(p.X(ENV.s0), p.Y(ENV.b1), p.X(ENV.s1) - p.X(ENV.s0), p.Y(ENV.b0) - p.Y(ENV.b1)); g.setLineDash([]);
+      POOL.forEach(function (P, i) { if (i < RM.m) p.dot(P.s, P.lb, 3.6, C('--ink-2')); else p.dot(P.s, P.lb, 2.2, C('--line')); });
+      var x = p.X(RM.s), y = p.Y(RM.lb), inside = inEnv(RM.s, RM.lb);
+      g.strokeStyle = inside ? C('--good') : C('--bad'); g.lineWidth = 2.6;
+      g.beginPath(); g.moveTo(x - 7, y - 7); g.lineTo(x + 7, y + 7); g.moveTo(x + 7, y - 7); g.lineTo(x - 7, y + 7); g.stroke();
+      g.font = '600 11px system-ui,sans-serif'; g.fillStyle = C('--accent'); g.textAlign = 'center';
+      g.fillText('training envelope', p.X(0.5), p.Y(ENV.b1) - 6);
+    });
+  }
+  function drawEnergy() {
+    var V = RM.view, p = rp.en; p.resize(); p.clear();
+    var R = V.R, pts = [], cum = 0, n = Math.min(R.val.length, 16);
+    for (var q = 0; q < n; q++) { cum += R.val[q]; pts.push([q + 1, lg(Math.max(1 - cum / R.tot, 1e-9))]); }
+    p.dom = [1, 16]; p.ran = [-8, 0];
+    p.frame({ xticks: 5, yticks: 4, xlabel: 'modes kept', ylabel: 'fraction not captured',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: supFmt });
+    p.clip(function () {
+      p.line(pts, C('--accent'), 2.4);
+      pts.forEach(function (pt) { p.dot(pt[0], pt[1], pt[0] === V.r ? 5 : 2.6, pt[0] === V.r ? C('--warn') : C('--accent')); });
+    });
+  }
+  function drawErrR() {
+    var V = RM.view, p = rp.errR; p.resize(); p.clear();
+    var all = V.proj.concat(V.romc), lo = 0, hi = -1;
+    all.forEach(function (q) { lo = Math.min(lo, lg(q[1])); hi = Math.max(hi, lg(q[1])); });
+    lo = Math.floor(Math.max(lo, -6)); hi = Math.ceil(hi);
+    p.dom = [1, RMAX]; p.ran = [lo, Math.max(hi, lo + 1)];
+    p.frame({ xticks: 4, yticks: Math.max(1, Math.min(5, hi - lo)), xlabel: 'modes kept', ylabel: 'RMS error / peak',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: supFmt });
+    p.clip(function (g) {
+      p.line(V.proj.map(function (q) { return [q[0], lg(q[1])]; }), C('--ink-3'), 1.8, [5, 4]);
+      p.line(V.romc.map(function (q) { return [q[0], lg(q[1])]; }), C('--accent'), 2.6);
+      p.line([[V.r, lo], [V.r, hi + 1]], C('--warn'), 1, [2, 3]);
+      g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'right';
+      g.fillStyle = C('--accent'); g.fillText('ROM (interpolated)', p.pad.l + p.pw - 6, p.pad.t + 12);
+      g.fillStyle = C('--ink-3'); g.fillText('best these modes can do', p.pad.l + p.pw - 6, p.pad.t + 25);
+    });
+  }
+  function drawCurveM() {
+    var p = rp.errM; if (!p) return;
+    p.resize(); p.clear();
+    var D = RM.curveM;
+    p.dom = [4, PMAX]; p.ran = [-4, 0];
+    p.frame({ xticks: 4, yticks: 4, xlabel: 'snapshots', ylabel: 'RMS error / peak',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: supFmt });
+    if (!D) return;
+    p.clip(function (g) {
+      p.line(D.test.map(function (q) { return [q[0], Math.max(-4, lg(q[1]))]; }), C('--good'), 2.6);
+      p.line(D.q.map(function (q) { return [q[0], Math.max(-4, lg(q[1]))]; }), C('--accent'), 1.8, [5, 4]);
+      p.line([[RM.m, -4], [RM.m, 0]], C('--warn'), 1, [2, 3]);
+      g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'right';
+      g.fillStyle = C('--good'); g.fillText('12 held-out designs', p.pad.l + p.pw - 6, p.pad.t + 12);
+      g.fillStyle = C('--accent'); g.fillText('this query', p.pad.l + p.pw - 6, p.pad.t + 25);
+    });
+  }
+
+  /* ------------------------------------------------ lab (b): warm start */
+  var WS = { s: 0.55, lb: 1.3, guess: 'rom', meth: 'gs', tol: 1e-6, cold: null, warm: null, run: 0, ginit: 0, roms: {} };
+  var wsPlot;
+  function wsGuess(b, T) {
+    if (WS.guess === 'bad') {
+      /* the solution for a far-away design, scaled and with noise added */
+      var far = POOL[0], dmax = -1;
+      POOL.forEach(function (P) { var d = Math.pow(P.s - WS.s, 2) + Math.pow(P.lb - WS.lb, 2) / 4; if (d > dmax) { dmax = d; far = P; } });
+      var r = mulberry32(31), pk = peak(far.x), g = new Float64Array(NN);
+      for (var k = 0; k < NN; k++) g[k] = 1.6 * far.x[k] + 0.1 * pk * gauss(r);
+      return g;
+    }
+    var key = WS.guess, cfg = key === 'rom' ? [20, 8] : [6, 2];
+    if (!WS.roms[key]) WS.roms[key] = buildROM(cfg[0], cfg[1]);
+    var R = WS.roms[key];
+    return R.field(R.coef(uOf(WS.s), vOf(WS.lb), cfg[1]));
+  }
+  function wsStart() {
+    if (!POOL_READY) return;
+    WS.run++;
+    var run = WS.run, beta = Math.pow(10, WS.lb), b = srcVec(WS.s);
+    var T = solveTruth(WS.s, WS.lb), g = wsGuess(b, T), pk = peak(T);
+    WS.ginit = rmsDiff(g, T) / pk; WS.pk = pk;
+    var init = WS.meth === 'cg' ? cgInit : gsInit, step = WS.meth === 'cg' ? cgStep : gsStep;
+    WS.cold = init(b, beta, null); WS.warm = init(b, beta, g); WS.step = step;
+    WS.maxit = WS.meth === 'cg' ? 2000 : 30000;
+    function frame() {
+      if (run !== WS.run) return;
+      var t0 = performance.now();
+      while (performance.now() - t0 < 9) {
+        var busy = false;
+        for (var c = 0; c < (WS.meth === 'cg' ? 4 : 10); c++) {
+          [WS.cold, WS.warm].forEach(function (S) { if (S.res > WS.tol && S.it < WS.maxit) { step(S); busy = true; } });
+        }
+        if (!busy) break;
+      }
+      drawWs();
+      var done = !(WS.cold.res > WS.tol && WS.cold.it < WS.maxit) && !(WS.warm.res > WS.tol && WS.warm.it < WS.maxit);
+      if (!done) requestAnimationFrame(frame); else wsReport();
+    }
+    setText('wsCold', '…'); setText('wsWarm', '…'); setText('wsSpd', '…'); setText('wsDiff', '…');
+    setText('wsGErr', (WS.ginit * 100).toFixed(WS.ginit < 0.1 ? 2 : 0) + '% RMS');
+    document.getElementById('wsNote').innerHTML = '<p class="small mb0 muted">Solving…</p>';
+    requestAnimationFrame(frame);
+  }
+  function drawWs() {
+    var p = wsPlot; if (!p || !WS.cold) return;
+    p.resize(); p.clear();
+    var n = Math.max(WS.cold.hist.length, WS.warm.hist.length, 10), lo = Math.floor(lg(WS.tol)) - 1;
+    var top = Math.max(1, Math.ceil(lg(Math.max(WS.cold.hist[0], WS.warm.hist[0]))));
+    p.dom = [0, n]; p.ran = [lo, top];
+    p.frame({ xticks: 5, yticks: Math.min(6, top - lo), xlabel: 'iteration', ylabel: 'relative residual',
+      xfmt: function (v) { return AI.F.c(Math.round(v)); }, yfmt: supFmt });
+    var col = WS.guess === 'bad' ? C('--bad') : WS.guess === 'crude' ? C('--warn') : C('--accent');
+    function pts(h) { var o = [], st = Math.max(1, Math.floor(h.length / 600)); for (var i = 0; i < h.length; i += st) o.push([i, lg(h[i])]); o.push([h.length - 1, lg(h[h.length - 1])]); return o; }
+    p.clip(function (g) {
+      p.line([[0, lg(WS.tol)], [n, lg(WS.tol)]], C('--ink'), 1.2, [5, 4]);
+      p.line(pts(WS.cold.hist), C('--ink-3'), 2.2);
+      p.line(pts(WS.warm.hist), col, 2.8);
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'right';
+      g.fillStyle = C('--ink-3'); g.fillText('from zero', p.pad.l + p.pw - 8, p.pad.t + 14);
+      g.fillStyle = col; g.fillText(WS.guess === 'bad' ? 'from the bad surrogate' : WS.guess === 'crude' ? 'from the crude ROM' : 'from the good ROM', p.pad.l + p.pw - 8, p.pad.t + 29);
+      g.fillStyle = C('--ink'); g.textAlign = 'left'; g.fillText('tolerance', p.pad.l + 6, p.Y(lg(WS.tol)) - 5);
+    });
+  }
+  function wsReport() {
+    var c = WS.cold.it, w = WS.warm.it, d = 0;
+    for (var k = 0; k < NN; k++) d = Math.max(d, Math.abs(WS.cold.x[k] - WS.warm.x[k]));
+    d /= WS.pk;
+    setText('wsCold', AI.F.n(c)); setText('wsWarm', AI.F.n(w));
+    var sp = c / Math.max(w, 1);
+    setText('wsSpd', w === 0 ? 'already converged' : sp.toFixed(1) + '×');
+    setText('wsDiff', d < 1e-12 ? '< 10⁻¹²' : F.sci(d, 1));
+    setCls('bsWsWarm', 'bigstat ' + (sp > 1.3 ? 'good' : sp > 0.95 ? 'warn' : 'bad'));
+    var n = '<h4>Reading it</h4>';
+    if (WS.guess === 'bad') n += '<p class="small mb0"><b>The surrogate is badly wrong</b> — ' + (WS.ginit * 100).toFixed(0) + '% RMS error — and the solver still reaches the same answer: the two final fields differ by ' + F.sci(Math.max(d, 1e-15), 1) +
+      ' of the peak, which is the tolerance at work. It cost ' + (w >= c ? (w - c) + ' extra iterations' : 'no extra iterations') + '. That is the whole risk of this pattern: time, not correctness.</p>';
+    else if (w === 0) n += '<p class="small mb0"><b style="color:var(--good)">The guess already meets the tolerance.</b> At a loose tolerance a good ROM <em>is</em> the converged answer, and the solver only has to confirm it. Tighten the tolerance and the solver has work to do again.</p>';
+    else n += '<p class="small mb0">Starting from a field with ' + (WS.ginit * 100).toFixed(1) + '% error, ' + (WS.meth === 'cg' ? 'conjugate gradients' : 'Gauss–Seidel') + ' needs <b>' + AI.F.n(w) + '</b> iterations instead of <b>' + AI.F.n(c) + '</b> (' + sp.toFixed(1) + '×). ' +
+      (WS.meth === 'cg' ? 'CG gains little: it removes the smooth part of the error quickly from any start, and the ROM’s remaining error is the rough kind that CG still has to work through.' :
+        'Gauss–Seidel is slow on smooth error, which is exactly what a ROM removes, so the gain is real. Production solvers use multigrid or Krylov methods, where the gain from a warm start is usually smaller than this.') +
+      ' The final answers differ by ' + F.sci(Math.max(d, 1e-15), 1) + ' of the peak.</p>';
+    document.getElementById('wsNote').innerHTML = n;
+  }
+  var F = AI.F;
+
+  /* ------------------------------------------------ lab (c): peak trap */
+  var PK = { K: 8, a: 0.25, samp: 'uni', res: null }, pkp = {};
+  function kirsch(x, y, a) {   /* von Mises stress / nominal, tension along x, plane stress */
+    var r2 = x * x + y * y;
+    if (r2 < a * a * (1 - 1e-9)) return NaN;
+    var th = Math.atan2(y, x), q2 = a * a / r2, q4 = q2 * q2, c = Math.cos(2 * th), s = Math.sin(2 * th);
+    var srr = 0.5 * (1 - q2) + 0.5 * (1 - 4 * q2 + 3 * q4) * c;
+    var stt = 0.5 * (1 + q2) - 0.5 * (1 + 3 * q4) * c;
+    var trt = -0.5 * (1 + 2 * q2 - 3 * q4) * s;
+    return Math.sqrt(Math.max(0, srr * srr - srr * stt + stt * stt + 3 * trt * trt));
+  }
+  function pkFit() {
+    var K = PK.K, a = PK.a, cen = [], w = 2 / (K - 1), i, j, k;
+    for (i = 0; i < K; i++) cen.push(-1 + 2 * i / (K - 1));
+    function g1(x) { var r = new Float64Array(K); for (var i = 0; i < K; i++) { var d = (x - cen[i]) / w; r[i] = Math.exp(-d * d); } return r; }
+    var pts = [], NS = 36;
+    for (i = 0; i < NS; i++) for (j = 0; j < NS; j++) {
+      var x = -1 + 2 * i / (NS - 1), y = -1 + 2 * j / (NS - 1);
+      if (x * x + y * y >= a * a) pts.push([x, y, 1]);
+    }
+    if (PK.samp === 'ref') for (var ri = 0; ri < 5; ri++) {
+      var rr = a * (1 + 0.12 * ri);
+      for (var t = 0; t < 48; t++) { var th = 6.283185307 * t / 48; pts.push([rr * Math.cos(th), rr * Math.sin(th), 3]); }
+    }
+    var n = K * K, A = [], b = new Array(n).fill(0), phi = new Float64Array(n);
+    for (i = 0; i < n; i++) A.push(new Float64Array(n));
+    pts.forEach(function (p) {
+      var gx = g1(p[0]), gy = g1(p[1]), v = kirsch(p[0], p[1], a), ww = p[2] * p[2], i, j;
+      for (i = 0; i < K; i++) for (j = 0; j < K; j++) phi[i * K + j] = gx[i] * gy[j];
+      for (i = 0; i < n; i++) {
+        var pi = phi[i] * ww;
+        if (pi < 1e-12) continue;
+        b[i] += pi * v;
+        var Ai = A[i];
+        for (j = i; j < n; j++) Ai[j] += pi * phi[j];
+      }
+    });
+    for (i = 0; i < n; i++) { for (j = 0; j < i; j++) A[i][j] = A[j][i]; A[i][i] += 1e-6; }
+    var c = solveDense(A, b);
+    function f(x, y) {
+      var gx = g1(x), gy = g1(y), s = 0;
+      for (var i = 0; i < K; i++) { var t = 0; for (var j = 0; j < K; j++) t += c[i * K + j] * gy[j]; s += gx[i] * t; }
+      return s;
+    }
+    /* errors on a fine grid plus the hole edge */
+    var se = 0, cnt = 0, worst = 0, wx = 0, wy = 0;
+    for (i = 0; i < 100; i++) for (j = 0; j < 100; j++) {
+      var xx = -1 + 2 * (i + 0.5) / 100, yy = -1 + 2 * (j + 0.5) / 100, tv = kirsch(xx, yy, a);
+      if (tv !== tv) continue;
+      var e = f(xx, yy) - tv; se += e * e; cnt++;
+      if (Math.abs(e) > Math.abs(worst)) { worst = e; wx = xx; wy = yy; }
+    }
+    for (t = 0; t < 360; t++) {
+      var th2 = 6.283185307 * t / 360, xe = a * Math.cos(th2), ye = a * Math.sin(th2), e2 = f(xe, ye) - kirsch(xe, ye, a);
+      if (Math.abs(e2) > Math.abs(worst)) { worst = e2; wx = xe; wy = ye; }
+    }
+    /* display grids */
+    var ND = 72, tr = new Float64Array(ND * ND), pr = new Float64Array(ND * ND), er = new Float64Array(ND * ND), emax = 0;
+    for (j = 0; j < ND; j++) for (i = 0; i < ND; i++) {
+      var X = -1 + 2 * (i + 0.5) / ND, Y = -1 + 2 * (j + 0.5) / ND, tv2 = kirsch(X, Y, a), k2 = j * ND + i;
+      tr[k2] = tv2; pr[k2] = tv2 === tv2 ? f(X, Y) : NaN; er[k2] = tv2 === tv2 ? Math.abs(pr[k2] - tv2) : NaN;
+      if (er[k2] > emax) emax = er[k2];
+    }
+    PK.res = { f: f, rms: Math.sqrt(se / cnt), worst: worst, wx: wx, wy: wy, pkPred: f(0, a), tr: tr, pr: pr, er: er, ND: ND,
+      emax: Math.max(emax, Math.abs(worst)), pts: pts };
+  }
+  function pkUpdate() {
+    pkFit();
+    var R = PK.res, a = PK.a, nom = 100;
+    var rmsPk = R.rms / 3, pkErr = (R.pkPred - 3) / 3;
+    setText('pkRms', (R.rms * nom).toFixed(1) + ' MPa');
+    setText('pkPk', (pkErr >= 0 ? '+' : '') + (pkErr * 100).toFixed(0) + '%');
+    setText('pkTrue', '300 MPa');
+    setText('pkPred', (R.pkPred * nom).toFixed(0) + ' MPa');
+    var ang = Math.abs(Math.atan2(R.wy, R.wx) * 180 / Math.PI); if (ang > 90) ang = 180 - ang;
+    var rr = Math.sqrt(R.wx * R.wx + R.wy * R.wy) / a;
+    setText('pkWhere', ang.toFixed(0) + '°, r = ' + rr.toFixed(2) + 'a');
+    setCls('bsPkRms', 'bigstat ' + (rmsPk < 0.03 ? 'good' : rmsPk < 0.06 ? 'warn' : 'bad'));
+    setCls('bsPkPk', 'bigstat ' + (Math.abs(pkErr) < 0.05 ? 'good' : Math.abs(pkErr) < 0.15 ? 'warn' : 'bad'));
+    var n = '<h4>Reading it</h4><p class="small mb0">';
+    n += 'Averaged over the plate the model is off by <b>' + (R.rms * nom).toFixed(1) + ' MPa</b> — ' + (rmsPk * 100).toFixed(1) + '% of the peak, a number that would pass most reviews. At the one point that sizes the part it predicts <b>' +
+      (R.pkPred * nom).toFixed(0) + ' MPa against 300</b>' + (pkErr < -0.02 ? ', under-predicting by ' + (-pkErr * 100).toFixed(0) + '%: non-conservative, exactly where it matters.' : '.') +
+      (rr < 1.15 ? ' The largest error anywhere on the plate sits on the hole edge, ' + ang.toFixed(0) + '° from the load axis.' : ' The largest error is now away from the hole, at r = ' + rr.toFixed(1) + 'a — the fit has moved its error somewhere else.') + '</p>';
+    if (PK.samp === 'ref') n += '<p class="small mb0 mt1">Refining the samples at the hole pulls the peak up, and the RMS over the plate gets worse: the model has the same capacity and has been told to spend it at the hole. That trade-off is set by the loss function, which is why it belongs in the review.</p>';
+    document.getElementById('pkNote').innerHTML = n;
+    drawPk();
+  }
+  function holeMask(plot) {
+    return function (g) {
+      g.fillStyle = C('--panel'); g.strokeStyle = C('--ink-3'); g.lineWidth = 1.2;
+      g.beginPath(); g.ellipse(plot.X(0), plot.Y(0), plot.X(PK.a) - plot.X(0), plot.Y(0) - plot.Y(PK.a), 0, 0, 6.2832); g.fill(); g.stroke();
+    };
+  }
+  function drawPk() {
+    var R = PK.res; if (!R) return;
+    var hi = 3.05;
+    drawHeat(pkp.truth, R.tr, R.ND, R.ND, viridis, 0, hi, { xlabel: 'x (load direction →)', ylabel: 'y', after: holeMask(pkp.truth) });
+    drawHeat(pkp.pred, R.pr, R.ND, R.ND, viridis, 0, hi, { xlabel: 'x', ylabel: 'y', after: function (g) {
+      holeMask(pkp.pred)(g);
+      if (PK.samp === 'ref') R.pts.forEach(function (p) { if (p[2] > 1) { g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(pkp.pred.X(p[0]) - 1, pkp.pred.Y(p[1]) - 1, 2, 2); } });
+    } });
+    drawHeat(pkp.err, R.er, R.ND, R.ND, cmapErr(), 0, R.emax, { xlabel: 'x', ylabel: 'y', after: function (g) {
+      holeMask(pkp.err)(g);
+      var x = pkp.err.X(R.wx), y = pkp.err.Y(R.wy);
+      g.strokeStyle = C('--ink'); g.lineWidth = 2; g.beginPath(); g.arc(x, y, 7, 0, 6.2832); g.stroke();
+    } });
+    /* ligament plot */
+    var p = pkp.lig; p.resize(); p.clear();
+    p.dom = [PK.a, 1]; p.ran = [0, 350];
+    p.frame({ xticks: 4, yticks: 7, xlabel: 'distance above the hole centre, y', ylabel: 'von Mises, MPa',
+      xfmt: function (v) { return v.toFixed(2); }, yfmt: function (v) { return v.toFixed(0); } });
+    var tp = [], mp = [];
+    for (var i = 0; i <= 160; i++) { var y = PK.a + (1 - PK.a) * i / 160; tp.push([y, kirsch(0, y, PK.a) * 100]); mp.push([y, R.f(0, y) * 100]); }
+    p.clip(function (g) {
+      p.line([[PK.a, 100], [1, 100]], C('--line'), 1, [3, 3]);
+      p.line(tp, C('--ink'), 2.2, [6, 4]);
+      p.line(mp, C('--accent'), 2.8);
+      p.dot(PK.a, 300, 4, C('--ink')); p.dot(PK.a, R.pkPred * 100, 4.5, C('--bad'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--ink'); g.fillText('truth: peak 300 MPa at the hole edge', p.X(PK.a) + 10, p.Y(300) + 4);
+      g.fillStyle = C('--bad'); g.fillText('model: ' + (R.pkPred * 100).toFixed(0) + ' MPa', p.X(PK.a) + 10, p.Y(R.pkPred * 100) + 18);
+      g.fillStyle = C('--ink-3'); g.textAlign = 'right'; g.fillText('nominal 100 MPa', p.pad.l + p.pw - 6, p.Y(100) - 5);
+    });
+  }
+
+  /* ------------------------------------------------ init */
+  var prevInit = window.PAGE_INIT;
+  window.PAGE_INIT = function () {
+    if (prevInit) prevInit();
+    var sq = { pad: { l: 34, r: 16, t: 8, b: 30 } };
+    rp.truth = new AI.Plot(document.getElementById('romTruthCv'), { dom: [0, 1], ran: [0, 1], pad: sq.pad });
+    rp.pred = new AI.Plot(document.getElementById('romPredCv'), { dom: [0, 1], ran: [0, 1], pad: sq.pad });
+    rp.err = new AI.Plot(document.getElementById('romErrCv'), { dom: [0, 1], ran: [0, 1], pad: sq.pad });
+    rp.modes = [0, 1, 2, 3].map(function (q) { return new AI.Plot(document.getElementById('romMode' + q), { dom: [0, 1], ran: [0, 1], pad: { l: 4, r: 4, t: 4, b: 4 } }); });
+    rp.par = new AI.Plot(document.getElementById('romParCv'), { dom: [0.1, 0.9], ran: [0.5, 3], pad: { l: 46, r: 12, t: 18, b: 38 } });
+    rp.en = new AI.Plot(document.getElementById('romEnCv'), { dom: [1, 16], ran: [-8, 0], pad: { l: 48, r: 10, t: 10, b: 36 } });
+    rp.errR = new AI.Plot(document.getElementById('romErrRCv'), { dom: [1, 12], ran: [-4, 0], pad: { l: 48, r: 10, t: 10, b: 36 } });
+    rp.errM = new AI.Plot(document.getElementById('romErrMCv'), { dom: [4, 40], ran: [-4, 0], pad: { l: 48, r: 10, t: 10, b: 36 } });
+    var sOut = function (v) { return v.toFixed(2); }, bOut = function (v) { return Math.pow(10, v) < 100 ? Math.pow(10, v).toFixed(0) : AI.F.n(Math.round(Math.pow(10, v) / 10) * 10); };
+    var rS = AI.bindRange('romS', sOut, function (v) { RM.s = v; romUpdate(); });
+    var rB = AI.bindRange('romB', bOut, function (v) { RM.lb = v; romUpdate(); });
+    AI.bindRange('romM', function (v) { return v + ' runs'; }, function (v) { RM.m = v; romUpdate(); });
+    AI.bindRange('romR', function (v) { return v; }, function (v) { RM.r = v; romUpdate(); });
+    AI.on(document.getElementById('romOutBtn'), 'click', function () { rS.set(0.84); rB.set(2.7); });
+    AI.on(document.getElementById('romInBtn'), 'click', function () { rS.set(0.46); rB.set(1.62); });
+    AI.onRedraw(drawRom);
+
+    wsPlot = new AI.Plot(document.getElementById('wsCv'), { dom: [0, 100], ran: [-8, 0], pad: { l: 56, r: 14, t: 14, b: 42 } });
+    AI.bindRange('wsTol', function (v) { return '10' + AI.F.sup(v); }, function (v) { WS.tol = Math.pow(10, v); wsStart(); });
+    AI.bindRange('wsS', sOut, function (v) { WS.s = v; wsStart(); });
+    AI.bindRange('wsB', bOut, function (v) { WS.lb = v; wsStart(); });
+    AI.segmented(document.getElementById('wsGuessSeg'), function (v) { WS.guess = v; wsStart(); });
+    AI.segmented(document.getElementById('wsMethSeg'), function (v) { WS.meth = v; wsStart(); });
+    AI.onRedraw(drawWs);
+
+    pkp.truth = new AI.Plot(document.getElementById('pkTruthCv'), { dom: [-1, 1], ran: [-1, 1], pad: sq.pad });
+    pkp.pred = new AI.Plot(document.getElementById('pkPredCv'), { dom: [-1, 1], ran: [-1, 1], pad: sq.pad });
+    pkp.err = new AI.Plot(document.getElementById('pkErrCv'), { dom: [-1, 1], ran: [-1, 1], pad: sq.pad });
+    pkp.lig = new AI.Plot(document.getElementById('pkLigCv'), { dom: [0.25, 1], ran: [0, 350], pad: { l: 50, r: 14, t: 12, b: 38 } });
+    AI.bindRange('pkK', function (v) { return v + ' × ' + v; }, function (v) { PK.K = v; pkUpdate(); });
+    AI.bindRange('pkA', function (v) { return v.toFixed(2); }, function (v) { PK.a = v; pkUpdate(); });
+    AI.segmented(document.getElementById('pkSampSeg'), function (v) { PK.samp = v; pkUpdate(); });
+    AI.onRedraw(drawPk);
+
+    document.getElementById('romNote').innerHTML = '<p class="small mb0 muted">Running ' + (PMAX + 12) + ' solver runs for the snapshot pool…</p>';
+    buildPool(function () { romUpdate(); wsStart(); });
+  };
+})();
+</script>
+<script>
+/* ==========================================================================
+   11.8 — physics-informed learning: a hand-differentiated PINN, hard vs soft
+   mass conservation, and SINDy. Uses helpers from window.AI11 (11.7 script).
+   ========================================================================== */
+(function () {
+  var C = AI.cssVar, H = window.AI11, F = AI.F;
+  var mulberry32 = H.mulberry32, gauss = H.gauss, solveDense = H.solveDense, setText = H.setText, setCls = H.setCls, lg = H.lg;
+
+  /* ------------------------------------------------ lab (a): PINN */
+  var KT = 0.6, NH = 24;
+  var FP = { n: 5, noise: 0.03, lamIdx: 5, ncol: 40, mode: 'fwd', src: 'smooth', ff: false, resample: true, seed: 5, run: 0 };
+  var fpPlot, fpLoss;
+  function lamOf(i) { return i === 0 ? 0 : Math.pow(10, (i - 3) / 2); }
+  function problem() {
+    var hf = FP.src === 'hf', A = hf ? 0.15 : 0.3, w = hf ? 16 * Math.PI : 3 * Math.PI;
+    return {
+      u: function (x) { return Math.sin(Math.PI * x) + A * Math.sin(w * x); },
+      f: function (x) { return KT * (Math.PI * Math.PI * Math.sin(Math.PI * x) + A * w * w * Math.sin(w * x)); }
+    };
+  }
+  function feats(x, ff, p, d1, d2) {
+    p[0] = x; d1[0] = 1; d2[0] = 0;
+    for (var m = 1; m <= ff; m++) {
+      var om = 2 * Math.PI * m, s = Math.sin(om * x), c = Math.cos(om * x);
+      p[2 * m - 1] = s; p[2 * m] = c;
+      d1[2 * m - 1] = om * c; d1[2 * m] = -om * s;
+      d2[2 * m - 1] = -om * om * s; d2[2 * m] = -om * om * c;
+    }
+  }
+  function Net(nf, seed) {
+    var r = mulberry32(seed), j, i;
+    this.F = nf; this.W = new Float64Array(NH * nf); this.b = new Float64Array(NH); this.w2 = new Float64Array(NH); this.b2 = 0;
+    for (j = 0; j < NH; j++) {
+      for (i = 0; i < nf; i++) this.W[j * nf + i] = gauss(r) * (i === 0 ? 3 : 1);
+      this.b[j] = gauss(r) * 1.5; this.w2[j] = gauss(r) * 0.3;
+    }
+    this.th = Math.log(1.5);
+    this.n = NH * nf + 2 * NH + 2;
+    this.m = new Float64Array(this.n); this.v = new Float64Array(this.n); this.b1t = 1; this.b2t = 1;
+    this.p = new Float64Array(nf); this.p1 = new Float64Array(nf); this.p2 = new Float64Array(nf);
+    this.g = new Float64Array(this.n);
+  }
+  Net.prototype.eval = function (x, ff) {
+    feats(x, ff, this.p, this.p1, this.p2);
+    var s = this.b2, F = this.F;
+    for (var j = 0; j < NH; j++) { var z = this.b[j]; for (var i = 0; i < F; i++) z += this.W[j * F + i] * this.p[i]; s += this.w2[j] * Math.tanh(z); }
+    return s;
+  };
+  /* loss and its exact gradient: data + boundary + PDE residual (with d2u/dx2 by hand) */
+  Net.prototype.grad = function (P) {
+    var self = this, F = this.F, g = this.g, i, j, k, oB = NH * F, oW2 = oB + NH, oB2 = oW2 + NH, oTh = oB2 + 1;
+    g.fill(0);
+    var kk = P.inv ? Math.exp(this.th) : KT, Ld = 0, Lp = 0, Lb = 0, p = this.p, p1 = this.p1, p2 = this.p2, t = new Float64Array(NH);
+    function valAt(x) {
+      feats(x, P.ff, p, p1, p2);
+      var u = self.b2;
+      for (var j = 0; j < NH; j++) { var z = self.b[j]; for (var i = 0; i < F; i++) z += self.W[j * F + i] * p[i]; t[j] = Math.tanh(z); u += self.w2[j] * t[j]; }
+      return u;
+    }
+    function backVal(c) {
+      g[oB2] += c;
+      for (var j = 0; j < NH; j++) {
+        g[oW2 + j] += c * t[j];
+        var dz = c * self.w2[j] * (1 - t[j] * t[j]);
+        g[oB + j] += dz;
+        for (var i = 0; i < F; i++) g[j * F + i] += dz * p[i];
+      }
+    }
+    var nd = P.data.length;
+    for (k = 0; k < nd; k++) { var e = valAt(P.data[k][0]) - P.data[k][1]; Ld += e * e / nd; backVal(2 * e / nd); }
+    for (k = 0; k < 2; k++) { var ub = valAt(k); Lb += ub * ub / 2; backVal(P.wb * ub); }
+    if (P.lam > 0) {
+      var nc = P.col.length, z1a = new Float64Array(NH), z2a = new Float64Array(NH), tpp = new Float64Array(NH);
+      for (k = 0; k < nc; k++) {
+        var x = P.col[k];
+        feats(x, P.ff, p, p1, p2);
+        var upp = 0;
+        for (j = 0; j < NH; j++) {
+          var z = self.b[j], z1 = 0, z2 = 0;
+          for (i = 0; i < F; i++) { var wji = self.W[j * F + i]; z += wji * p[i]; z1 += wji * p1[i]; z2 += wji * p2[i]; }
+          var tt = Math.tanh(z), s = 1 - tt * tt;
+          t[j] = tt; z1a[j] = z1; z2a[j] = z2;
+          tpp[j] = -2 * tt * s * z1 * z1 + s * z2;
+          upp += self.w2[j] * tpp[j];
+        }
+        var res = (kk * upp + P.f(x)) / P.fs;
+        Lp += res * res / nc;
+        var c = P.lam * 2 * res / nc / P.fs;
+        for (j = 0; j < NH; j++) {
+          var tj = t[j], sj = 1 - tj * tj, za = z1a[j], zb = z2a[j];
+          g[oW2 + j] += c * kk * tpp[j];
+          var dz = -2 * sj * (sj - 2 * tj * tj) * za * za - 2 * tj * sj * zb, dz1 = -4 * tj * sj * za, cw = c * kk * self.w2[j];
+          g[oB + j] += cw * dz;
+          for (i = 0; i < F; i++) g[j * F + i] += cw * (dz * p[i] + dz1 * p1[i] + sj * p2[i]);
+        }
+        if (P.inv) g[oTh] += c * kk * upp;
+      }
+    }
+    return { Ld: Ld, Lp: Lp, Lb: Lb };
+  };
+  Net.prototype.step = function (P, lr) {
+    var L = this.grad(P), g = this.g, F = this.F, oB = NH * F, oW2 = oB + NH, oB2 = oW2 + NH;
+    this.b1t *= 0.9; this.b2t *= 0.999;
+    for (var q = 0; q < this.n; q++) {
+      if (q === this.n - 1 && !P.inv) continue;
+      this.m[q] = 0.9 * this.m[q] + 0.1 * g[q];
+      this.v[q] = 0.999 * this.v[q] + 0.001 * g[q] * g[q];
+      var d = lr * (this.m[q] / (1 - this.b1t)) / (Math.sqrt(this.v[q] / (1 - this.b2t)) + 1e-8);
+      if (q < oB) this.W[q] -= d; else if (q < oW2) this.b[q - oB] -= d; else if (q < oB2) this.w2[q - oW2] -= d;
+      else if (q === oB2) this.b2 -= d; else this.th -= d;
+    }
+    return L;
+  };
+  function fpStart() {
+    FP.run++;
+    var run = FP.run, pr = problem(), r = mulberry32(11 + FP.seed * 101), data = [], i;
+    for (i = 0; i < FP.n; i++) { var x = 0.05 + 0.9 * (i + 0.5) / FP.n; data.push([x, pr.u(x) + FP.noise * gauss(r)]); }
+    var col = []; for (i = 0; i < FP.ncol; i++) col.push((i + 0.5) / FP.ncol);
+    var fs = 0; for (i = 0; i <= 200; i++) fs = Math.max(fs, Math.abs(pr.f(i / 200)));
+    var ff = FP.ff ? 3 : 0, nf = 1 + 2 * ff;
+    var lam = lamOf(FP.lamIdx), inv = FP.mode === 'inv';
+    FP.state = {
+      pr: pr, data: data, ff: ff, it: 0, iters: FP.src === 'hf' ? 5000 : 4000, rc: mulberry32(99 + FP.seed),
+      plain: new Net(nf, FP.seed), pinn: new Net(nf, FP.seed),
+      Pp: { data: data, col: col, f: pr.f, fs: fs, lam: 0, wb: 1, ff: ff, inv: false },
+      Pi: { data: data, col: col, f: pr.f, fs: fs, lam: lam, wb: 1, ff: ff, inv: inv && lam > 0 },
+      hist: { pd: [], id: [], ip: [], ib: [] }
+    };
+    function frame() {
+      if (run !== FP.run) return;
+      var S = FP.state, t0 = performance.now(), Lp, Li;
+      while (S.it < S.iters && performance.now() - t0 < 10) {
+        for (var c = 0; c < 5 && S.it < S.iters; c++) {
+          if (FP.resample) for (var q = 0; q < col.length; q++) col[q] = (q + S.rc()) / col.length;
+          var lr = S.it < S.iters * 0.7 ? 0.01 : 0.003;
+          Lp = S.plain.step(S.Pp, lr); Li = S.pinn.step(S.Pi, lr);
+          S.it++;
+          if (S.it % 20 === 0) { S.hist.pd.push([S.it, Lp.Ld]); S.hist.id.push([S.it, Li.Ld]); S.hist.ip.push([S.it, Li.Lp]); S.hist.ib.push([S.it, Li.Lb]); }
+        }
+      }
+      drawFp();
+      if (S.it < S.iters) requestAnimationFrame(frame); else fpReport();
+    }
+    document.getElementById('fpNote').innerHTML = '<p class="small mb0 muted">Training…</p>';
+    requestAnimationFrame(frame);
+  }
+  function fpErr(net) {
+    var S = FP.state, e = 0;
+    for (var i = 0; i <= 200; i++) { var d = net.eval(i / 200, S.ff) - S.pr.u(i / 200); e += d * d; }
+    return Math.sqrt(e / 201);
+  }
+  function drawFp() {
+    var S = FP.state; if (!S) return;
+    var p = fpPlot; p.resize(); p.clear();
+    p.dom = [0, 1]; p.ran = [-0.6, 1.6];
+    p.frame({ xticks: 5, yticks: 4, xlabel: 'position along the rod, x', ylabel: 'temperature u',
+      xfmt: function (v) { return v.toFixed(1); }, yfmt: function (v) { return v.toFixed(1); } });
+    var tp = [], pp = [], ip = [], i;
+    for (i = 0; i <= 240; i++) {
+      var x = i / 240;
+      tp.push([x, S.pr.u(x)]);
+      pp.push([x, Math.max(-0.6, Math.min(1.6, S.plain.eval(x, S.ff)))]);
+      ip.push([x, Math.max(-0.6, Math.min(1.6, S.pinn.eval(x, S.ff)))]);
+    }
+    p.clip(function (g) {
+      p.line([[0, 0], [1, 0]], C('--line'), 1);
+      p.line(tp, C('--ink'), 2.2, [6, 4]);
+      p.line(pp, C('--bad'), 2.2);
+      p.line(ip, C('--accent'), 3);
+      S.data.forEach(function (d) { p.dot(d[0], d[1], 5.5, C('--warn'), C('--panel')); });
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      var lx = p.pad.l + 8, ly = p.pad.t + 14;
+      g.fillStyle = C('--ink'); g.fillText('exact', lx, ly);
+      g.fillStyle = C('--bad'); g.fillText('plain network (data only)', lx, ly + 15);
+      g.fillStyle = C('--accent'); g.fillText(S.Pi.lam > 0 ? 'PINN' : 'PINN with λ = 0 (same as plain)', lx, ly + 30);
+    });
+    /* loss curves */
+    var q = fpLoss; q.resize(); q.clear();
+    q.dom = [0, S.iters]; q.ran = [-8, 1];
+    q.frame({ xticks: 4, yticks: 3, xlabel: 'training step', ylabel: 'loss', xfmt: function (v) { return F.c(v); }, yfmt: H.supFmt });
+    q.clip(function (g) {
+      function L(h, col, w, dash) { q.line(h.map(function (a) { return [a[0], Math.max(-8, Math.min(1, lg(a[1])))]; }), col, w, dash); }
+      L(S.hist.pd, C('--bad'), 1.6, [4, 3]);
+      L(S.hist.id, C('--accent'), 2.2);
+      if (S.Pi.lam > 0) L(S.hist.ip, C('--warn'), 2.2);
+      L(S.hist.ib, C('--violet'), 1.6);
+      g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'right';
+      var rx = q.pad.l + q.pw - 6, ry = q.pad.t + 12;
+      g.fillStyle = C('--accent'); g.fillText('PINN data term', rx, ry);
+      g.fillStyle = C('--warn'); g.fillText('PINN PDE residual', rx, ry + 12);
+      g.fillStyle = C('--violet'); g.fillText('PINN boundary term', rx, ry + 24);
+      g.fillStyle = C('--bad'); g.fillText('plain network data term', rx, ry + 36);
+    });
+    setText('fpIt', 'step ' + F.n(S.it) + ' of ' + F.n(S.iters));
+    var ep = fpErr(S.plain), ei = fpErr(S.pinn);
+    setText('fpEPlain', ep.toFixed(3)); setText('fpEPinn', ei.toFixed(3));
+    setCls('bsFpPlain', 'bigstat ' + (ep < 0.03 ? 'good' : ep < 0.08 ? 'warn' : 'bad'));
+    setCls('bsFpPinn', 'bigstat ' + (ei < 0.03 ? 'good' : ei < 0.08 ? 'warn' : 'bad'));
+    setText('fpK', S.Pi.inv ? Math.exp(S.pinn.th).toFixed(3) : (FP.mode === 'inv' ? 'needs λ > 0' : 'given'));
+    FP.last = { ep: ep, ei: ei };
+  }
+  function fpReport() {
+    var S = FP.state, ep = FP.last.ep, ei = FP.last.ei, n = '<h4>Reading it</h4><p class="small mb0">';
+    if (S.Pi.lam === 0) n += 'Physics weight is zero, so the “PINN” is just the plain network again. Raise λ.';
+    else if (FP.src === 'hf' && !FP.ff && ei > 0.05) n += '<b style="color:var(--bad)">Spectral bias.</b> The PINN has the smooth part and has missed the ripple: its error is ' + ei.toFixed(3) + ' and the PDE residual has stalled. A tanh network learns low frequencies first and high ones very slowly. Tick <b>Fourier features</b> and retrain.';
+    else if (!FP.resample && FP.ncol <= 20 && ei > 0.05) n += '<b style="color:var(--bad)">Fitted the points, not the equation.</b> With ' + FP.ncol + ' fixed collocation points the residual can be made small at the points and large between them. Resampling the points each step, or adding points where the residual is large, is the standard fix.';
+    else {
+      n += 'Plain network error <b>' + ep.toFixed(3) + '</b>, PINN <b>' + ei.toFixed(3) + '</b>' + (ep > ei * 1.5 ? ' — the equation supplied what ' + FP.n + ' noisy sensors could not.' : '.');
+      var kl = Math.exp(S.pinn.th);
+      if (S.Pi.inv && Math.abs(kl - KT) / KT < 0.1) n += ' In inverse mode the conductivity has been learned from the sensors and the equation together: <b>k = ' + kl.toFixed(3) + '</b> against a true 0.600. This is the use case where a PINN is competitive.';
+      else if (S.Pi.inv) n += ' But look at the conductivity: <b>k = ' + kl.toFixed(2) + '</b> against a true 0.600. The network has found a smooth field that satisfies the equation with the wrong k, because ' + FP.n + ' sensors cannot see the ripple that would pin it down and the PDE term dominates the loss. An inverse problem is only as well posed as its measurements; more sensors or a lower physics weight help.';
+      else n += ' Note the training cost: thousands of optimiser steps for a problem a finite-difference solver does in microseconds. That is the honest comparison for a forward problem.';
+    }
+    n += '</p>';
+    document.getElementById('fpNote').innerHTML = n;
+  }
+
+  /* ------------------------------------------------ lab (b): hard vs soft */
+  var HC = { N: 40, noise: 0.05, lamIdx: 3, seed: 3, K: 8, res: null }, hcPlots = [];
+  var PI = Math.PI, BOX = [0.25, 0.75];
+  function uvT(x, y) {
+    return [PI * Math.sin(PI * x) * Math.cos(PI * y) + 0.7 * PI * Math.sin(2 * PI * x + 0.6) * Math.cos(2 * PI * y),
+      -(PI * Math.cos(PI * x) * Math.sin(PI * y) + 0.7 * PI * Math.cos(2 * PI * x + 0.6) * Math.sin(2 * PI * y))];
+  }
+  function hcLam(i) { return Math.pow(10, i - 3); }
+  function hcFit() {
+    var K = HC.K, r = mulberry32(HC.seed * 7 + 1), S = [], i, j, k, n = K * K, n2 = 2 * n;
+    for (i = 0; i < HC.N; i++) { var x = r(), y = r(), t = uvT(x, y); S.push([x, y, t[0] + HC.noise * PI * gauss(r), t[1] + HC.noise * PI * gauss(r)]); }
+    var cen = [], sp = 1.2 / (K - 1); for (i = 0; i < K; i++) cen.push(-0.1 + i * sp);
+    function g(x) { var a = new Float64Array(K), d = new Float64Array(K); for (var i = 0; i < K; i++) { var z = (x - cen[i]) / sp, e = Math.exp(-z * z); a[i] = e; d[i] = -2 * z / sp * e; } return [a, d]; }
+    function normal(sz) { var A = []; for (var i = 0; i < sz; i++) A.push(new Float64Array(sz)); return { A: A, b: new Array(sz).fill(0) }; }
+    function addRow(M, row, val, w) {
+      for (var i = 0; i < row.length; i++) {
+        var ri = row[i]; if (!ri) continue;
+        M.b[i] += w * ri * val;
+        var Ai = M.A[i]; for (var j = 0; j < row.length; j++) if (row[j]) Ai[j] += w * ri * row[j];
+      }
+    }
+    function ridge(M, sz) { var tr = 0; for (var i = 0; i < sz; i++) tr += M.A[i][i]; return 3e-3 * tr / sz; }
+    /* stream function model */
+    var Mp = normal(n);
+    S.forEach(function (s) {
+      var X = g(s[0]), Y = g(s[1]), ru = new Float64Array(n), rv = new Float64Array(n);
+      for (var i = 0; i < K; i++) for (var j = 0; j < K; j++) { ru[i * K + j] = X[0][i] * Y[1][j]; rv[i * K + j] = -X[1][i] * Y[0][j]; }
+      addRow(Mp, ru, s[2], 1); addRow(Mp, rv, s[3], 1);
+    });
+    var rp = ridge(Mp, n); for (i = 0; i < n; i++) Mp.A[i][i] += rp;
+    var cps = solveDense(Mp.A, Mp.b);
+    /* direct u, v model, optional divergence penalty */
+    function fitUV(lam) {
+      var M = normal(n2);
+      S.forEach(function (s) {
+        var X = g(s[0]), Y = g(s[1]), ru = new Float64Array(n2), rv = new Float64Array(n2);
+        for (var i = 0; i < K; i++) for (var j = 0; j < K; j++) { var v = X[0][i] * Y[0][j]; ru[i * K + j] = v; rv[n + i * K + j] = v; }
+        addRow(M, ru, s[2], 1); addRow(M, rv, s[3], 1);
+      });
+      var rg = ridge(M, n2);
+      if (lam > 0) {
+        var NC = 16;
+        for (var a = 0; a < NC; a++) for (var c = 0; c < NC; c++) {
+          var X = g((a + 0.5) / NC), Y = g((c + 0.5) / NC), rd = new Float64Array(n2);
+          for (var i = 0; i < K; i++) for (var j = 0; j < K; j++) { rd[i * K + j] = X[1][i] * Y[0][j]; rd[n + i * K + j] = X[0][i] * Y[1][j]; }
+          addRow(M, rd, 0, lam * HC.N / (NC * NC));
+        }
+      }
+      for (var q = 0; q < n2; q++) M.A[q][q] += rg;
+      return solveDense(M.A, M.b);
+    }
+    var c0 = fitUV(0), c1 = fitUV(hcLam(HC.lamIdx));
+    function evUV(c) {
+      return function (x, y) {
+        var X = g(x), Y = g(y), u = 0, v = 0, dv = 0;
+        for (var i = 0; i < K; i++) for (var j = 0; j < K; j++) {
+          var k = i * K + j;
+          u += c[k] * X[0][i] * Y[0][j]; v += c[n + k] * X[0][i] * Y[0][j];
+          dv += c[k] * X[1][i] * Y[0][j] + c[n + k] * X[0][i] * Y[1][j];
+        }
+        return [u, v, dv];
+      };
+    }
+    function evPsi(x, y) {
+      var X = g(x), Y = g(y), u = 0, v = 0, dudx = 0, dvdy = 0;
+      for (var i = 0; i < K; i++) for (var j = 0; j < K; j++) {
+        var c = cps[i * K + j];
+        u += c * X[0][i] * Y[1][j]; v -= c * X[1][i] * Y[0][j];
+        dudx += c * X[1][i] * Y[1][j]; dvdy -= c * X[1][i] * Y[1][j];
+      }
+      return [u, v, dudx + dvdy];
+    }
+    var models = [evUV(c0), evUV(c1), evPsi], out = [];
+    models.forEach(function (fn) {
+      var e = 0, sc = 0, d = 0, cnt = 0, ND = 40, div = new Float64Array(ND * ND);
+      for (var i = 0; i < 30; i++) for (var j = 0; j < 30; j++) {
+        var x = (i + 0.5) / 30, y = (j + 0.5) / 30, t = uvT(x, y), p = fn(x, y);
+        e += Math.pow(p[0] - t[0], 2) + Math.pow(p[1] - t[1], 2); sc += t[0] * t[0] + t[1] * t[1]; d += p[2] * p[2]; cnt++;
+      }
+      for (j = 0; j < ND; j++) for (i = 0; i < ND; i++) div[j * ND + i] = fn((i + 0.5) / ND, (j + 0.5) / ND)[2];
+      /* net outflow through the box, and total flow crossing it */
+      var net = 0, abs = 0, MQ = 200, a0 = BOX[0], a1 = BOX[1], L = a1 - a0;
+      for (var q = 0; q < MQ; q++) {
+        var s = a0 + L * (q + 0.5) / MQ, ds = L / MQ;
+        var fr = fn(a1, s)[0], fl = -fn(a0, s)[0], ft = fn(s, a1)[1], fb = -fn(s, a0)[1];
+        net += (fr + fl + ft + fb) * ds; abs += (Math.abs(fr) + Math.abs(fl) + Math.abs(ft) + Math.abs(fb)) * ds;
+      }
+      out.push({ fn: fn, err: Math.sqrt(e / sc), div: Math.sqrt(d / cnt), leak: Math.abs(net) / (abs / 2), dmap: div, ND: ND });
+    });
+    HC.res = { models: out, S: S };
+  }
+  function hcUpdate() {
+    hcFit();
+    var R = HC.res;
+    R.models.forEach(function (m, i) {
+      setText('hcE' + i, (m.err * 100).toFixed(1) + '%');
+      setText('hcD' + i, m.div < 1e-10 ? '0 (exact)' : m.div.toFixed(m.div < 0.1 ? 3 : 2));
+      setText('hcL' + i, m.leak < 1e-5 ? '< 0.001%' : (m.leak * 100).toFixed(m.leak < 0.01 ? 3 : 1) + '%');
+    });
+    var a = R.models[0], b = R.models[1], c = R.models[2];
+    var n = '<h4>Reading it</h4><p class="small mb0">';
+    n += 'Fitted freely, the velocity field leaks <b>' + (a.leak * 100).toFixed(1) + '%</b> of the flow through the box — mass is being created and destroyed inside it. The penalty at weight ' + F.sci(hcLam(HC.lamIdx), 0) +
+      ' cuts the divergence by a factor of ' + (a.div / Math.max(b.div, 1e-12)).toFixed(0) + ' but does not remove it. The stream-function model is divergence-free to rounding error for <em>any</em> data, because the constraint is in its structure, not its loss. ';
+    n += c.err < a.err ? 'Here it is also more accurate (' + (c.err * 100).toFixed(0) + '% against ' + (a.err * 100).toFixed(0) + '%): the right constraint is free information.' :
+      'Note it is not more accurate here (' + (c.err * 100).toFixed(0) + '% against ' + (a.err * 100).toFixed(0) + '%): a hard constraint guarantees the physics, not the fit.';
+    if (HC.lamIdx >= 5) n += ' At this penalty weight the soft model is fighting the data: watch its velocity error.';
+    n += '</p>';
+    document.getElementById('hcNote').innerHTML = n;
+    drawHc();
+  }
+  function drawHc() {
+    var R = HC.res; if (!R) return;
+    var dmax = 0; R.models[0].dmap.forEach(function (v) { dmax = Math.max(dmax, Math.abs(v)); });
+    dmax = Math.max(dmax, 1e-6);
+    R.models.forEach(function (m, idx) {
+      var p = hcPlots[idx];
+      H.drawHeat(p, m.dmap, m.ND, m.ND, H.cmapDiv(), -dmax, dmax, { signed: true, xlabel: 'x', ylabel: 'y', after: function (g) {
+        /* arrows */
+        g.strokeStyle = C('--ink'); g.fillStyle = C('--ink'); g.lineWidth = 1.1;
+        var NA = 11, sc = 0.032;
+        for (var i = 0; i < NA; i++) for (var j = 0; j < NA; j++) {
+          var x = (i + 0.5) / NA, y = (j + 0.5) / NA, v = m.fn(x, y);
+          var x2 = x + v[0] * sc, y2 = y + v[1] * sc, X1 = p.X(x), Y1 = p.Y(y), X2 = p.X(x2), Y2 = p.Y(y2);
+          var ang = Math.atan2(Y2 - Y1, X2 - X1);
+          g.beginPath(); g.moveTo(X1, Y1); g.lineTo(X2, Y2); g.stroke();
+          g.beginPath(); g.moveTo(X2, Y2); g.lineTo(X2 - 4 * Math.cos(ang - 0.5), Y2 - 4 * Math.sin(ang - 0.5)); g.lineTo(X2 - 4 * Math.cos(ang + 0.5), Y2 - 4 * Math.sin(ang + 0.5)); g.closePath(); g.fill();
+        }
+        g.setLineDash([5, 4]); g.strokeStyle = C('--violet'); g.lineWidth = 1.6;
+        g.strokeRect(p.X(BOX[0]), p.Y(BOX[1]), p.X(BOX[1]) - p.X(BOX[0]), p.Y(BOX[0]) - p.Y(BOX[1])); g.setLineDash([]);
+        R.S.forEach(function (s) { p.dot(s[0], s[1], 2.8, C('--warn'), C('--panel')); });
+      } });
+    });
+  }
+
+  /* ------------------------------------------------ lab (c): SINDy */
+  var SY = { noise: 0.05, thr: 0.1, sm: true, noCube: false }, syPlot, syBar;
+  var SYP = { k: 2, c: 0.3, a: 1 }, DT = 0.02, NS = 800;
+  var NAMES = ['1', 'x', 'v', 'x²', 'xv', 'v²', 'x³', 'x²v', 'xv²', 'v³'];
+  var TRUE_V = [0, -2, -0.3, 0, 0, 0, -1, 0, 0, 0], TRUE_X = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0];
+  function lib(x, v) { return [1, x, v, x * x, x * v, v * v, x * x * x, x * x * v, x * v * v, v * v * v]; }
+  function rk4(fn, s, dt) {
+    var k1 = fn(s), k2 = fn([s[0] + dt / 2 * k1[0], s[1] + dt / 2 * k1[1]]), k3 = fn([s[0] + dt / 2 * k2[0], s[1] + dt / 2 * k2[1]]), k4 = fn([s[0] + dt * k3[0], s[1] + dt * k3[1]]);
+    return [s[0] + dt / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]), s[1] + dt / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1])];
+  }
+  function trueRhs(s) { return [s[1], -SYP.k * s[0] - SYP.c * s[1] - SYP.a * s[0] * s[0] * s[0]]; }
+  var SY_TRUE = (function () { var s = [2, 0], o = [s]; for (var i = 1; i < NS; i++) { s = rk4(trueRhs, s, DT); o.push(s); } return o; })();
+  function stlsq(Th, y, thr, allowed) {
+    var p = allowed.length, act = allowed.slice(), xi = new Array(p).fill(0);
+    for (var it = 0; it < 10; it++) {
+      var idx = []; for (var i = 0; i < p; i++) if (act[i]) idx.push(i);
+      if (!idx.length) return new Array(p).fill(0);
+      var A = idx.map(function () { return new Array(idx.length).fill(0); }), b = new Array(idx.length).fill(0);
+      for (var k = 0; k < Th.length; k++) { var row = Th[k]; for (var a = 0; a < idx.length; a++) { var ra = row[idx[a]]; b[a] += ra * y[k]; for (var c = 0; c < idx.length; c++) A[a][c] += ra * row[idx[c]]; } }
+      for (a = 0; a < idx.length; a++) A[a][a] += 1e-9;
+      var s = solveDense(A, b), changed = false;
+      xi = new Array(p).fill(0);
+      idx.forEach(function (j, a) { if (Math.abs(s[a]) < thr) { act[j] = false; changed = true; } else xi[j] = s[a]; });
+      if (!changed) break;
+    }
+    return xi;
+  }
+  function syUpdate() {
+    var r = mulberry32(4), X = SY_TRUE.map(function (s) { return [s[0] + SY.noise * gauss(r), s[1] + SY.noise * gauss(r)]; });
+    var m = SY.sm ? 4 : 1, den = 0, q, i;
+    for (q = -m; q <= m; q++) den += q * q;
+    var Th = [], dx = [], dv = [];
+    for (i = m; i < NS - m; i++) {
+      var sx = 0, sv = 0, ax = 0, av = 0;
+      for (q = -m; q <= m; q++) { sx += q * X[i + q][0]; sv += q * X[i + q][1]; ax += X[i + q][0]; av += X[i + q][1]; }
+      var xs = SY.sm ? ax / (2 * m + 1) : X[i][0], vs = SY.sm ? av / (2 * m + 1) : X[i][1];
+      dx.push(sx / den / DT); dv.push(sv / den / DT); Th.push(lib(xs, vs));
+    }
+    var allowed = NAMES.map(function (nm, j) { return !(SY.noCube && j === 6); });
+    var cx = stlsq(Th, dx, SY.thr, allowed), cv = stlsq(Th, dv, SY.thr, allowed);
+    SY.cx = cx; SY.cv = cv; SY.X = X;
+    /* simulate the discovered model */
+    var s = [2, 0], sim = [s], ok = true;
+    function rhs(st) { var L = lib(st[0], st[1]), a = 0, b = 0; for (var j = 0; j < 10; j++) { a += cx[j] * L[j]; b += cv[j] * L[j]; } return [a, b]; }
+    for (i = 1; i < NS; i++) { s = rk4(rhs, s, DT); if (!(Math.abs(s[0]) < 20 && Math.abs(s[1]) < 40)) { ok = false; break; } sim.push(s); }
+    SY.sim = sim; SY.blew = !ok;
+    /* equation text */
+    function eq(c, lhs) {
+      var t = ''; c.forEach(function (v, j) { if (!v) return; var sgn = v < 0 ? ' − ' : (t ? ' + ' : ''); t += sgn + Math.abs(v).toFixed(3) + (j ? ' ' + NAMES[j] : ''); });
+      return lhs + ' = ' + (t || '0');
+    }
+    document.getElementById('syEq').innerHTML = eq(cx, 'ẋ') + '<br>' + eq(cv, 'v̇') +
+      '<small>true: ẋ = v &nbsp;·&nbsp; v̇ = − 2 x − 0.3 v − 1 x³</small>';
+    var extra = 0, missing = 0, maxe = 0;
+    [[cx, TRUE_X], [cv, TRUE_V]].forEach(function (pr) {
+      pr[0].forEach(function (v, j) { var t = pr[1][j]; if (v && !t) extra++; if (!v && t) missing++; if (t) maxe = Math.max(maxe, Math.abs(v - t) / Math.abs(t)); });
+    });
+    var V = document.getElementById('syVerdict'), cls, lvl, txt;
+    if (!extra && !missing && maxe < 0.1) { cls = 'ok'; lvl = 'Recovered the true equation'; txt = 'All four true terms and nothing else; largest coefficient error ' + (maxe * 100).toFixed(1) + '%.'; }
+    else if (missing && SY.noCube) { cls = 'hi'; lvl = 'A tidy, wrong equation'; txt = 'The true x³ term is not in the library, so the method found the best sparse substitute it could' + (extra ? ', with ' + extra + ' term' + (extra > 1 ? 's' : '') + ' that are not in the physics' : '') + '. It fits the data, and it is not the physics.'; }
+    else if (extra && !missing) { cls = 'mid'; lvl = extra + ' hallucinated term' + (extra > 1 ? 's' : ''); txt = 'Every true term is there, plus terms the physics does not contain — they are fitting noise. Raise the threshold, or smooth the derivatives.'; }
+    else if (missing) { cls = 'hi'; lvl = missing + ' true term' + (missing > 1 ? 's' : '') + ' missing'; txt = 'The threshold is above the size of a real coefficient' + (extra ? ', and ' + extra + ' spurious term' + (extra > 1 ? 's' : '') + ' remain' : '') + '. Lower it.'; }
+    else { cls = 'mid'; lvl = 'Right terms, biased coefficients'; txt = 'The structure is right but coefficients are off by up to ' + (maxe * 100).toFixed(0) + '% — noise in the states biases least squares.'; }
+    V.className = 'verdict ' + cls;
+    V.innerHTML = '<span class="lvl">' + lvl + '</span><span class="small">' + txt + (SY.blew ? ' The discovered model diverges when simulated.' : '') + '</span>';
+    drawSy();
+  }
+  function drawSy() {
+    if (!SY.sim) return;
+    var p = syPlot; p.resize(); p.clear();
+    p.dom = [0, NS * DT]; p.ran = [-2.6, 2.6];
+    p.frame({ xticks: 4, yticks: 4, xlabel: 'time, s', ylabel: 'displacement x',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(1); } });
+    p.clip(function (g) {
+      for (var i = 0; i < NS; i += 4) p.dot(i * DT, SY.X[i][0], 1.8, C('--warn'));
+      p.line(SY_TRUE.map(function (s, i) { return [i * DT, s[0]]; }), C('--ink'), 2, [6, 4]);
+      p.line(SY.sim.map(function (s, i) { return [i * DT, Math.max(-2.6, Math.min(2.6, s[0]))]; }), C('--accent'), 2.4);
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'right';
+      g.fillStyle = C('--accent'); g.fillText('discovered equation, simulated', p.pad.l + p.pw - 8, p.pad.t + 14);
+      g.fillStyle = C('--ink'); g.fillText('true motion', p.pad.l + p.pw - 8, p.pad.t + 28);
+      g.fillStyle = C('--warn'); g.fillText('measurements', p.pad.l + p.pw - 8, p.pad.t + 42);
+    });
+    var b = syBar; b.resize(); b.clear();
+    var lo = -3, hi = 1;
+    SY.cv.forEach(function (v) { lo = Math.min(lo, Math.floor(v - 0.2)); hi = Math.max(hi, Math.ceil(v + 0.2)); });
+    lo = Math.max(lo, -6); hi = Math.min(hi, 6);
+    b.dom = [0, 10]; b.ran = [lo, hi];
+    b.frame({ xticks: 1, yticks: hi - lo, ylabel: 'coefficient in v̇', xfmt: function () { return ''; }, yfmt: function (v) { return v.toFixed(1); } });
+    b.clip(function (g) {
+      var z = b.Y(0);
+      g.strokeStyle = C('--ink-3'); g.lineWidth = 1; g.beginPath(); g.moveTo(b.pad.l, z); g.lineTo(b.pad.l + b.pw, z); g.stroke();
+      for (var j = 0; j < 10; j++) {
+        var x0 = b.X(j + 0.18), w = b.X(j + 0.82) - x0, tv = TRUE_V[j], fv = Math.max(b.ran[0], Math.min(b.ran[1], SY.cv[j]));
+        g.fillStyle = (fv && !tv) ? C('--bad') : C('--accent');
+        if (fv) g.fillRect(x0 + 3, Math.min(z, b.Y(fv)), w - 6, Math.abs(b.Y(fv) - z));
+        if (tv) { g.strokeStyle = C('--ink'); g.lineWidth = 1.6; g.strokeRect(x0, Math.min(z, b.Y(tv)), w, Math.abs(b.Y(tv) - z)); }
+      }
+    });
+    var gg = b.ctx; gg.font = '600 11px ui-monospace,monospace'; gg.fillStyle = C('--ink-2'); gg.textAlign = 'center'; gg.textBaseline = 'top';
+    for (var j = 0; j < 10; j++) gg.fillText(NAMES[j], b.X(j + 0.5), b.pad.t + b.ph + 6);
+  }
+
+  /* ------------------------------------------------ init */
+  var prevInit = window.PAGE_INIT;
+  window.PAGE_INIT = function () {
+    if (prevInit) prevInit();
+    fpPlot = new AI.Plot(document.getElementById('fpCv'), { dom: [0, 1], ran: [-0.6, 1.6], pad: { l: 48, r: 14, t: 14, b: 42 } });
+    fpLoss = new AI.Plot(document.getElementById('fpLossCv'), { dom: [0, 4000], ran: [-8, 1], pad: { l: 52, r: 14, t: 10, b: 38 } });
+    var ready = false;
+    function restart() { if (ready) fpStart(); }
+    AI.bindRange('fpN', function (v) { return v; }, function (v) { FP.n = v; restart(); });
+    AI.bindRange('fpNoise', function (v) { return v.toFixed(3); }, function (v) { FP.noise = v; restart(); });
+    AI.bindRange('fpLam', function (v) { var l = lamOf(v); return v === 0 ? 'off' : (l < 1 ? l.toFixed(2) : l.toFixed(0)); }, function (v) { FP.lamIdx = v; restart(); });
+    AI.bindRange('fpCol', function (v) { return v; }, function (v) { FP.ncol = v; restart(); });
+    AI.segmented(document.getElementById('fpModeSeg'), function (v) { FP.mode = v; restart(); });
+    AI.segmented(document.getElementById('fpSrcSeg'), function (v) { FP.src = v; restart(); });
+    AI.on(document.getElementById('fpFF'), 'change', function (e) { FP.ff = e.target.checked; restart(); });
+    AI.on(document.getElementById('fpRes'), 'change', function (e) { FP.resample = e.target.checked; restart(); });
+    AI.on(document.getElementById('fpGo'), 'click', function () { FP.seed++; fpStart(); });
+    AI.onRedraw(drawFp);
+    ready = true;
+    setTimeout(fpStart, 400);
+
+    hcPlots = [0, 1, 2].map(function (i) { return new AI.Plot(document.getElementById('hcCv' + i), { dom: [0, 1], ran: [0, 1], pad: { l: 34, r: 16, t: 8, b: 30 } }); });
+    var hcReady = false;
+    function hcGo() { if (hcReady) hcUpdate(); }
+    AI.bindRange('hcN', function (v) { return v; }, function (v) { HC.N = v; hcGo(); });
+    AI.bindRange('hcNoise', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { HC.noise = v; hcGo(); });
+    AI.bindRange('hcLam', function (v) { return F.sci(hcLam(v), 0); }, function (v) { HC.lamIdx = v; hcGo(); });
+    AI.on(document.getElementById('hcNew'), 'click', function () { HC.seed++; hcUpdate(); });
+    AI.onRedraw(drawHc);
+    hcReady = true; hcUpdate();
+
+    syPlot = new AI.Plot(document.getElementById('syCv'), { dom: [0, 16], ran: [-2.6, 2.6], pad: { l: 48, r: 14, t: 14, b: 42 } });
+    syBar = new AI.Plot(document.getElementById('syBarCv'), { dom: [0, 10], ran: [-3, 1], pad: { l: 56, r: 14, t: 10, b: 26 } });
+    var syReady = false;
+    function syGo() { if (syReady) syUpdate(); }
+    AI.bindRange('syNoise', function (v) { return v.toFixed(2); }, function (v) { SY.noise = v; syGo(); });
+    AI.bindRange('syThr', function (v) { return v.toFixed(3); }, function (v) { SY.thr = v; syGo(); });
+    AI.segmented(document.getElementById('sySmSeg'), function (v) { SY.sm = v === 'sm'; syUpdate(); });
+    AI.on(document.getElementById('syNoCube'), 'change', function (e) { SY.noCube = e.target.checked; syUpdate(); });
+    AI.onRedraw(drawSy);
+    syReady = true; syUpdate();
   };
 })();
 </script>
