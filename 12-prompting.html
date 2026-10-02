@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12 · Prompting — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .promptout {
+    font-family: var(--mono); font-size: .84rem; line-height: 1.75; white-space: pre-wrap;
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r);
+    padding: 14px 16px; max-height: 480px; overflow-y: auto;
+  }
+  .promptout .sect { color: var(--accent); font-weight: 700; }
+  .promptout .ph { color: var(--ink-3); font-style: italic; }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 860px) { .ba { grid-template-columns: 1fr; } }
+  .bacard { border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; background: var(--panel); }
+  .bacard.bad { border-left: 3px solid var(--bad); }
+  .bacard.good { border-left: 3px solid var(--good); }
+  .bacard h5 { margin: 0 0 8px; font-size: .68rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 800; color: var(--ink-3); }
+  .bacard .pr {
+    font-family: var(--mono); font-size: .8rem; background: var(--bg-3); border-radius: 7px;
+    padding: 9px 11px; white-space: pre-wrap; margin-bottom: 9px; line-height: 1.6;
+  }
+  .bacard .rs { font-size: .85rem; color: var(--ink-2); }
+  .bacard .rs em { color: var(--ink-3); }
+  .steplist { display: grid; gap: 6px; }
+  .steplist button {
+    font: inherit; font-size: .86rem; text-align: left; padding: 9px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer; color: var(--ink);
+  }
+  .steplist button:hover { border-color: var(--accent); }
+  .steplist button.on { background: var(--accent-soft); border-color: var(--accent); }
+  .steplist button.on::before { content: attr(data-ord) ". "; font-weight: 800; color: var(--accent); }
+  .myth { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start;
+    border: 1px solid var(--line); border-radius: var(--r); padding: 13px 15px; margin-bottom: 8px; background: var(--panel); }
+  .myth .verd { font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
+    padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .myth .verd.no { background: var(--bad-soft); color: var(--bad); }
+  .myth .verd.yes { background: var(--good-soft); color: var(--good); }
+  .myth .verd.part { background: var(--warn-soft); color: var(--warn); }
+  .ex { border-left: 3px solid var(--accent); background: var(--bg-2); border-radius: 0 var(--r) var(--r) 0;
+    padding: 13px 16px; margin-bottom: 10px; }
+  .ex .t { font-weight: 660; font-size: .95rem; }
+  .ex .m { font-size: .74rem; color: var(--ink-3); font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+</style>
+</head>
+<body data-page="p12">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 12 · Part III — Applying it</span>
+  <h1>Prompting</h1>
+  <p class="lead">A workshop rather than a lecture. This is the skill that the largest number of people
+  in your company will actually use, it takes about an hour to teach, and the difference between doing
+  it badly and doing it well is roughly the difference between a novelty and a tool.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">The frame that makes this click</span>
+  <p class="mb0">Module 4 showed that the model predicts the most plausible continuation of the text in
+  front of it. So a prompt is not a command — it is <strong>a description of the situation in which the
+  answer you want would be the plausible thing to say</strong>. Everything below follows from that. You
+  are not persuading the model; you are narrowing the space of plausible continuations.</p>
+</div>
+
+<!-- ============================================= 12.1 -->
+<section class="chapter" id="builder">
+  <h2>12.1 · The anatomy of a working prompt</h2>
+  <p>Choose the task, switch on the components, and read the prompt that assembles below. It is real
+  text — copy it and use it.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Prompt builder</h3><span class="tag try">Start with everything off</span></div>
+    <div class="btnrow">
+      <span class="small muted" style="min-width:56px">Task</span>
+      <div class="segmented" id="taskSeg">
+        <button data-v="extract" class="on">Extract data</button>
+        <button data-v="summarise">Summarise</button>
+        <button data-v="draft">Draft a document</button>
+        <button data-v="classify">Classify</button>
+        <button data-v="analyse">Analyse / advise</button>
+        <button data-v="code">Write code</button>
+      </div>
+    </div>
+    <div class="split-wide">
+      <div>
+        <h4>Components</h4>
+        <div class="chips" id="compChips"></div>
+        <h4 class="mt1">Assembled prompt</h4>
+        <div class="promptout" id="promptOut"></div>
+        <div class="btnrow">
+          <button class="btn sm" id="pCopy">Copy the prompt</button>
+          <button class="btn sm" id="pAll">Switch everything on</button>
+          <button class="btn sm" id="pNone">Switch everything off</button>
+          <span class="small muted" id="pCopied"></span>
+        </div>
+      </div>
+      <div>
+        <div class="verdict" id="pVerdict"></div>
+        <div class="card mt1" id="pAdvice" style="min-height:320px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">The 80/20</span>
+    <p class="mb0">If you only ever add three things to your prompts, add these:
+    <strong>the context the model cannot know</strong>, <strong>the exact output format you want</strong>,
+    and <strong>permission to say it does not know</strong>. Those three fix most of what people complain
+    about, and each takes one sentence.</p>
+  </div>
+</section>
+
+<!-- ============================================= 12.2 -->
+<section class="chapter" id="beforeafter">
+  <h2>12.2 · Before and after</h2>
+  <p>Four real-shaped requests. The left column is what people type; the right is what makes it useful.
+  The difference is never cleverness — it is specificity.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Rewrite gallery</h3><span class="tag try">Click through all four</span></div>
+    <div class="btnrow">
+      <div class="segmented" id="baSeg">
+        <button data-v="0" class="on">Meeting notes</button>
+        <button data-v="1">Supplier assessment</button>
+        <button data-v="2">Test-data extraction</button>
+        <button data-v="3">Technical explanation</button>
+      </div>
+    </div>
+    <div class="ba" id="baHost"></div>
+    <div class="card mt1" id="baNote" style="min-height:100px"></div>
+  </div>
+</section>
+
+<!-- ============================================= 12.3 -->
+<section class="chapter" id="techniques">
+  <h2>12.3 · Six techniques, ranked by how much they pay</h2>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="color:var(--accent)">1 · Give the context it cannot have</h4>
+      <p class="small">The model does not know your company, your constraints, your reader or your
+      standards. Almost every disappointing answer is a missing-context problem rather than a model
+      problem.</p>
+      <p class="small mb0"><b>Do:</b> paste the relevant document, state who the reader is, say what has
+      already been decided and what is out of scope. <b>The most common improvement of all</b> is simply
+      pasting more of the actual material.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">2 · Specify the output exactly</h4>
+      <p class="small">“Summarise this” gets you a summary of unknown length in an unknown shape. Say
+      the shape: how many items, which fields, what order, how long, what to leave out.</p>
+      <p class="small mb0"><b>Do:</b> “A markdown table with columns Part, Finding, Severity (1–5),
+      Action. One row per finding. No preamble.” Being this prescriptive feels rude and works extremely
+      well.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">3 · Show two or three examples</h4>
+      <p class="small">Few-shot prompting. One worked example conveys more about tone, granularity and
+      format than a paragraph of description, because it <em>is</em> the format.</p>
+      <p class="small mb0"><b>Do:</b> include a real input and the exact output you would have written.
+      Best technique for consistency across many runs, and the one people use least.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">4 · Let it work before it answers</h4>
+      <p class="small">“Work through the calculation step by step before giving the answer” measurably
+      improves multi-step reasoning, because each intermediate step becomes context for the next one
+      (module 4.3).</p>
+      <p class="small mb0"><b>Note for 2026:</b> reasoning models do this internally, so the explicit
+      instruction adds little with them and still helps with ordinary models. Ask for the working when
+      you need to <em>check</em> it, which for anything numerical is always.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">5 · Permit “I don't know”</h4>
+      <p class="small">Left to itself, the model produces the most plausible answer, and a plausible
+      answer to an unanswerable question is an invention (module 4.3). Make the honest answer an explicitly
+      available option.</p>
+      <p class="small mb0"><b>Do:</b> “If the documents do not contain the answer, reply exactly: NOT IN
+      SOURCES. Do not use outside knowledge.” Cheapest hallucination reduction available.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">6 · Split the task</h4>
+      <p class="small">A prompt asking for six things at once does all six adequately. Three prompts
+      each asking for one thing do each one well, and you can inspect the intermediate results.</p>
+      <p class="small mb0"><b>Do:</b> extract, then analyse, then write. Section 12.4 has an exercise.
+      This is also the difference between a fragile demo and a reliable process.</p>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">One more, for anything that matters</span>
+    <p class="mb0"><strong>Ask for the sources and check them.</strong> “Quote the exact sentence you are
+    relying on, with its clause number” turns a fluent claim into something verifiable in ten seconds.
+    If it cannot produce the quotation, you have learned something important.</p>
+  </div>
+</section>
+
+<!-- ============================================= 12.4 -->
+<section class="chapter" id="decompose">
+  <h2>12.4 · Exercise: split a real task</h2>
+  <p>The request: <em>“Produce a two-page risk brief on supplier Rossi Componenti for the sourcing
+  committee.”</em> Handing that to a model in one prompt produces something generic and unusable. Build
+  the pipeline instead — click the steps you would use, in order.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Decomposition</h3><span class="tag try">Pick four to six steps</span></div>
+    <div class="split">
+      <div>
+        <div class="steplist" id="stepHost"></div>
+        <div class="btnrow">
+          <button class="btn sm" id="stReset">Clear</button>
+          <button class="btn primary" id="stReveal">Compare with a worked answer</button>
+        </div>
+      </div>
+      <div>
+        <div class="card" id="stNote" style="min-height:340px"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 12.5 -->
+<section class="chapter" id="debug">
+  <h2>12.5 · When it is not working</h2>
+  <p>A diagnostic table. Pick the symptom.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Prompt troubleshooting</h3><span class="tag try">Pick what is going wrong</span></div>
+    <div class="chips" id="symChips"></div>
+    <div class="card mt1" id="symNote" style="min-height:230px">
+      <p class="small muted mb0">Select a symptom.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 12.6 -->
+<section class="chapter" id="myths">
+  <h2>12.6 · What does not help</h2>
+  <p>A lot of prompt folklore circulates. Some of it is real, some is cargo cult. Honest verdicts,
+  with the reasoning.</p>
+
+  <div id="mythHost"></div>
+
+  <div class="callout">
+    <span class="ctitle">How to tell folklore from technique</span>
+    <p class="mb0">A real technique <strong>gives the model information or structure it did not have</strong>.
+    Folklore tries to change its attitude. Context, examples, format specifications and decomposition are
+    information. Flattery, threats, urgency and incantations are attitude — and while some of them
+    produced measurable effects on older models, none of them is a reliable engineering practice. If you
+    want to know whether something works for your task, you now know how to find out: the evaluation set
+    from module 8.</p>
+  </div>
+</section>
+
+<!-- ============================================= 12.7 -->
+<section class="chapter" id="workshop">
+  <h2>12.7 · Run the workshop</h2>
+  <p>Five exercises, about fifty minutes. People work on their own laptops with whatever approved tool
+  you have; the value is in comparing results out loud after each one.</p>
+
+  <div id="exHost"></div>
+
+  <div class="callout key">
+    <span class="ctitle">How to run it so it lands</span>
+    <p class="mb0">After each exercise, ask two people to read out their prompt — not their result. The
+    room learns far more from hearing how differently two people framed the same request than from
+    seeing a good output. And keep exercise 5 to the end: discovering that the model will confidently
+    invent a clause number is the lesson people carry back to their desks.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>This module is the easiest sell of the fifteen and the one people request. Use that: it is a
+      good first session for a sceptical department, with module 1 and the RAG demo from module 4.8.</li>
+      <li>Do not let it become a tips-and-tricks session. Anchor every technique back to “narrowing the
+      space of plausible continuations” from the top of this page, or in six months people will be
+      repeating incantations they do not understand.</li>
+      <li>Have a strong opinion ready on the myths section. People have read a great deal of nonsense
+      and will be relieved to be told which parts they can stop doing.</li>
+      <li>Collect the prompts people write. They are the beginning of your organisation's prompt library
+      and, more usefully, of the evaluation set from module 8.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>People can now get good output. The next question is whether they will use it well — which is a
+  question about people, not models.</p>
+  <p><a href="13-human.html"><strong>Module 13 · Human factors and adoption →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  /* ============================================ 12.1 prompt builder */
+  var TASKS = {
+    extract: {
+      name: 'Extract data',
+      role: 'You are a careful data-extraction assistant working with engineering documents.',
+      task: 'Extract every torque specification mentioned in the document below.',
+      ctx: '<<< paste the document here >>>',
+      fmt: 'Return a markdown table with exactly these columns: Fastener, Torque (Nm), Tolerance, Clause.\nOne row per specification. No preamble, no closing remarks.',
+      ex: 'Example\nInput:  "Rear suspension mounting bolts shall be tightened to 92 Nm ±4 Nm. (§4.2)"\nOutput: | Rear suspension mounting bolts | 92 | ±4 | §4.2 |',
+      cons: 'Use only the document above. Do not convert units. Do not infer values that are not stated.',
+      idk: 'If the document contains no torque specifications, reply exactly: NONE FOUND.',
+      think: '',
+      aud: '',
+      check: 'Before answering, verify that every row you produce appears verbatim in the document.',
+      must: ['ctx', 'fmt', 'cons', 'idk'],
+      why: 'Extraction is the task where format and constraints matter most and creativity matters least. Keep temperature near zero, forbid inference, and require the clause reference so every row is checkable in seconds.'
+    },
+    summarise: {
+      name: 'Summarise',
+      role: 'You are an assistant helping a busy engineering manager.',
+      task: 'Summarise the meeting notes below.',
+      ctx: '<<< paste the notes here >>>',
+      fmt: 'Produce exactly three sections:\n1. Decisions taken (bullets, max 5)\n2. Open questions with an owner named (bullets, max 5)\n3. Actions with owner and date (table: Action, Owner, Due)\nTotal length under 250 words.',
+      ex: '',
+      cons: 'Do not include background or restate the agenda. If an owner is not named in the notes, write "UNASSIGNED" rather than guessing.',
+      idk: 'If a section has no content, write "None recorded" rather than inventing items.',
+      think: '',
+      aud: 'The reader is the department head, who was not in the meeting and has two minutes.',
+      check: '',
+      must: ['ctx', 'fmt', 'aud', 'idk'],
+      why: 'Summarisation fails by being generic. Naming the reader and capping the length forces selection, which is the actual work. The "UNASSIGNED" rule stops the most common quiet error: inventing an owner.'
+    },
+    draft: {
+      name: 'Draft a document',
+      role: 'You are drafting for an engineer who will review and sign the final text.',
+      task: 'Draft a deviation request for the issue described below.',
+      ctx: '<<< describe the issue, the affected part, and the standard clause >>>',
+      fmt: 'Follow our deviation template: Title, Affected item, Standard and clause, Description of deviation, Technical justification, Risk assessment, Proposed disposition, Approvals required.',
+      ex: '',
+      cons: 'Use neutral technical register. No superlatives. Do not assert test results that were not provided. Mark anything you could not determine as [TO BE COMPLETED].',
+      idk: '',
+      think: '',
+      aud: 'It will be read by the design authority and the quality manager, who are sceptical and time-poor.',
+      check: 'End with a list of the facts you had to assume, so the reviewer can verify them.',
+      must: ['ctx', 'fmt', 'cons', 'check'],
+      why: 'Drafting works well because a human reviews the output. The critical additions are the template (so it lands in the right shape) and the assumption list at the end — which turns a plausible document into a reviewable one.'
+    },
+    classify: {
+      name: 'Classify',
+      role: 'You are classifying incoming quality reports.',
+      task: 'Assign each report below to exactly one category.',
+      ctx: '<<< paste the reports, one per line >>>',
+      fmt: 'Return JSON: [{"id": "...", "category": "...", "confidence": "high|medium|low"}]\nNothing else.',
+      ex: 'Categories and their definitions:\n- SURFACE: cosmetic marks, no dimensional impact\n- DIMENSIONAL: outside drawing tolerance\n- MATERIAL: porosity, inclusions, wrong alloy\n- ASSEMBLY: fit, torque, missing component\n- OTHER: none of the above\n\nExample: "small scratch on visible face, 3 mm" → SURFACE',
+      cons: 'Use only these five categories. Never invent a category. Never return more than one category per report.',
+      idk: 'If a report is too vague to classify, use OTHER with confidence "low".',
+      think: '',
+      aud: '',
+      check: '',
+      must: ['ctx', 'fmt', 'ex', 'cons'],
+      why: 'Classification lives or dies on the category definitions — which are the same written label definitions from module 7.2. Notice that this prompt is mostly a labelling guideline. If you cannot write it, no model can do the task consistently, and neither can your people.'
+    },
+    analyse: {
+      name: 'Analyse / advise',
+      role: 'You are a critical technical reviewer, not an enthusiast.',
+      task: 'Assess the proposal below and identify its weakest assumptions.',
+      ctx: '<<< paste the proposal >>>',
+      fmt: 'Produce: (a) the three strongest objections, each with what evidence would settle it; (b) what you would need to see before approving; (c) one thing the proposal gets right.',
+      ex: '',
+      cons: 'Do not summarise the proposal back to me. Be specific to this document, not generic. If you disagree with my framing of the question, say so first.',
+      idk: 'Where you lack information to judge something, say so explicitly rather than hedging.',
+      think: 'Work through the argument before concluding.',
+      aud: '',
+      check: '',
+      must: ['ctx', 'cons', 'idk', 'think'],
+      why: 'This is the task most vulnerable to sycophancy (module 4.9). Asking for objections rather than an opinion, and explicitly inviting disagreement with your framing, is how you get something other than agreement. Never ask "is this a good idea?" — ask "what is wrong with it?"'
+    },
+    code: {
+      name: 'Write code',
+      role: 'You are writing code that a colleague will review and maintain.',
+      task: 'Write a function that parses our test-rig CSV export and returns a dataframe of channel statistics.',
+      ctx: '<<< paste a representative sample of the file, including the header rows and one data row >>>',
+      fmt: 'Python 3.11, pandas, type hints, docstring. Return only the function and its imports.',
+      ex: '',
+      cons: 'No external dependencies beyond pandas and numpy. Handle the case where the file has a variable number of metadata rows before the header. Raise a clear exception rather than returning partial data.',
+      idk: 'If the sample is ambiguous about the format, list your questions instead of guessing.',
+      think: '',
+      aud: '',
+      check: 'Include three pytest test cases, one of which uses a malformed file.',
+      must: ['ctx', 'fmt', 'cons', 'check'],
+      why: 'The two things that transform code output: a <b>real sample of the actual data</b> (not a description of it), and tests. Asking for tests also forces the model to state its assumptions about edge cases, which is where generated code usually breaks.'
+    }
+  };
+  var COMPS = [
+    ['role', 'Role / stance'],
+    ['task', 'The task'],
+    ['ctx', 'Context & source material'],
+    ['aud', 'Who the reader is'],
+    ['fmt', 'Exact output format'],
+    ['ex', 'Worked example(s)'],
+    ['cons', 'Constraints & what not to do'],
+    ['idk', 'Permission to say “I don’t know”'],
+    ['think', 'Work before answering'],
+    ['check', 'Self-check / assumptions']
+  ];
+  var PB = { task: 'extract', on: { task: true } };
+  function buildPrompt() {
+    var T = TASKS[PB.task], out = '', i;
+    var order = ['role', 'task', 'aud', 'ctx', 'ex', 'fmt', 'cons', 'idk', 'think', 'check'];
+    var LABEL = {
+      role: 'ROLE', task: 'TASK', aud: 'READER', ctx: 'SOURCE MATERIAL', ex: 'EXAMPLE',
+      fmt: 'OUTPUT FORMAT', cons: 'CONSTRAINTS', idk: 'IF UNCERTAIN', think: 'METHOD', check: 'BEFORE YOU FINISH'
+    };
+    order.forEach(function (k) {
+      if (!PB.on[k] || !T[k]) return;
+      out += '<span class="sect">' + LABEL[k] + '</span>\n' + esc(T[k]).replace(/&lt;&lt;&lt;([^&]*)&gt;&gt;&gt;/g,
+        '<span class="ph">&lt;&lt;&lt;$1&gt;&gt;&gt;</span>') + '\n\n';
+    });
+    document.getElementById('promptOut').innerHTML = out || '<span class="ph">Nothing selected. Switch on “The task” to begin.</span>';
+
+    /* plain text for copying */
+    var plain = '';
+    order.forEach(function (k) {
+      if (!PB.on[k] || !T[k]) return;
+      plain += LABEL[k] + '\n' + T[k] + '\n\n';
+    });
+    window.__prompt = plain;
+
+    /* scoring */
+    var have = T.must.filter(function (k) { return PB.on[k]; }).length;
+    var score = T.must.length ? have / T.must.length : 0;
+    var extras = COMPS.filter(function (c) { return PB.on[c[0]] && T.must.indexOf(c[0]) < 0 && c[0] !== 'task'; }).length;
+    var v = document.getElementById('pVerdict');
+    if (!PB.on.task) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">No task stated</span>Everything else is decoration until the prompt says what to do.';
+    } else if (score >= 1) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Strong prompt for this task</span>' +
+        'All the components that matter for <b>' + T.name.toLowerCase() + '</b> are present' +
+        (extras ? ', plus ' + extras + ' useful extra' + (extras > 1 ? 's' : '') : '') + '.';
+    } else if (score >= 0.5) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Usable, with gaps</span>' +
+        have + ' of ' + T.must.length + ' high-value components present for this task type.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">This will disappoint you</span>' +
+        'Only ' + have + ' of ' + T.must.length + ' high-value components. The output will be generic, and it will not be the model’s fault.';
+    }
+
+    var a = '<h4>For a “' + T.name.toLowerCase() + '” task, what matters most</h4>';
+    a += '<p class="small">' + T.why + '</p>';
+    var missing = T.must.filter(function (k) { return !PB.on[k]; });
+    if (missing.length) {
+      a += '<p class="small" style="margin-bottom:.3em"><b>Switch these on:</b></p><ul class="small">';
+      missing.forEach(function (k) {
+        var label = COMPS.filter(function (c) { return c[0] === k; })[0][1];
+        a += '<li><b>' + label + '</b> — ' + ({
+          ctx: 'without the source material the model is guessing from general knowledge, which is exactly how you get confident inventions.',
+          fmt: 'unspecified format means you will reformat the answer by hand every single time.',
+          cons: 'constraints are how you stop the specific failure you have already seen twice.',
+          idk: 'without it, an unanswerable question gets a plausible answer rather than an honest one.',
+          ex: 'one worked example replaces three paragraphs of description, and is far more reliable.',
+          aud: 'naming the reader is what turns a generic answer into a useful one.',
+          check: 'a self-check or assumption list makes the output reviewable instead of merely readable.',
+          think: 'for multi-step reasoning, letting it work first measurably improves the answer — and lets you check it.'
+        }[k] || 'recommended for this task.') + '</li>';
+      });
+      a += '</ul>';
+    } else {
+      a += '<p class="small" style="color:var(--good)"><b>Nothing essential missing.</b> The remaining components are situational — add them when the task needs them, not by default. A prompt with everything switched on is long, and long prompts cost tokens and dilute attention.</p>';
+    }
+    a += '<p class="small muted mb0">Note how much of a good prompt is simply <b>writing down what you already know</b> about the task. That is why prompting is a communication skill and why the best prompts in your organisation will be written by the people who understand the work.</p>';
+    document.getElementById('pAdvice').innerHTML = a;
+  }
+  function initBuilder() {
+    var host = document.getElementById('compChips');
+    host.innerHTML = COMPS.map(function (c) {
+      return '<button data-k="' + c[0] + '"' + (PB.on[c[0]] ? ' class="on"' : '') + '>' + c[1] + '</button>';
+    }).join('');
+    host.addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      var k = e.target.getAttribute('data-k');
+      PB.on[k] = !PB.on[k];
+      e.target.classList.toggle('on', !!PB.on[k]);
+      buildPrompt();
+    });
+    function paint() {
+      AI.qsa('button', host).forEach(function (b) {
+        b.classList.toggle('on', !!PB.on[b.getAttribute('data-k')]);
+        var k = b.getAttribute('data-k');
+        b.style.display = TASKS[PB.task][k] ? '' : 'none';
+      });
+    }
+    AI.segmented(document.getElementById('taskSeg'), function (v) { PB.task = v; paint(); buildPrompt(); });
+    AI.on(document.getElementById('pAll'), 'click', function () {
+      COMPS.forEach(function (c) { PB.on[c[0]] = true; });
+      paint(); buildPrompt();
+    });
+    AI.on(document.getElementById('pNone'), 'click', function () {
+      PB.on = { task: true }; paint(); buildPrompt();
+    });
+    AI.on(document.getElementById('pCopy'), 'click', function () {
+      try {
+        navigator.clipboard.writeText(window.__prompt || '');
+        document.getElementById('pCopied').textContent = 'Copied.';
+      } catch (e) {
+        document.getElementById('pCopied').textContent = 'Copy failed — select the text above.';
+      }
+      setTimeout(function () { document.getElementById('pCopied').textContent = ''; }, 2500);
+    });
+    paint(); buildPrompt();
+  }
+
+  /* ============================================ 12.2 before/after */
+  var BA = [
+    {
+      n: 'Meeting notes',
+      bad: { p: 'summarise these meeting notes', r: 'A seven-paragraph retelling that restates the agenda, describes the discussion in the order it happened, buries the two decisions in the middle of paragraph four, and omits who owns anything. Roughly as long as the notes.' },
+      good: { p: 'Summarise the notes below for the department head, who was not present and has two minutes.\n\nProduce exactly three sections:\n1. Decisions taken (max 5 bullets)\n2. Open questions, each with a named owner\n3. Actions — table: Action | Owner | Due\n\nUnder 250 words. If an owner is not named in the notes, write UNASSIGNED rather than guessing.\n\n<notes>…</notes>',
+        r: 'Three decisions, two open questions with owners, four actions in a table — and two entries marked UNASSIGNED, which immediately tells you what the meeting failed to settle.' },
+      note: 'The improvement is not better prose. It is that the output has a <b>shape matched to the reader</b> and that the UNASSIGNED rule converts a gap in the notes into visible information. That last trick — naming the placeholder for missing data — is worth stealing for almost every extraction task.'
+    },
+    {
+      n: 'Supplier assessment',
+      bad: { p: 'is Rossi Componenti a good supplier?', r: 'A balanced-sounding four-paragraph essay about the importance of evaluating suppliers on quality, cost, delivery and sustainability, containing no information about Rossi Componenti, because the model has none. Possibly one invented detail.' },
+      good: { p: 'Below are: the last 8 quarters of delivery performance, the 2026 audit report, and 3 non-conformance records for Rossi Componenti.\n\nIdentify the three strongest concerns a sourcing committee should raise, each with the specific evidence from these documents. Then state what additional information you would need to judge the remaining risk. Do not summarise the documents back to me.\n\nIf the documents do not support a concern, do not raise it.\n\n<documents>…</documents>',
+        r: 'Three specific concerns citing the actual delivery figures and audit findings, plus a short list of what is missing — which turns out to be the most useful part of the answer.' },
+      note: 'The bad prompt asks a question the model <b>cannot possibly answer</b> and gets an essay, because an essay is the plausible continuation of an unanswerable question. Supplying the documents changes the task from recall to reading, which is what these systems are genuinely good at.'
+    },
+    {
+      n: 'Test-data extraction',
+      bad: { p: 'pull out the important numbers from this test report', r: 'A mixed prose-and-bullet response listing some values, with units sometimes converted, one number transcribed wrongly, no traceability to where anything came from, and no indication of what it skipped.' },
+      good: { p: 'Extract every measured channel value from the report below.\n\nReturn a markdown table with exactly these columns: Channel, Value, Unit, Page.\nOne row per measurement. No preamble.\n\nUse only values that appear explicitly in the report. Do not convert units. Do not compute derived quantities.\nIf a channel appears with no value, write MISSING.\n\nExample row: | Oil temp inlet | 91.4 | °C | 7 |\n\n<report>…</report>',
+        r: 'A table you can paste into a spreadsheet, every row traceable to a page, and MISSING entries showing exactly where the report is incomplete.' },
+      note: 'Three things did the work: <b>a fixed schema</b>, <b>a ban on inference</b> (no unit conversion, no derived values), and <b>a page reference per row</b> so a human can spot-check five rows in a minute. This is the shape of every extraction prompt that survives contact with real documents.'
+    },
+    {
+      n: 'Technical explanation',
+      bad: { p: 'explain how our cooling system works', r: 'A generic description of automotive cooling systems — radiator, pump, thermostat, coolant — that is broadly correct, entirely unspecific to your system, and could have come from an encyclopedia.' },
+      good: { p: 'Using only the attached system description and P&ID, explain the coolant flow path for a new graduate engineer joining the team on Monday.\n\nStructure: (1) the path in order, component by component; (2) the three control decisions the system makes and what triggers each; (3) the two failure modes the drawing suggests, and how they would be detected.\n\nUse our component names exactly as they appear in the drawing. Where the drawing is ambiguous, say so rather than filling the gap.\n\n<attachments>…</attachments>',
+        r: 'An onboarding document specific to your system, using your component names, with the ambiguities in your own drawing flagged — which is useful feedback about the drawing.' },
+      note: 'Note the by-product: asking it to flag ambiguity instead of filling gaps turns the model into a <b>reviewer of your documentation</b>. Several teams find this more valuable than the explanation itself.'
+    }
+  ];
+  var baI = 0;
+  function drawBa() {
+    var b = BA[baI];
+    document.getElementById('baHost').innerHTML =
+      '<div class="bacard bad"><h5>What people type</h5><div class="pr">' + esc(b.bad.p) + '</div>' +
+      '<div class="rs"><em>What comes back:</em> ' + b.bad.r + '</div></div>' +
+      '<div class="bacard good"><h5>What makes it useful</h5><div class="pr">' + esc(b.good.p) + '</div>' +
+      '<div class="rs"><em>What comes back:</em> ' + b.good.r + '</div></div>';
+    document.getElementById('baNote').innerHTML = '<h4>Why</h4><p class="small mb0">' + b.note + '</p>';
+  }
+
+  /* ============================================ 12.4 decomposition */
+  var STEPS = [
+    ['Ask the model to write the whole brief in one prompt', false, 'This is the thing we are replacing. It produces something generic because no single prompt carries enough context, and you cannot inspect where it went wrong.'],
+    ['Gather the source material: delivery data, audit report, NCRs, contract', true, 'First and most important. Everything downstream depends on what you put in front of it — and this step is not an AI step at all.'],
+    ['Extract structured facts from each document separately', true, 'One document per prompt, with a fixed schema. Short, checkable outputs you can verify in minutes.'],
+    ['Have the model invent plausible benchmark figures for the industry', false, 'Never. This is asking for fabrication in an official document. If you need benchmarks, retrieve them.'],
+    ['Consolidate the extracted facts into one table, and check it yourself', true, 'A human checkpoint on a small structured artefact. Cheap, fast, and it catches extraction errors before they are laundered into prose.'],
+    ['Ask for the three strongest concerns, with evidence from the table only', true, 'Now the analysis step, working from verified facts rather than raw documents. Constrain it to the table so every claim is traceable.'],
+    ['Ask what additional information would change the conclusion', true, 'Optional and high value. It produces the committee’s question list and exposes where your data is thin.'],
+    ['Draft the two-page brief from the concerns, in the committee template', true, 'Writing last, from verified inputs. This is the step people start with and it should be nearly the final one.'],
+    ['Ask the model to confirm the brief is accurate', false, 'Worthless. It will agree — see sycophancy in module 4.9. Verification has to come from the sources or from a person, never from the same model that wrote the text.'],
+    ['Have a human review against the sources before it goes out', true, 'Non-negotiable for anything that carries your name to a committee.']
+  ];
+  var picked = [];
+  function drawSteps() {
+    var host = document.getElementById('stepHost');
+    if (!host.dataset.built) {
+      host.innerHTML = STEPS.map(function (s, i) {
+        return '<button data-i="' + i + '">' + s[0] + '</button>';
+      }).join('');
+      host.dataset.built = '1';
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        var i = parseInt(e.target.getAttribute('data-i'), 10);
+        var at = picked.indexOf(i);
+        if (at >= 0) picked.splice(at, 1); else picked.push(i);
+        drawSteps();
+      });
+    }
+    AI.qsa('button', host).forEach(function (b) {
+      var i = parseInt(b.getAttribute('data-i'), 10), at = picked.indexOf(i);
+      b.classList.toggle('on', at >= 0);
+      b.setAttribute('data-ord', at >= 0 ? (at + 1) : '');
+    });
+    if (!picked.length) {
+      document.getElementById('stNote').innerHTML =
+        '<h4>Build the pipeline</h4><p class="small mb0">Click the steps you would use, in the order you would run them. Four of the ten are traps. When you are done, compare with a worked answer.</p>';
+      return;
+    }
+    var good = picked.filter(function (i) { return STEPS[i][1]; }).length;
+    var bad = picked.length - good;
+    var h = '<h4>Your pipeline — ' + picked.length + ' steps</h4><ol class="small">';
+    picked.forEach(function (i) {
+      h += '<li' + (STEPS[i][1] ? '' : ' style="color:var(--bad)"') + '>' + STEPS[i][0] +
+        (STEPS[i][1] ? '' : ' — <b>trap</b>') + '</li>';
+    });
+    h += '</ol>';
+    if (bad) h += '<p class="small" style="color:var(--bad)"><b>' + bad + ' trap' + (bad > 1 ? 's' : '') + ' included.</b> Press the compare button for why.</p>';
+    else h += '<p class="small" style="color:var(--good)"><b>No traps.</b> Press the compare button to see the worked answer and the reasoning.</p>';
+    document.getElementById('stNote').innerHTML = h;
+  }
+  function revealSteps() {
+    var h = '<h4>Worked answer</h4><p class="small">A pipeline that works, and why each step is where it is:</p><ol class="small">';
+    STEPS.forEach(function (s, i) { if (s[1]) h += '<li><b>' + s[0] + '</b><br><span class="muted">' + s[2] + '</span></li>'; });
+    h += '</ol><p class="small" style="margin-bottom:.3em"><b>The traps, and why:</b></p><ul class="small">';
+    STEPS.forEach(function (s, i) { if (!s[1]) h += '<li><b>' + s[0] + '</b> — ' + s[2] + '</li>'; });
+    h += '</ul><p class="small mb0"><b>The shape to remember:</b> gather → extract → <i>human checkpoint</i> → analyse → draft → <i>human review</i>. The model does the reading and the writing; a person checks the small structured artefact in the middle, where checking is cheap. Put the human checkpoint on the table of facts, not on the finished prose — nobody can verify twelve paragraphs, and everybody can verify twelve rows.</p>';
+    document.getElementById('stNote').innerHTML = h;
+  }
+
+  /* ============================================ 12.5 troubleshooting */
+  var SYM = [
+    ['verbose', 'Too long and waffly', 'Cap it explicitly and ban the padding. “Under 150 words. No preamble, no summary of my question, no closing offer of further help.” Models pad because padding is the plausible shape of a helpful answer; you have to say you do not want it. If it still bloats, ask for a table — structure suppresses prose.'],
+    ['format', 'Ignores the format I asked for', 'Show the format instead of describing it — one worked example does what three sentences cannot. For machine-readable output, ask for JSON only, specify the exact keys, say “no markdown fences”, and use the provider’s structured-output or JSON mode if it has one. Then validate the output in code and retry on failure; do not assume it will always comply.'],
+    ['invent', 'Makes things up', 'Three fixes, in order of effect: <b>give it the sources</b> (module 4.8), <b>require quotations with references</b> for every claim, and <b>permit refusal</b> — “if the sources do not contain the answer, reply NOT IN SOURCES”. Also drop the temperature. Invention is the default behaviour of a system optimised for plausibility, not a malfunction you can scold away.'],
+    ['ignore', 'Ignores some of my instructions', 'Usually too many instructions at once, or instructions buried in the middle of a long prompt. Cut the prompt into separate calls; put the most important constraints at the <b>end</b>, closest to where generation starts; and number them. If two instructions conflict — “be brief” and “cover all eight points” — it will silently pick one.'],
+    ['generic', 'Generic, could apply to any company', 'You have not given it anything company-specific, so it is answering from general knowledge (module 12.2, supplier example). Paste the actual documents, name the actual constraints, use your own component names, and ban restating the question. Specificity in equals specificity out.'],
+    ['agree', 'Just agrees with whatever I say', 'Sycophancy from preference tuning (module 4.6). Never ask “is this good?”. Ask “what are the three strongest objections?”, “what would have to be true for this to fail?”, or present the idea as someone else’s. And treat agreement as zero evidence, always.'],
+    ['inconsistent', 'Different answer every time', 'Sampling (module 4.3). Set temperature near zero for anything deterministic, pin the model version, and put the same input through a fixed prompt template rather than typing it fresh. Some residual variation remains even at temperature zero; if you need reproducibility for an audit trail, log the full input and output rather than hoping.'],
+    ['maths', 'Gets the arithmetic wrong', 'Do not ask a language model to calculate. Give it a calculator or code execution and require it to use them, or have it produce the formula and compute it yourself. Ask for the working so you can check. This is a structural limitation from tokenisation (module 4.1), not a quality problem.'],
+    ['refuse', 'Refuses something reasonable', 'Usually over-cautious pattern matching on words rather than a real policy. Add the professional context — who you are, why you need it, what it is for. If it still refuses and the request is genuinely legitimate, that is worth feeding back to the vendor; and if several colleagues hit the same wall, raise it rather than working around it individually.'],
+    ['tone', 'Tone is wrong for our organisation', 'Describing tone rarely works; showing it does. Include two or three paragraphs of your own real writing as examples and say “match this register”. For anything used repeatedly, this is the strongest case for a shared prompt template — or, at high volume, for fine-tuning (module 4.8).']
+  ];
+  function initSym() {
+    var host = document.getElementById('symChips');
+    host.innerHTML = SYM.map(function (s) { return '<button data-k="' + s[0] + '">' + s[1] + '</button>'; }).join('');
+    host.addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      AI.qsa('button', host).forEach(function (b) { b.classList.remove('on'); });
+      e.target.classList.add('on');
+      var k = e.target.getAttribute('data-k');
+      var s = SYM.filter(function (x) { return x[0] === k; })[0];
+      document.getElementById('symNote').innerHTML = '<h4>' + s[1] + '</h4><p class="small mb0">' + s[2] + '</p>';
+    });
+  }
+
+  /* ============================================ 12.6 myths */
+  var MYTHS = [
+    ['Being polite gets better answers', 'no', 'No reliable effect worth relying on. Some studies have found small differences in either direction on specific models and tasks, which is a good sign there is no stable effect. Be polite because you prefer to be, not as a technique.'],
+    ['Offering a tip, or threatening it, improves output', 'no', 'This circulated widely after some early anecdotes and does not hold up as an engineering practice. If your prompt needs a bribe, what it actually needs is clearer instructions.'],
+    ['“You are a world-leading expert in…” helps', 'part', 'A mild, real effect — but it comes from the <b>stance</b> it selects, not the flattery. “You are a sceptical reviewer who will not approve without evidence” is useful. “You are the world’s greatest engineer” is not, because it narrows nothing.'],
+    ['Telling it to “think step by step” helps', 'yes', 'Genuinely and measurably, on multi-step reasoning, with ordinary models — this is a well-replicated result. With 2026 reasoning models it adds little, because they already do it internally. Still ask for the working when you need to check it.'],
+    ['Examples in the prompt help', 'yes', 'The strongest technique on this page, and the most underused. Two or three worked examples beat any amount of description for format, granularity and tone.'],
+    ['Longer prompts are better', 'no', 'Only up to the point where you have said what matters. Beyond that, extra text dilutes attention, costs tokens, and increases the chance of contradicting yourself. Precision beats volume.'],
+    ['Putting the important instruction last helps', 'part', 'Often yes, because instructions nearest the generation point tend to be followed more reliably, and long prompts can lose the middle. Worth testing on your own task rather than treating as a law.'],
+    ['ALL CAPS and “IMPORTANT!!!” help', 'part', 'Mild emphasis effects exist, and they are a poor substitute for structure. If something must not be violated, enforce it in code around the model, not with punctuation inside it.'],
+    ['Asking it to check its own work helps', 'part', 'Sometimes — a second pass can catch format and consistency errors. It will not reliably catch factual errors, because the same model that produced them thinks they are right. Do not confuse self-review with verification.'],
+    ['You need to learn special prompt syntax', 'no', 'There is no syntax. Clear writing, relevant material and explicit expectations are the whole skill — which is why the best prompts in any company come from the people who understand the work, not from the people who read prompt-engineering threads.']
+  ];
+  function drawMyths() {
+    document.getElementById('mythHost').innerHTML = MYTHS.map(function (m) {
+      return '<div class="myth"><div><b>' + m[0] + '</b><br><span class="small">' + m[2] + '</span></div>' +
+        '<span class="verd ' + m[1] + '">' + (m[1] === 'yes' ? 'real' : m[1] === 'no' ? 'folklore' : 'partly') + '</span></div>';
+    }).join('');
+  }
+
+  /* ============================================ 12.7 exercises */
+  var EXS = [
+    ['8 min', 'Fix a bad prompt', 'Take something you asked an AI tool this month that disappointed you. Rewrite it with the three 80/20 additions: context, exact output format, permission to say “I don’t know”. Run both. Compare.'],
+    ['10 min', 'Extraction with a schema', 'Take a real document from your own work. Write an extraction prompt with a fixed table schema, a ban on inference, and a page or clause reference per row. Check five rows against the source. Count the errors — this number is your first evaluation datapoint (module 8).'],
+    ['10 min', 'Decompose', 'Take a task you would like automated end to end. Write the pipeline, not the prompt: what gets extracted, where the human checkpoint sits, what gets drafted last. Then write only the <i>first</i> prompt in the chain and run it.'],
+    ['8 min', 'Make it disagree with you', 'Write a short proposal you believe in. Ask the model whether it is a good idea — note the answer. Then ask for the three strongest objections and what evidence would settle each. Compare how useful the two answers are.'],
+    ['12 min', 'Break it deliberately', 'Ask a question about your own documents whose answer is <b>not</b> in them — without saying so. Then add “if the documents do not contain the answer, reply NOT IN SOURCES” and ask again. Keep both outputs; the first one is the most persuasive slide you will ever show your management.']
+  ];
+  function drawEx() {
+    document.getElementById('exHost').innerHTML = EXS.map(function (e, i) {
+      return '<div class="ex"><span class="m">Exercise ' + (i + 1) + ' · ' + e[0] + '</span>' +
+        '<div class="t">' + e[1] + '</div><p class="small mb0">' + e[2] + '</p></div>';
+    }).join('');
+  }
+
+  window.PAGE_INIT = function () {
+    initBuilder();
+    AI.segmented(document.getElementById('baSeg'), function (v) { baI = parseInt(v, 10); drawBa(); });
+    drawBa();
+    drawSteps();
+    AI.on(document.getElementById('stReset'), 'click', function () { picked = []; drawSteps(); });
+    AI.on(document.getElementById('stReveal'), 'click', revealSteps);
+    initSym();
+    drawMyths();
+    drawEx();
+  };
+})();
+</script>
+</body>
+</html>

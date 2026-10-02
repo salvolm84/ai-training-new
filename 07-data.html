@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7 · Data — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .cv-sm { width: 100%; height: 200px; }
+  #partCv {
+    image-rendering: pixelated; border: 2px solid var(--line); border-radius: 10px;
+    width: 300px; height: 300px; background: #f0f0f0;
+  }
+  .partwrap { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+  .judged { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 10px; }
+  .judged span {
+    width: 22px; height: 22px; border-radius: 5px; display: grid; place-items: center;
+    font-size: .68rem; font-weight: 800; border: 1px solid var(--line); background: var(--bg-3);
+    color: var(--ink-3);
+  }
+  .judged span.acc { background: var(--good-soft); color: var(--good); border-color: var(--good); }
+  .judged span.rej { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+  .revtable td.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .revtable tr.dis { background: var(--warn-soft); }
+  .split3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 900px) { .split3 { grid-template-columns: 1fr; } }
+  .bigstat {
+    text-align: center; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-lg);
+    background: var(--panel);
+  }
+  .bigstat .n { font-family: var(--mono); font-size: 2.1rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .78rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.warn .n { color: var(--warn); }
+</style>
+</head>
+<body data-page="p7">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 7 · Part II — Engineering it</span>
+  <h1>Data</h1>
+  <p class="lead">Five modules on models, and every one of them depended on something we kept
+  deferring. This is the module that decides whether your project works — and it contains almost no
+  mathematics, which is exactly why it gets skipped.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">The sentence to take away</span>
+  <p class="mb0">A model does not learn your intention. <strong>It learns your dataset</strong> — including
+  every inconsistency, every shortcut, every accidental correlation and every disagreement between the
+  people who labelled it. Everything in this module is a consequence of that one fact.</p>
+</div>
+
+<!-- ============================================= 7.1 -->
+<section class="chapter" id="arithmetic">
+  <h2>7.1 · Where the time actually goes</h2>
+  <p>Ask a team that has shipped a machine-learning system how they spent the project, and the answer
+  is consistently unglamorous. The modelling — the part that gets presented — is a minority of the
+  effort.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>A typical supervised vision project</h3><span class="tag">Reference</span></div>
+    <canvas id="effortCv" class="cv-sm" style="height:230px"></canvas>
+    <p class="small muted mt1 mb0">Indicative rather than measured — ratios vary — but the ordering is
+    remarkably stable across organisations. Note that the two largest bars are both data work, and
+    neither requires a data scientist.</p>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><h4>The good news</h4><p class="small mb0">Most of this work does not need scarce
+    specialists. It needs domain experts, a clear specification and project management — things you
+    already have.</p></div>
+    <div class="card"><h4>The bad news</h4><p class="small mb0">It cannot be outsourced to a vendor,
+    because the knowledge of what counts as a defect lives in your inspectors' heads. A supplier can
+    build the model; only you can define the label.</p></div>
+    <div class="card"><h4>The consequence</h4><p class="small mb0">When someone proposes an AI project
+    with a three-month timeline and no named data owner, the timeline is wrong. Ask who is going to
+    label, and how many hours they have been allocated.</p></div>
+  </div>
+</section>
+
+<!-- ============================================= 7.2 -->
+<section class="chapter" id="labelling">
+  <h2>7.2 · The labelling exercise</h2>
+  <p>You are the inspector. The standard says: <strong>reject a casting if the surface crack exceeds
+  2.0 mm</strong>. Ten parts follow. Judge each one, then we will compare you with the specification and
+  with a second inspector.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Label ten parts</h3><span class="tag try">Accept or reject</span></div>
+    <div class="partwrap">
+      <div>
+        <canvas id="partCv" width="60" height="60"></canvas>
+        <div class="judged" id="judged"></div>
+      </div>
+      <div style="flex:1; min-width:270px">
+        <div class="pill" id="partCount" style="margin-bottom:10px">Part 1 of 10</div>
+        <p class="small">Crack length limit: <strong>2.0 mm</strong>. The scale bar is 1 mm. Judge by
+        eye, as an inspector on a line would, in a few seconds.</p>
+        <div class="btnrow">
+          <button class="btn primary" id="jAcc" style="background:var(--good);border-color:var(--good)">Accept</button>
+          <button class="btn primary" id="jRej" style="background:var(--bad);border-color:var(--bad)">Reject</button>
+          <button class="btn sm" id="jRestart">Start again</button>
+        </div>
+        <div class="card mt1" id="labResult" style="min-height:190px">
+          <p class="small mb0">Your ten judgements become a training set. What happens next depends
+          entirely on how consistent they are — with the specification, and with your colleagues.</p>
+        </div>
+      </div>
+    </div>
+    <div id="labTableWrap" class="hidden">
+      <h4 class="mt1">The reveal</h4>
+      <div class="tablewrap">
+        <table class="revtable"><thead><tr>
+          <th>Part</th><th class="num">True length</th><th>Spec says</th><th>You said</th><th>Inspector B said</th><th></th>
+        </tr></thead><tbody id="revBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Why this matters more than the model</span>
+    <p class="mb0">If you and inspector B disagree on 20% of parts, then <strong>no model trained on your
+    combined labels can exceed about 80% agreement with either of you</strong> — not because the model is
+    weak, but because the target is inconsistent. This is called the <em>label noise ceiling</em>, and it
+    is the single most under-measured quantity in applied machine learning. Before funding a model, run
+    exactly the exercise you just did with three of your own experts on 100 real parts. If they agree
+    95%, you have a viable project. If they agree 70%, you have a specification problem to fix
+    first — and fixing it is cheaper and more valuable than any model.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Run this live with the audience voting by show of hands. The disagreement in the room <em>is</em>
+      the demonstration, and it is far more persuasive than the statistic.</li>
+      <li>Cohen's kappa is worth explaining in one sentence: it is agreement corrected for the agreement
+      you would get by chance. Two inspectors who both reject 90% of parts will agree 82% of the time by
+      accident alone.</li>
+      <li>If somebody says “but the spec is objective” — point at the reveal table. The spec is
+      objective; measuring a hairline crack by eye in four seconds is not.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 7.3 -->
+<section class="chapter" id="imbalance">
+  <h2>7.3 · The accuracy paradox</h2>
+  <p>Defects are rare. That single fact breaks the most intuitive metric in existence.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Rare events and useless accuracy</h3><span class="tag try">Set the defect rate to 1%</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="imbCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">The two score distributions the model produces. The vertical line
+        is your decision threshold. Note the vertical scale: the faulty population is genuinely tiny.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Defect rate in production</span><span class="val" id="iRateOut"></span></div>
+          <input type="range" id="iRate" min="0.001" max="0.25" step="0.001" value="0.01">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>How well the model separates them</span><span class="val" id="iSepOut"></span></div>
+          <input type="range" id="iSep" min="0.4" max="4" step="0.05" value="2">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Decision threshold</span><span class="val" id="iThOut"></span></div>
+          <input type="range" id="iTh" min="-2" max="5" step="0.05" value="1.2">
+        </div>
+        <div class="cm">
+          <div class="h"></div><div class="h">flagged</div><div class="h">passed</div>
+          <div class="h side">faulty</div>
+          <div class="c tp"><span class="n" id="cTP">0</span><span class="l">caught</span></div>
+          <div class="c fn"><span class="n" id="cFN">0</span><span class="l">missed</span></div>
+          <div class="h side">healthy</div>
+          <div class="c fp"><span class="n" id="cFP">0</span><span class="l">false alarm</span></div>
+          <div class="c tn"><span class="n" id="cTN">0</span><span class="l">correct</span></div>
+        </div>
+        <p class="small muted mt1 mb0">Out of 100,000 parts.</p>
+      </div>
+    </div>
+
+    <div class="split3 mt1">
+      <div class="bigstat" id="bsAcc"><span class="n" id="mAcc">—</span><span class="l">accuracy</span></div>
+      <div class="bigstat" id="bsNull"><span class="n" id="mNull">—</span><span class="l">accuracy of “always pass”</span></div>
+      <div class="bigstat" id="bsRec"><span class="n" id="mRec">—</span><span class="l">recall — faults caught</span></div>
+    </div>
+    <div class="metrics mt1">
+      <div class="m"><span class="k">precision</span><span class="v" id="mPre">—</span></div>
+      <div class="m"><span class="k">recall</span><span class="v" id="mRec2">—</span></div>
+      <div class="m"><span class="k">F1</span><span class="v" id="mF1">—</span></div>
+      <div class="m"><span class="k">balanced acc.</span><span class="v" id="mBal">—</span></div>
+      <div class="m"><span class="k">false alarms / day</span><span class="v" id="mFad">—</span></div>
+    </div>
+    <div class="card mt1" id="imbNote" style="min-height:90px"></div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">The trap, stated plainly</span>
+      <p class="mb0">At a 1% defect rate, a model that simply <strong>outputs “pass” for everything</strong>
+      is 99% accurate. It would pass most reporting templates, and it detects nothing at all. If a
+      supplier or an internal team quotes you an accuracy figure on an imbalanced problem without
+      recall, they either do not understand the problem or they are hoping you do not.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">What to ask for instead</span>
+      <ul class="mb0">
+        <li><strong>Recall</strong> — what fraction of real defects did it catch?</li>
+        <li><strong>Precision</strong> — of the parts it flagged, how many were really defective?</li>
+        <li><strong>The confusion matrix</strong>, in absolute counts, on a realistic volume.</li>
+        <li><strong>The operating point</strong>, and who chose it.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 7.4 -->
+<section class="chapter" id="leakage">
+  <h2>7.4 · Leakage: the 98% that means nothing</h2>
+  <p>This is the most expensive mistake in this module, because it does not look like a mistake. The
+  model reports excellent held-out accuracy, everyone signs off, and it fails in production.</p>
+
+  <p>Here is a dataset with a deliberate structure: 40 vehicles, 20 measurements each. The label depends
+  <strong>only on which vehicle</strong> the measurement came from — there is no generalisable signal at
+  all. A model that has seen other rows from the same vehicle can identify it and recite the answer. A
+  model facing a genuinely new vehicle cannot do better than chance.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Random split versus grouped split</h3><span class="tag try">Train both</span></div>
+    <div class="btnrow">
+      <button class="btn primary" id="lkRun">Train both models</button>
+      <span class="small muted">Same data, same model, same amount of training. Only the way the rows
+      were divided differs.</span>
+    </div>
+    <div class="split-wide">
+      <div><canvas id="lkCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Each cluster is one vehicle; colour is its label. The clusters
+        are the “fingerprints” the model can memorise.</p>
+      </div>
+      <div>
+        <div class="card" style="border-left:3px solid var(--bad)">
+          <h4 style="color:var(--bad)">Random split — rows shuffled</h4>
+          <div class="metrics">
+            <div class="m"><span class="k">reported test acc.</span><span class="v" id="lkRand">—</span></div>
+          </div>
+          <p class="small mb0 mt1">Train and test contain rows from the same vehicles. This is the number
+          that ends up on the slide.</p>
+        </div>
+        <div class="card mt1" style="border-left:3px solid var(--good)">
+          <h4 style="color:var(--good)">Grouped split — whole vehicles held out</h4>
+          <div class="metrics">
+            <div class="m"><span class="k">honest test acc.</span><span class="v" id="lkGrp">—</span></div>
+          </div>
+          <p class="small mb0 mt1">No vehicle appears on both sides. This is what production looks like.</p>
+        </div>
+        <div class="card mt1" id="lkNote" style="min-height:110px">Press <b>Train both models</b>.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Where leakage actually comes from in real projects</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Grouping leakage</h4>
+      <p class="small mb0">Multiple photographs of the same part; several measurements from one engine;
+      chunks of the same document; repeated visits by one customer. Split by the <em>entity</em>, never
+      by the row.</p>
+    </div>
+    <div class="card">
+      <h4>Temporal leakage</h4>
+      <p class="small mb0">Training on 2024 data and testing on 2023. In production you always predict
+      forward, so evaluate forward: train on the past, test on the future, always.</p>
+    </div>
+    <div class="card">
+      <h4>Target leakage</h4>
+      <p class="small mb0">A feature that is a consequence of the label rather than a cause. “Number of
+      repair orders” predicts warranty failure superbly — and is only recorded after the failure. The
+      classic killer: it survives every split strategy.</p>
+    </div>
+    <div class="card">
+      <h4>Preprocessing leakage</h4>
+      <p class="small mb0">Scaling, imputing or selecting features using statistics computed over the
+      <em>whole</em> dataset before splitting. Subtle, common, and it quietly inflates every result.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The two questions that catch nearly all of it</span>
+    <p class="mb0"><strong>1. What is the unit that must not appear on both sides of the split?</strong>
+    (A part, a vehicle, a customer, a document, a week.) <strong>2. Would this feature have been
+    available, with this value, at the moment the prediction is needed?</strong> If you make these two
+    questions a standing item in every model review, you will catch most leakage before it reaches a
+    steering committee.</p>
+  </div>
+</section>
+
+<!-- ============================================= 7.5 -->
+<section class="chapter" id="drift">
+  <h2>7.5 · Drift: the model was right last year</h2>
+  <p>A model is a photograph of a relationship at one moment. Suppliers change, tooling wears, sensors
+  are recalibrated, a new product variant is introduced — and the incoming data stops resembling the
+  training data. Accuracy decays silently, because nothing in the system knows the labels any more.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Shift the world and watch it fail</h3><span class="tag try">Slide the drift up</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="drCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Grey: the distribution the model was trained on. Blue: what is
+        arriving now. The model's boundary, fixed at training time, is the dashed line.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Drift (shift in the incoming data)</span><span class="val" id="dShOut"></span></div>
+          <input type="range" id="dSh" min="0" max="1.6" step="0.02" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Also widen the spread</span><span class="val" id="dSpOut"></span></div>
+          <input type="range" id="dSp" min="1" max="2.6" step="0.05" value="1">
+        </div>
+        <div class="split3" style="grid-template-columns:1fr 1fr">
+          <div class="bigstat" id="bsDacc"><span class="n" id="dAcc">—</span><span class="l">live accuracy</span></div>
+          <div class="bigstat" id="bsPsi"><span class="n" id="dPsi">—</span><span class="l">drift index (PSI)</span></div>
+        </div>
+        <canvas id="drHist" class="cv-sm mt1" style="height:150px"></canvas>
+        <div class="card mt1" id="drNote" style="min-height:130px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">The population stability index is computed live over ten bins of the
+    first feature. The conventional reading: below 0.1 no material change, 0.1–0.25 worth investigating,
+    above 0.25 significant shift. It needs <strong>no labels</strong>, which is why it is the workhorse of
+    production monitoring.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">The operational point</span>
+      <p class="mb0">You will usually not know accuracy has fallen, because labels arrive weeks late or
+      never. So monitor the <strong>inputs</strong>, not just the outputs: distribution of every feature,
+      rate of missing values, and the distribution of the model's own confidence scores. All three are
+      free and all three move before the damage shows up.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Retraining is not a fix by itself</span>
+      <p class="mb0">Retraining on recent data corrects gradual drift. It cannot correct a
+      <em>concept</em> change — where the relationship itself is different, not just the inputs. And
+      automatic retraining without evaluation is a way to deploy a worse model faster.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">This applies to LLM systems too</span>
+      <p class="mb0">Your prompts were tuned against one model version. The vendor updates it. Your
+      documents are re-organised. Users start asking different questions. Same failure, different
+      costume — which is why module 8 insists on a fixed evaluation set you re-run on every change.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 7.6 -->
+<section class="chapter" id="cost">
+  <h2>7.6 · What labelling will actually cost you</h2>
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Labelling budget</h3><span class="tag try">Try 3 annotators per item</span></div>
+    <div class="split-wide">
+      <div class="grid g2" style="gap:14px">
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Items to label</span><span class="val" id="nItOut"></span></div>
+          <input type="range" id="nIt" min="200" max="200000" step="200" value="20000">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Seconds per item</span><span class="val" id="nSecOut"></span></div>
+          <input type="range" id="nSec" min="2" max="300" step="1" value="20">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Annotators per item (redundancy)</span><span class="val" id="nRedOut"></span></div>
+          <input type="range" id="nRed" min="1" max="5" step="1" value="1">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Cost of an expert hour</span><span class="val" id="nRateOut"></span></div>
+          <input type="range" id="nRate" min="15" max="180" step="5" value="65">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>People available</span><span class="val" id="nPplOut"></span></div>
+          <input type="range" id="nPpl" min="1" max="30" step="1" value="3">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Hours per person per week on this</span><span class="val" id="nHrsOut"></span></div>
+          <input type="range" id="nHrs" min="1" max="35" step="1" value="6">
+        </div>
+      </div>
+      <div>
+        <div class="readout">
+          <div class="stat"><span class="k">annotation hours</span><span class="v" id="oHrs">—</span></div>
+          <div class="stat hl"><span class="k">direct cost</span><span class="v" id="oCost">—</span></div>
+          <div class="stat hl"><span class="k">calendar time</span><span class="v" id="oWeeks">—</span><span class="u">weeks</span></div>
+          <div class="stat"><span class="k">with one re-label round</span><span class="v" id="oRe">—</span></div>
+        </div>
+        <div class="card mt1" id="costNote" style="min-height:190px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">The line item nobody budgets</span>
+    <p class="mb0">Plan for <strong>at least one full re-labelling round</strong>. It is not a sign of
+    failure — it is what happens when the first 500 labels reveal that the taxonomy was wrong, that
+    “surface defect” needed to be four categories, or that two inspectors interpreted the guideline
+    differently. Teams that budget for it ship; teams that do not quietly consume their model-development
+    time doing it anyway.</p>
+  </div>
+</section>
+
+<!-- ============================================= 7.7 -->
+<section class="chapter" id="ready">
+  <h2>7.7 · Is your data ready?</h2>
+  <p>Tick what is true today, not what is planned.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Readiness check</h3><span class="tag try">Be honest</span></div>
+    <div class="split">
+      <div class="checklist" id="rdList"></div>
+      <div>
+        <div class="verdict info" id="rdVerdict"><span class="lvl">Nothing ticked yet</span>
+        Work through the list on the left.</div>
+        <div class="card mt1" id="rdGaps" style="min-height:200px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>This checklist is the most practically useful artefact in the whole series. Hand it out. Ask
+      people to complete it for a use case they care about, and collect the results — you will get a
+      realistic map of where the organisation actually is.</li>
+      <li>The item people most often cannot tick is the written label definition. That is the finding to
+      escalate, because it is cheap to fix and blocks everything downstream.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>Suppose the data is good and the model is trained. How do you know it works, how do you prove it to
+  someone who is accountable, and how do you avoid fooling yourself? That is module 8, and it is the one
+  that makes all of this defensible.</p>
+  <p><a href="08-evaluation.html"><strong>Module 8 · Evaluation →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+  function randn() {
+    var u = 0, v = 0;
+    while (!u) u = Math.random();
+    while (!v) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+  }
+  function normPdf(x, m, s) { return Math.exp(-0.5 * Math.pow((x - m) / s, 2)) / (s * 2.5066); }
+  function normCdf(x) {
+    /* Abramowitz & Stegun 7.1.26 on erf */
+    var t = 1 / (1 + 0.3275911 * Math.abs(x) / Math.SQRT2);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t
+      * Math.exp(-x * x / 2);
+    return x >= 0 ? 0.5 * (1 + y) : 0.5 * (1 - y);
+  }
+
+  /* ============================================ 7.1 effort chart */
+  var EFFORT = [
+    ['Framing the problem, defining the label', 12],
+    ['Finding, extracting and cleaning data', 26],
+    ['Labelling and quality-checking labels', 28],
+    ['Modelling and tuning', 12],
+    ['Evaluation and validation', 9],
+    ['Deployment, monitoring, integration', 13]
+  ];
+  var effPlot;
+  function drawEffort() {
+    effPlot.resize(); effPlot.clear();
+    var g = effPlot.ctx;
+    var h = effPlot.ph / EFFORT.length;
+    g.save();
+    EFFORT.forEach(function (e, i) {
+      var y = effPlot.pad.t + i * h + 4;
+      var w = e[1] / 32 * effPlot.pw;
+      var isData = i === 1 || i === 2;
+      g.fillStyle = isData ? C('--accent') : C('--ink-3');
+      g.globalAlpha = isData ? 1 : 0.5;
+      g.fillRect(effPlot.pad.l, y, w, h - 8);
+      g.globalAlpha = 1;
+      g.fillStyle = C('--ink');
+      g.font = '600 12px system-ui, sans-serif';
+      g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText(e[0], effPlot.pad.l + 8, y + (h - 8) / 2);
+      g.fillStyle = isData ? C('--accent') : C('--ink-3');
+      g.font = '700 12px ui-monospace, monospace';
+      g.fillText(e[1] + '%', effPlot.pad.l + w + 8, y + (h - 8) / 2);
+    });
+    g.restore();
+    g.fillStyle = C('--accent');
+    g.font = '700 11px system-ui, sans-serif';
+    g.textAlign = 'right';
+    g.fillText('54% of the project is data work', effPlot.pad.l + effPlot.pw, effPlot.pad.t + effPlot.ph + 16);
+  }
+
+  /* ============================================ 7.2 labelling */
+  var LB = { parts: [], i: 0, mine: [], done: false };
+  var LIMIT = 2.0;
+  function makeParts() {
+    LB.parts = []; LB.mine = []; LB.i = 0; LB.done = false;
+    for (var i = 0; i < 10; i++) {
+      /* cluster lengths near the 2.0 mm limit so the judgement is genuinely hard */
+      var len = 0.9 + Math.random() * 2.4;
+      if (i < 6) len = LIMIT + (Math.random() - 0.5) * 1.1;
+      LB.parts.push({
+        len: Math.max(0.5, Math.min(3.6, len)),
+        seed: Math.random() * 1000,
+        ang: (Math.random() - 0.5) * 1.1,
+        b: Math.random() * 0.12
+      });
+    }
+    /* second inspector: same spec, human measurement error */
+    LB.parts.forEach(function (p) {
+      p.bJudge = (p.len + randn() * 0.42) > LIMIT ? 1 : 0;
+    });
+    document.getElementById('labTableWrap').classList.add('hidden');
+    document.getElementById('labResult').innerHTML =
+      '<p class="small mb0">Your ten judgements become a training set. What happens next depends ' +
+      'entirely on how consistent they are — with the specification, and with your colleagues.</p>';
+    drawPart(); drawJudged();
+  }
+  function drawPart() {
+    var cv = document.getElementById('partCv'), g = cv.getContext('2d'), N = 60;
+    var p = LB.parts[Math.min(LB.i, 9)];
+    var d = g.createImageData(N, N), i, x, y;
+    function rnd(k) { var s = Math.sin(p.seed + k * 12.9898) * 43758.5453; return s - Math.floor(s); }
+    for (y = 0; y < N; y++) for (x = 0; x < N; x++) {
+      var v = 0.72 + p.b - 0.08 * (y / N);
+      v += (rnd(x * 60 + y) - 0.5) * 0.10;
+      /* cast texture */
+      v += Math.sin(x * 0.7 + p.seed) * 0.015 + Math.cos(y * 0.9) * 0.012;
+      i = (y * N + x) * 4;
+      var c = Math.max(0, Math.min(255, Math.round(v * 255)));
+      d.data[i] = c; d.data[i + 1] = c; d.data[i + 2] = c; d.data[i + 3] = 255;
+    }
+    /* crack: 1 mm = 8 px */
+    var pxLen = p.len * 8, cx = 30 - Math.cos(p.ang) * pxLen / 2, cy = 32 - Math.sin(p.ang) * pxLen / 2;
+    for (var t = 0; t <= pxLen * 3; t++) {
+      var f = t / (pxLen * 3);
+      var jx = cx + Math.cos(p.ang) * pxLen * f + (rnd(t * 3.1) - 0.5) * 1.4;
+      var jy = cy + Math.sin(p.ang) * pxLen * f + (rnd(t * 7.7) - 0.5) * 1.4;
+      var ix = Math.round(jx), iy = Math.round(jy);
+      if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
+      i = (iy * N + ix) * 4;
+      var dark = 40 + rnd(t) * 60;
+      d.data[i] = dark; d.data[i + 1] = dark; d.data[i + 2] = dark;
+    }
+    g.putImageData(d, 0, 0);
+    /* 1 mm scale bar drawn in device pixels */
+    g.fillStyle = '#1b1b1b';
+    g.fillRect(6, 52, 8, 1);
+    g.fillRect(6, 51, 1, 3); g.fillRect(13, 51, 1, 3);
+    document.getElementById('partCount').textContent = LB.done ? 'Finished' : 'Part ' + (LB.i + 1) + ' of 10';
+  }
+  function drawJudged() {
+    var h = '';
+    for (var i = 0; i < 10; i++) {
+      var m = LB.mine[i];
+      h += '<span class="' + (m === undefined ? '' : (m ? 'rej' : 'acc')) + '">' + (i + 1) + '</span>';
+    }
+    document.getElementById('judged').innerHTML = h;
+  }
+  function judge(rej) {
+    if (LB.done) return;
+    LB.mine[LB.i] = rej ? 1 : 0;
+    LB.i++;
+    drawJudged();
+    if (LB.i >= 10) { LB.done = true; reveal(); }
+    drawPart();
+  }
+  function kappa(a, b) {
+    var n = a.length, agree = 0, pa1 = 0, pb1 = 0, i;
+    for (i = 0; i < n; i++) {
+      if (a[i] === b[i]) agree++;
+      pa1 += a[i]; pb1 += b[i];
+    }
+    var po = agree / n;
+    pa1 /= n; pb1 /= n;
+    var pe = pa1 * pb1 + (1 - pa1) * (1 - pb1);
+    return { po: po, k: pe >= 1 ? 1 : (po - pe) / (1 - pe) };
+  }
+  function reveal() {
+    var spec = LB.parts.map(function (p) { return p.len > LIMIT ? 1 : 0; });
+    var mine = LB.mine, bb = LB.parts.map(function (p) { return p.bJudge; });
+    var vsSpec = kappa(mine, spec), vsB = kappa(mine, bb), bVsSpec = kappa(bb, spec);
+    var tb = '';
+    LB.parts.forEach(function (p, i) {
+      var dis = mine[i] !== bb[i];
+      tb += '<tr class="' + (dis ? 'dis' : '') + '"><td>' + (i + 1) + '</td><td class="num mono">' +
+        p.len.toFixed(2) + ' mm</td><td>' + (spec[i] ? 'reject' : 'accept') + '</td><td><b>' +
+        (mine[i] ? 'reject' : 'accept') + '</b></td><td>' + (bb[i] ? 'reject' : 'accept') + '</td><td>' +
+        (dis ? '<span class="pill no">disagree</span>' : '') + '</td></tr>';
+    });
+    document.getElementById('revBody').innerHTML = tb;
+    document.getElementById('labTableWrap').classList.remove('hidden');
+
+    var ceiling = vsB.po;
+    var h = '<h4>Results</h4>';
+    h += '<div class="metrics"><div class="m"><span class="k">you vs spec</span><span class="v">' +
+      (vsSpec.po * 100).toFixed(0) + '%</span></div>' +
+      '<div class="m"><span class="k">you vs inspector B</span><span class="v">' + (vsB.po * 100).toFixed(0) + '%</span></div>' +
+      '<div class="m"><span class="k">Cohen’s κ</span><span class="v">' + vsB.k.toFixed(2) + '</span></div></div>';
+    h += '<p class="small mt1">Inspector B agreed with the specification ' + (bVsSpec.po * 100).toFixed(0) +
+      '% of the time. You agreed with B on ' + (ceiling * 100).toFixed(0) + '% of parts.</p>';
+    if (ceiling >= 0.9) h += '<p class="small mb0" style="color:var(--good)"><b>High agreement.</b> A model trained on labels this consistent has a realistic ceiling above 90%. This is a viable project.</p>';
+    else if (ceiling >= 0.7) h += '<p class="small mb0" style="color:var(--warn)"><b>Moderate agreement.</b> Your labels and B’s disagree on ' +
+      Math.round((1 - ceiling) * 10) + ' of 10 parts. No model can beat that ceiling — it would have to guess which of you to imitate. Tighten the measurement procedure before collecting 20,000 of these.</p>';
+    else h += '<p class="small mb0" style="color:var(--bad)"><b>Low agreement.</b> The two of you are effectively labelling different problems. Training on this data would produce a model that is confidently arbitrary. <b>Fix the specification, not the model.</b></p>';
+    h += '<p class="small muted mb0 mt1">κ below 0.4 is usually called poor agreement, 0.6–0.8 substantial, above 0.8 near-perfect.</p>';
+    document.getElementById('labResult').innerHTML = h;
+  }
+
+  /* ============================================ 7.3 imbalance */
+  var IM = { rate: 0.01, sep: 2, th: 1.2 }, imbPlot;
+  var TOTAL = 100000;
+  function calcImb() {
+    var nF = TOTAL * IM.rate, nH = TOTAL - nF;
+    /* healthy ~ N(0,1), faulty ~ N(sep,1); flag if score > th */
+    var tp = nF * (1 - normCdf(IM.th - IM.sep));
+    var fn = nF - tp;
+    var fp = nH * (1 - normCdf(IM.th));
+    var tn = nH - fp;
+    return { tp: tp, fn: fn, fp: fp, tn: tn, nF: nF, nH: nH };
+  }
+  function drawImb() {
+    imbPlot.resize(); imbPlot.clear();
+    var r = calcImb();
+    var maxD = Math.max(r.nH * normPdf(0, 0, 1), r.nF * normPdf(IM.sep, IM.sep, 1)) * 1.12;
+    imbPlot.dom = [-3.2, 6.2]; imbPlot.ran = [0, maxD];
+    imbPlot.frame({ xticks: 5, yticks: 4, xlabel: 'model score', ylabel: 'parts (log-ish scale omitted)',
+      yfmt: function (y) { return F.c(y); } });
+    var hp = [], fpv = [], i;
+    for (i = 0; i <= 260; i++) {
+      var x = -3.2 + 9.4 * i / 260;
+      hp.push([x, r.nH * normPdf(x, 0, 1)]);
+      fpv.push([x, r.nF * normPdf(x, IM.sep, 1)]);
+    }
+    imbPlot.clip(function (g) {
+      imbPlot.line(hp, C('--good'), 2.4);
+      imbPlot.line(fpv, C('--bad'), 2.4);
+      imbPlot.line([[IM.th, 0], [IM.th, maxD]], C('--accent'), 2.4, [5, 4]);
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--good'); g.fillText('healthy (' + F.c(r.nH) + ')', imbPlot.X(-3.05), imbPlot.Y(maxD * 0.92));
+      g.fillStyle = C('--bad'); g.fillText('faulty (' + F.c(r.nF) + ')', imbPlot.X(-3.05), imbPlot.Y(maxD * 0.82));
+      g.fillStyle = C('--accent'); g.textAlign = 'center';
+      g.fillText('threshold', imbPlot.X(IM.th), imbPlot.Y(maxD * 0.98));
+    });
+    document.getElementById('cTP').textContent = F.c(r.tp);
+    document.getElementById('cFN').textContent = F.c(r.fn);
+    document.getElementById('cFP').textContent = F.c(r.fp);
+    document.getElementById('cTN').textContent = F.c(r.tn);
+
+    var accv = (r.tp + r.tn) / TOTAL, nullv = r.nH / TOTAL;
+    var pre = r.tp / Math.max(1e-9, r.tp + r.fp), rec = r.tp / Math.max(1e-9, r.nF);
+    var f1 = 2 * pre * rec / Math.max(1e-9, pre + rec);
+    var spec = r.tn / Math.max(1e-9, r.nH);
+    document.getElementById('mAcc').textContent = (accv * 100).toFixed(2) + '%';
+    document.getElementById('mNull').textContent = (nullv * 100).toFixed(2) + '%';
+    document.getElementById('mRec').textContent = (rec * 100).toFixed(1) + '%';
+    document.getElementById('mPre').textContent = (pre * 100).toFixed(1) + '%';
+    document.getElementById('mRec2').textContent = (rec * 100).toFixed(1) + '%';
+    document.getElementById('mF1').textContent = f1.toFixed(3);
+    document.getElementById('mBal').textContent = ((rec + spec) / 2 * 100).toFixed(1) + '%';
+    document.getElementById('mFad').textContent = F.c(r.fp / 100000 * 2000);
+
+    document.getElementById('bsAcc').className = 'bigstat ' + (accv < nullv ? 'bad' : '');
+    document.getElementById('bsNull').className = 'bigstat warn';
+    document.getElementById('bsRec').className = 'bigstat ' + (rec > 0.85 ? 'good' : rec > 0.5 ? 'warn' : 'bad');
+
+    var n = '';
+    if (accv <= nullv + 0.0005) {
+      n = '<p class="small mb0"><b style="color:var(--bad)">Your model is less accurate than doing nothing.</b> Predicting “pass” for every single part would score ' +
+        (nullv * 100).toFixed(2) + '%, and your model scores ' + (accv * 100).toFixed(2) +
+        '%. It is nevertheless the more useful system, because it catches ' + (rec * 100).toFixed(0) +
+        '% of faults — which accuracy cannot see. <b>This is the clearest possible demonstration that accuracy is the wrong metric here.</b></p>';
+    } else if (IM.rate < 0.03 && pre < 0.3) {
+      n = '<p class="small mb0">Accuracy looks respectable at ' + (accv * 100).toFixed(2) +
+        '%, but precision is only ' + (pre * 100).toFixed(1) + '%: <b>' +
+        Math.round((1 - pre) * 100) + ' out of every 100 parts you flag are actually fine</b>. At 2,000 parts a day that is ' +
+        F.c(r.fp / 100000 * 2000) + ' unnecessary inspections. Rare events make precision brutally hard — this is arithmetic, not a modelling failure.</p>';
+    } else {
+      n = '<p class="small mb0">A workable operating point: ' + (rec * 100).toFixed(0) + '% of faults caught, ' +
+        (pre * 100).toFixed(0) + '% of flags genuine. Notice how little the headline accuracy figure (' +
+        (accv * 100).toFixed(2) + '%) moved while you dragged the threshold across the entire range. <b>Accuracy is nearly blind on imbalanced problems.</b></p>';
+    }
+    document.getElementById('imbNote').innerHTML = n;
+  }
+
+  /* ============================================ 7.4 leakage */
+  var LK = { groups: [], rows: [] }, lkPlot;
+  function lkData() {
+    LK.groups = []; LK.rows = [];
+    for (var g = 0; g < 40; g++) {
+      var fp = [(Math.random() * 2 - 1) * 0.95, (Math.random() * 2 - 1) * 0.95];
+      var y = Math.random() < 0.5 ? 1 : 0;
+      LK.groups.push({ fp: fp, y: y });
+      for (var i = 0; i < 20; i++) {
+        LK.rows.push({ x: [fp[0] + randn() * 0.045, fp[1] + randn() * 0.045], y: y, g: g });
+      }
+    }
+  }
+  function drawLk() {
+    lkPlot.resize(); lkPlot.clear();
+    lkPlot.frame({ xticks: 4, yticks: 4, xlabel: 'measurement 1', ylabel: 'measurement 2' });
+    lkPlot.clip(function () {
+      LK.rows.forEach(function (r) {
+        lkPlot.dot(r.x[0], r.x[1], 3, r.y ? C('--accent') : C('--warn'));
+      });
+    });
+  }
+  function runLeak() {
+    var i;
+    /* --- random split --- */
+    var sh = LK.rows.slice();
+    for (i = sh.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = sh[i]; sh[i] = sh[j]; sh[j] = t; }
+    var k = Math.floor(sh.length * 0.7);
+    var trR = sh.slice(0, k), teR = sh.slice(k);
+    var netR = new AI.MLP([2, 24, 12, 1], 'relu');
+    for (i = 0; i < 700; i++) netR.step(trR.map(function (r) { return r.x; }), trR.map(function (r) { return r.y; }), 0.5, 0.9);
+    var accR = teR.filter(function (r) { return (netR.predict(r.x) >= 0.5 ? 1 : 0) === r.y; }).length / teR.length;
+
+    /* --- grouped split: whole vehicles held out --- */
+    var gidx = [];
+    for (i = 0; i < 40; i++) gidx.push(i);
+    for (i = gidx.length - 1; i > 0; i--) { var j2 = Math.floor(Math.random() * (i + 1)); var t2 = gidx[i]; gidx[i] = gidx[j2]; gidx[j2] = t2; }
+    var trG = new Set(gidx.slice(0, 28));
+    var trRows = LK.rows.filter(function (r) { return trG.has(r.g); });
+    var teRows = LK.rows.filter(function (r) { return !trG.has(r.g); });
+    var netG = new AI.MLP([2, 24, 12, 1], 'relu');
+    for (i = 0; i < 700; i++) netG.step(trRows.map(function (r) { return r.x; }), trRows.map(function (r) { return r.y; }), 0.5, 0.9);
+    var accG = teRows.filter(function (r) { return (netG.predict(r.x) >= 0.5 ? 1 : 0) === r.y; }).length / teRows.length;
+
+    document.getElementById('lkRand').textContent = (accR * 100).toFixed(1) + '%';
+    document.getElementById('lkGrp').textContent = (accG * 100).toFixed(1) + '%';
+    document.getElementById('lkNote').innerHTML =
+      '<p class="small"><b>The random split reports ' + (accR * 100).toFixed(1) + '%. The honest split reports ' +
+      (accG * 100).toFixed(1) + '%.</b> Same data, same model, same training budget.</p>' +
+      '<p class="small mb0">The gap is ' + ((accR - accG) * 100).toFixed(0) +
+      ' points of pure self-deception. The model was never learning anything about measurements — it was learning to recognise <i>which vehicle</i> a row came from and recalling its label. Hold out whole vehicles and that trick is worthless, which is exactly what happens the first day it sees a new car.</p>';
+  }
+
+  /* ============================================ 7.5 drift */
+  var DR = { sh: 0, sp: 1, ref: [], cur: [], w: null }, drPlot, drHist;
+  function drData() {
+    DR.ref = [];
+    for (var i = 0; i < 400; i++) {
+      var a = randn() * 0.45, b = randn() * 0.45;
+      var y = (0.9 * a + 0.8 * b + 0.12) > 0 ? 1 : 0;
+      if (Math.random() < 0.05) y = 1 - y;
+      DR.ref.push({ x: [a, b], y: y });
+    }
+    /* fit a simple logistic boundary by gradient descent (fixed at training time) */
+    var w = [0, 0, 0];
+    for (var it = 0; it < 900; it++) {
+      var gw = [0, 0, 0];
+      DR.ref.forEach(function (r) {
+        var z = w[0] * r.x[0] + w[1] * r.x[1] + w[2];
+        var p = AI.sigmoid(z), e = p - r.y;
+        gw[0] += e * r.x[0]; gw[1] += e * r.x[1]; gw[2] += e;
+      });
+      for (var j = 0; j < 3; j++) w[j] -= 0.6 * gw[j] / DR.ref.length;
+    }
+    DR.w = w;
+    drCur();
+  }
+  function drCur() {
+    DR.cur = [];
+    for (var i = 0; i < 400; i++) {
+      var a = randn() * 0.45 * DR.sp + DR.sh, b = randn() * 0.45 * DR.sp + DR.sh * 0.35;
+      var y = (0.9 * a + 0.8 * b + 0.12) > 0 ? 1 : 0;
+      if (Math.random() < 0.05) y = 1 - y;
+      DR.cur.push({ x: [a, b], y: y });
+    }
+    drawDr();
+  }
+  function psi(ref, cur) {
+    var bins = 10, lo = -1.6, hi = 1.6, i;
+    var rc = new Array(bins).fill(0), cc = new Array(bins).fill(0);
+    function bin(v) { return Math.max(0, Math.min(bins - 1, Math.floor((v - lo) / (hi - lo) * bins))); }
+    ref.forEach(function (r) { rc[bin(r.x[0])]++; });
+    cur.forEach(function (r) { cc[bin(r.x[0])]++; });
+    var s = 0;
+    for (i = 0; i < bins; i++) {
+      var p = Math.max(rc[i] / ref.length, 0.0015), q = Math.max(cc[i] / cur.length, 0.0015);
+      s += (q - p) * Math.log(q / p);
+    }
+    return { psi: s, rc: rc, cc: cc, lo: lo, hi: hi, bins: bins };
+  }
+  function drawDr() {
+    drPlot.resize(); drPlot.clear();
+    drPlot.frame({ xticks: 4, yticks: 4, xlabel: 'feature 1', ylabel: 'feature 2' });
+    var w = DR.w;
+    drPlot.clip(function () {
+      DR.ref.forEach(function (r) { drPlot.dot(r.x[0], r.x[1], 2.4, C('--ink-3') + '55'); });
+      DR.cur.forEach(function (r) {
+        var p = AI.sigmoid(w[0] * r.x[0] + w[1] * r.x[1] + w[2]);
+        var wrong = (p >= 0.5 ? 1 : 0) !== r.y;
+        drPlot.dot(r.x[0], r.x[1], wrong ? 4.6 : 3.4, r.y ? C('--accent') : C('--warn'),
+          wrong ? C('--bad') : null);
+      });
+      if (Math.abs(w[1]) > 1e-6) {
+        drPlot.line([[-2, -(w[0] * -2 + w[2]) / w[1]], [2.6, -(w[0] * 2.6 + w[2]) / w[1]]], C('--ink'), 2, [6, 4]);
+      }
+    });
+    var okc = DR.cur.filter(function (r) {
+      return (AI.sigmoid(w[0] * r.x[0] + w[1] * r.x[1] + w[2]) >= 0.5 ? 1 : 0) === r.y;
+    }).length;
+    var accv = okc / DR.cur.length;
+    var P = psi(DR.ref, DR.cur);
+    document.getElementById('dAcc').textContent = (accv * 100).toFixed(1) + '%';
+    document.getElementById('dPsi').textContent = P.psi.toFixed(3);
+    document.getElementById('bsDacc').className = 'bigstat ' + (accv > 0.85 ? 'good' : accv > 0.7 ? 'warn' : 'bad');
+    document.getElementById('bsPsi').className = 'bigstat ' + (P.psi < 0.1 ? 'good' : P.psi < 0.25 ? 'warn' : 'bad');
+
+    /* histogram */
+    drHist.resize(); drHist.clear();
+    var mx = Math.max(Math.max.apply(null, P.rc), Math.max.apply(null, P.cc)) * 1.15;
+    drHist.dom = [P.lo, P.hi]; drHist.ran = [0, mx];
+    drHist.frame({ xticks: 4, yticks: 3, xlabel: 'feature 1', ylabel: 'count' });
+    var bw = drHist.pw / P.bins;
+    drHist.clip(function (g) {
+      for (var i = 0; i < P.bins; i++) {
+        var x0 = drHist.pad.l + i * bw;
+        g.fillStyle = C('--ink-3') + '66';
+        g.fillRect(x0 + 1, drHist.Y(P.rc[i]), bw - 2, drHist.Y(0) - drHist.Y(P.rc[i]));
+        g.fillStyle = C('--accent') + 'aa';
+        g.fillRect(x0 + bw * 0.25, drHist.Y(P.cc[i]), bw * 0.5, drHist.Y(0) - drHist.Y(P.cc[i]));
+      }
+      g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--ink-3'); g.fillText('training', drHist.X(P.lo) + 4, drHist.Y(mx * 0.93));
+      g.fillStyle = C('--accent'); g.fillText('now', drHist.X(P.lo) + 4, drHist.Y(mx * 0.78));
+    });
+
+    var n = '<h4>Reading it</h4>';
+    if (P.psi < 0.1) n += '<p class="small mb0">No material drift (PSI ' + P.psi.toFixed(3) +
+      '), and accuracy is holding at ' + (accv * 100).toFixed(1) + '%. This is what a healthy month looks like.</p>';
+    else if (P.psi < 0.25) n += '<p class="small mb0" style="color:var(--warn)"><b>Investigate.</b> PSI is ' + P.psi.toFixed(3) +
+      ' and accuracy has slipped to ' + (accv * 100).toFixed(1) + '%. Crucially, <b>the PSI was computed without a single label</b> — it saw the change from the inputs alone. In production that is the only warning you get.</p>';
+    else n += '<p class="small mb0" style="color:var(--bad)"><b>Significant shift.</b> PSI ' + P.psi.toFixed(3) +
+      ', accuracy down to ' + (accv * 100).toFixed(1) + '%. The boundary the model learned is now in the wrong place, and every red-ringed point is a decision it got wrong. Nothing about the model changed — the world did.</p>';
+    document.getElementById('drNote').innerHTML = n;
+  }
+
+  /* ============================================ 7.6 cost */
+  var CO = { n: 20000, sec: 20, red: 1, rate: 65, ppl: 3, hrs: 6 };
+  function calcCost() {
+    var hours = CO.n * CO.sec * CO.red / 3600;
+    var cost = hours * CO.rate;
+    var weeks = hours / Math.max(1, CO.ppl * CO.hrs);
+    document.getElementById('oHrs').textContent = F.c(hours);
+    document.getElementById('oCost').textContent = '€' + F.c(cost);
+    document.getElementById('oWeeks').textContent = weeks < 1 ? weeks.toFixed(1) : F.c(weeks);
+    document.getElementById('oRe').textContent = '€' + F.c(cost * 1.45);
+
+    var n = '<h4>What this means</h4>';
+    n += '<p class="small">' + F.c(CO.n) + ' items × ' + CO.sec + ' s × ' + CO.red +
+      ' annotator' + (CO.red > 1 ? 's' : '') + ' = <b>' + F.c(hours) + ' hours</b> of expert time, or <b>' +
+      (hours / 1600).toFixed(1) + ' person-years</b>.</p>';
+    if (weeks > 26) n += '<p class="small" style="color:var(--bad)"><b>' + F.c(weeks) +
+      ' weeks of calendar time</b> with the people you have allocated. That is not a data-labelling plan, it is a reason the project will be cancelled. Reduce the item count, use pre-labelling by a weak model with human review, or increase the team.</p>';
+    else if (weeks > 10) n += '<p class="small" style="color:var(--warn)"><b>' + weeks.toFixed(0) +
+      ' weeks of calendar time.</b> Workable, but it has to be in the plan as a named workstream with named people — not as an assumption.</p>';
+    else n += '<p class="small" style="color:var(--good)"><b>' + weeks.toFixed(1) +
+      ' weeks of calendar time.</b> Achievable. Protect those hours — they are the highest-leverage time in the whole project.</p>';
+    if (CO.red === 1) n += '<p class="small mb0"><b>You have no redundancy.</b> With one annotator per item you cannot measure agreement, which means you cannot know your label noise ceiling from section 7.2. Double-label at least 5% of items as a permanent quality sample — it costs almost nothing and it is the only way to know what your data is worth.</p>';
+    else n += '<p class="small mb0">With ' + CO.red + ' annotators per item you can measure agreement and adjudicate disagreements. Cost is ' + CO.red +
+      '× higher, and the resulting dataset is worth considerably more than ' + CO.red + '× as much.</p>';
+    document.getElementById('costNote').innerHTML = n;
+  }
+
+  /* ============================================ 7.7 readiness */
+  var RD = [
+    ['The label is written down', 'There is a document that defines exactly what each class means, with borderline examples, that two experts would apply identically.', 3, 'Write it. This is a one-week job that unblocks everything and is usually the reason nothing else works.'],
+    ['The data exists already', 'The historical data is retained, retrievable, and covers the conditions you care about — not just the last three months.', 3, 'Find out how far back the retention actually goes before designing anything. This frequently kills or reshapes a project in week one.'],
+    ['Enough examples of the rare class', 'Not just data — data containing the thing you want to detect. Hundreds of real defect examples, not eight.', 3, 'Consider anomaly detection on healthy data instead (module 6.6), or synthetic augmentation, or accept a longer collection period.'],
+    ['You know the natural grouping', 'You can name the unit — part, vehicle, customer, document — that must never appear on both sides of the train/test split.', 2, 'Answer this before anyone reports an accuracy figure, or the figure will be fiction (section 7.4).'],
+    ['Features available at prediction time', 'Every input the model uses would genuinely be known at the moment the prediction is needed.', 3, 'Audit the feature list against the real-world timeline. Target leakage survives every other check.'],
+    ['Measured human baseline', 'You know how accurately and how consistently people currently do this task.', 2, 'Measure it on 100 cases. Without it you cannot say whether the model is good, and you cannot build a business case.'],
+    ['A named data owner', 'One person is accountable for the dataset, its quality and its access rules.', 2, 'Name them. Shared ownership of a dataset means no ownership.'],
+    ['Access is actually granted', 'Not “we have the data” but “the pipeline can read it, legally and technically, today”.', 2, 'Start the access request now; in most organisations it is the longest-lead item in the project.'],
+    ['Personal data is handled', 'You know whether the data contains personal data, and on what legal basis it is used.', 2, 'Involve privacy and legal early. Retrofitting this is far more expensive than designing for it.'],
+    ['A held-back evaluation set', 'A set of real cases, never used for training or tuning, that you will use to judge the final system.', 3, 'Carve it out before you start modelling and lock it away. Module 8 depends entirely on this.']
+  ];
+  function drawRd() {
+    var host = document.getElementById('rdList');
+    if (!host.innerHTML) {
+      var h = '';
+      RD.forEach(function (r, i) {
+        h += '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b>' +
+          '<span class="sub">' + r[1] + '</span></span></label>';
+      });
+      host.innerHTML = h;
+      host.addEventListener('change', drawRd);
+    }
+    var got = 0, total = 0, gaps = [];
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      var i = parseInt(cb.getAttribute('data-i'), 10);
+      total += RD[i][2];
+      if (cb.checked) got += RD[i][2]; else gaps.push(RD[i]);
+    });
+    var pct = got / total;
+    var v = document.getElementById('rdVerdict');
+    if (!got) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nothing ticked yet</span>Work through the list on the left.';
+    } else if (pct >= 0.85) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Ready to build — ' + Math.round(pct * 100) + '%</span>' +
+        'You have the unglamorous things in place, which is most of the battle. Start small, evaluate honestly, and keep the held-back set sealed.';
+    } else if (pct >= 0.55) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Nearly — ' + Math.round(pct * 100) + '%</span>' +
+        'Viable, with known gaps. Close the heaviest ones below before committing to a delivery date, because each of them can invalidate results after the fact.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Not yet — ' + Math.round(pct * 100) + '%</span>' +
+        'This is a data project before it is an AI project. That is not bad news: the work below is cheaper, more certain and more reusable than model development, and nothing built on top of it will hold without it.';
+    }
+    var g = '<h4>What to do about the gaps</h4>';
+    if (!gaps.length) g += '<p class="small mb0" style="color:var(--good)">No gaps recorded. Re-read the list in a month, honestly.</p>';
+    else {
+      g += '<ul class="small mb0">';
+      gaps.sort(function (a, b) { return b[2] - a[2]; }).slice(0, 5).forEach(function (r) {
+        g += '<li><b>' + r[0] + ':</b> ' + r[3] + '</li>';
+      });
+      g += '</ul>';
+      if (gaps.length > 5) g += '<p class="small muted mb0 mt1">' + (gaps.length - 5) + ' further gap(s) not shown.</p>';
+    }
+    document.getElementById('rdGaps').innerHTML = g;
+  }
+
+  window.PAGE_INIT = function () {
+    effPlot = new AI.Plot(document.getElementById('effortCv'),
+      { dom: [0, 1], ran: [0, 1], pad: { l: 10, r: 10, t: 8, b: 26 } });
+    AI.onRedraw(drawEffort); drawEffort();
+
+    makeParts();
+    AI.on(document.getElementById('jAcc'), 'click', function () { judge(false); });
+    AI.on(document.getElementById('jRej'), 'click', function () { judge(true); });
+    AI.on(document.getElementById('jRestart'), 'click', makeParts);
+
+    imbPlot = new AI.Plot(document.getElementById('imbCv'),
+      { dom: [-3.2, 6.2], ran: [0, 1], pad: { l: 56, r: 14, t: 16, b: 42 } });
+    AI.bindRange('iRate', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { IM.rate = v; drawImb(); });
+    AI.bindRange('iSep', function (v) { return v.toFixed(2) + ' σ'; }, function (v) { IM.sep = v; drawImb(); });
+    AI.bindRange('iTh', function (v) { return v.toFixed(2); }, function (v) { IM.th = v; drawImb(); });
+    AI.onRedraw(drawImb); drawImb();
+
+    lkPlot = new AI.Plot(document.getElementById('lkCv'),
+      { dom: [-1.15, 1.15], ran: [-1.15, 1.15], pad: { l: 44, r: 14, t: 14, b: 40 } });
+    lkData();
+    AI.on(document.getElementById('lkRun'), 'click', runLeak);
+    AI.onRedraw(drawLk); drawLk();
+
+    drPlot = new AI.Plot(document.getElementById('drCv'),
+      { dom: [-1.5, 2.3], ran: [-1.5, 1.8], pad: { l: 46, r: 14, t: 14, b: 42 } });
+    drHist = new AI.Plot(document.getElementById('drHist'),
+      { dom: [-1.6, 1.6], ran: [0, 100], pad: { l: 44, r: 14, t: 12, b: 34 } });
+    drData();
+    AI.bindRange('dSh', function (v) { return v.toFixed(2); }, function (v) { DR.sh = v; if (DR.w) drCur(); });
+    AI.bindRange('dSp', function (v) { return v.toFixed(2) + '×'; }, function (v) { DR.sp = v; if (DR.w) drCur(); });
+    AI.onRedraw(drawDr);
+
+    AI.bindRange('nIt', function (v) { return F.c(v); }, function (v) { CO.n = v; calcCost(); });
+    AI.bindRange('nSec', function (v) { return v + ' s'; }, function (v) { CO.sec = v; calcCost(); });
+    AI.bindRange('nRed', function (v) { return v; }, function (v) { CO.red = v; calcCost(); });
+    AI.bindRange('nRate', function (v) { return '€' + v; }, function (v) { CO.rate = v; calcCost(); });
+    AI.bindRange('nPpl', function (v) { return v; }, function (v) { CO.ppl = v; calcCost(); });
+    AI.bindRange('nHrs', function (v) { return v + ' h'; }, function (v) { CO.hrs = v; calcCost(); });
+    calcCost();
+
+    drawRd();
+  };
+})();
+</script>
+</body>
+</html>

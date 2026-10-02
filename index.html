@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Foundations — Seminar Series</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .hero { padding: 3.6rem 0 1.6rem; }
+  .partband {
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    padding: 1.6rem 0 .9rem; border-top: 1px solid var(--line); margin-top: 2rem;
+  }
+  .partband .k {
+    font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--accent);
+  }
+  .partband h2 { margin: 0; font-size: 1.5rem; }
+  .partband .note { display: block; color: var(--ink-3); font-size: .92rem; }
+  .partband .mins {
+    margin-left: auto; font-size: .82rem; color: var(--ink-3); font-weight: 600;
+    background: var(--bg-3); border: 1px solid var(--line); padding: 3px 11px; border-radius: 20px;
+  }
+  .modcard {
+    display: flex; gap: 18px; text-decoration: none; color: inherit;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 18px 20px; box-shadow: var(--shadow); transition: border-color .15s, transform .15s;
+  }
+  .modcard:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .modcard .n {
+    font-family: var(--mono); font-size: 1.25rem; font-weight: 700; color: var(--accent);
+    width: 44px; height: 44px; flex: none; display: grid; place-items: center;
+    background: var(--accent-soft); border-radius: 11px;
+  }
+  .modcard h3 { margin-bottom: .2em; font-size: 1.1rem; }
+  .modcard p { margin-bottom: .55em; color: var(--ink-2); font-size: .92rem; }
+  .modcard .feats { display: flex; gap: 5px; flex-wrap: wrap; }
+  .modcard .feats span {
+    font-size: .72rem; padding: 2px 8px; border-radius: 20px;
+    background: var(--bg-3); border: 1px solid var(--line-2); color: var(--ink-3); font-weight: 560;
+  }
+  .modcard .mins { margin-left: auto; flex: none; font-size: .78rem; color: var(--ink-3); font-weight: 600; }
+  .keyrow { display: flex; gap: 22px; flex-wrap: wrap; font-size: .9rem; color: var(--ink-3); }
+  .keyrow kbd {
+    font-family: var(--mono); font-size: .8rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--ink-2);
+  }
+  .tracks { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 14px; }
+  .track { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; background: var(--panel); }
+  .track h4 { color: var(--accent); }
+  .track .seq { font-family: var(--mono); font-size: .86rem; font-weight: 700; color: var(--ink-2); margin: .4em 0 .6em; }
+  .track p { font-size: .88rem; margin-bottom: 0; }
+</style>
+</head>
+<body data-page="index">
+
+<header class="hero wrap">
+  <span class="eyebrow">Internal seminar series</span>
+  <h1>AI Foundations</h1>
+  <p class="lead">Fifteen interactive modules that build from a single artificial neuron to a
+  pre-qualified list of use cases from your own work. Written for engineers who are new to machine
+  learning: every concept has something you can move, break and put back together, and every number in
+  the calculators is computed rather than illustrated.</p>
+</header>
+
+<main class="wrap">
+
+  <div class="partband">
+    <span class="k">I</span>
+    <div><h2>Foundations</h2><span class="note">How it works. Five modules, about three hours.</span></div>
+    <span class="mins">3 h 05</span>
+  </div>
+
+  <div class="grid" style="gap:12px">
+    <a class="modcard" href="01-history.html">
+      <span class="n">1</span>
+      <div style="flex:1">
+        <div class="between"><h3>What AI actually is</h3><span class="mins">30 min</span></div>
+        <p>Eighty years of history in one timeline, and a vocabulary you can defend in a meeting:
+        AI vs ML vs deep learning vs generative AI vs LLM.</p>
+        <div class="feats"><span>Interactive timeline</span><span>Nesting diagram</span><span>Jargon deck</span><span>Classification quiz</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="02-perceptron.html">
+      <span class="n">2</span>
+      <div style="flex:1">
+        <div class="between"><h3>The perceptron</h3><span class="mins">30 min</span></div>
+        <p>One neuron with its lid off. Set the weights by hand, watch the decision boundary move,
+        then hit the wall that stopped the field for seventeen years.</p>
+        <div class="feats"><span>Live neuron</span><span>Logic-gate challenge</span><span>The XOR wall</span><span>Learning rule</span><span>Gradient descent</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="03-networks.html">
+      <span class="n">3</span>
+      <div style="flex:1">
+        <div class="between"><h3>From neuron to network</h3><span class="mins">45 min</span></div>
+        <p>Stack neurons, train them in your browser, see why depth buys curved boundaries — and why
+        the shape of the network follows the shape of the data.</p>
+        <div class="feats"><span>Network builder</span><span>Forward pass</span><span>Backprop</span><span>Overfitting</span><span>CNN kernel</span><span>Train your own</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="04-llm.html">
+      <span class="n">4</span>
+      <div style="flex:1">
+        <div class="between"><h3>How an LLM works</h3><span class="mins">60 min</span></div>
+        <p>Tokens, embeddings, attention, and the one thing the model is actually doing. Then the
+        engineering around it: context windows, RAG, fine-tuning, failure modes.</p>
+        <div class="feats"><span>Tokenizer</span><span>Embedding space</span><span>Be the model</span><span>Attention map</span><span>Context window</span><span>RAG simulator</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="05-cost.html">
+      <span class="n">5</span>
+      <div style="flex:1">
+        <div class="between"><h3>The bill</h3><span class="mins">40 min</span></div>
+        <p>What all this costs in FLOPs, GPU-hours, megawatt-hours, euros and tonnes of CO₂ —
+        with a calculator you can run against your own use case.</p>
+        <div class="feats"><span>Training calculator</span><span>Scaling laws</span><span>Inference at scale</span><span>Datacenter zoom</span><span>API vs self-host</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="partband">
+    <span class="k">II</span>
+    <div><h2>Engineering it</h2><span class="note">How you build something that works and prove it. Five modules, about four hours.</span></div>
+    <span class="mins">3 h 55</span>
+  </div>
+
+  <div class="grid" style="gap:12px">
+    <a class="modcard" href="06-classical.html">
+      <span class="n">6</span>
+      <div style="flex:1">
+        <div class="between"><h3>Beyond neural networks</h3><span class="mins">50 min</span></div>
+        <p>The methods that quietly hold most of the value in a manufacturing company: trees,
+        ensembles, clustering, anomaly detection without labelled faults, and reinforcement learning.</p>
+        <div class="feats"><span>Decision-tree splitter</span><span>Ensembles</span><span>Trees vs neural net</span><span>k-means</span><span>Anomaly detection</span><span>Q-learning</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="07-data.html">
+      <span class="n">7</span>
+      <div style="flex:1">
+        <div class="between"><h3>Data</h3><span class="mins">45 min</span></div>
+        <p>The module that decides whether the project works. Label disagreement, the accuracy
+        paradox, leakage, drift, and what labelling will actually cost you.</p>
+        <div class="feats"><span>Labelling exercise</span><span>Imbalance</span><span>Leakage demo</span><span>Drift simulator</span><span>Cost calculator</span><span>Readiness check</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="08-evaluation.html">
+      <span class="n">8</span>
+      <div style="flex:1">
+        <div class="between"><h3>Evaluation</h3><span class="mins">50 min</span></div>
+        <p>Turning a demo into engineering: cost-weighted thresholds, ROC against precision–recall,
+        calibration, baselines, sample size, and regression-testing an LLM system.</p>
+        <div class="feats"><span>Cost optimiser</span><span>ROC & PR</span><span>Calibration</span><span>Baselines</span><span>Confidence intervals</span><span>Eval set</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="09-agents.html">
+      <span class="n">9</span>
+      <div style="flex:1">
+        <div class="between"><h3>Agents and tool use</h3><span class="mins">45 min</span></div>
+        <p>What changes when the model can act. Run an agent, approve or refuse its tool calls, and
+        watch a poisoned document exfiltrate your pricing.</p>
+        <div class="feats"><span>Agent simulator</span><span>Prompt injection</span><span>Permission designer</span><span>Quadratic cost</span><span>MCP</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="10-governance.html">
+      <span class="n">10</span>
+      <div style="flex:1">
+        <div class="between"><h3>Governance and the AI Act</h3><span class="mins">45 min</span></div>
+        <p>Risk tiers, the 2026 deferral, provider versus deployer, what may go in a prompt, IP and
+        trade secrets, and an operating model that is not theatre.</p>
+        <div class="feats"><span>Risk-tier tool</span><span>Timeline</span><span>Data-in-prompt tool</span><span>Vendor questions</span><span>Governance check</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="partband">
+    <span class="k">III</span>
+    <div><h2>Applying it</h2><span class="note">How it lands in the organisation. Five modules, about four hours.</span></div>
+    <span class="mins">4 h 20</span>
+  </div>
+
+  <div class="grid" style="gap:12px">
+    <a class="modcard" href="11-engineering.html">
+      <span class="n">11</span>
+      <div style="flex:1">
+        <div class="between"><h3>AI in engineering and simulation</h3><span class="mins">50 min</span></div>
+        <p>The module most relevant to the day job. Surrogate models, design of experiments,
+        surrogate-guided optimisation, physics-informed fitting, and the envelope problem.</p>
+        <div class="feats"><span>Surrogate lab</span><span>Sampling plans</span><span>Infill optimisation</span><span>Physics-informed fit</span><span>Extrapolation</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="12-prompting.html">
+      <span class="n">12</span>
+      <div style="flex:1">
+        <div class="between"><h3>Prompting</h3><span class="mins">60 min</span></div>
+        <p>A workshop. A prompt builder that produces text you can use, a rewrite gallery, a
+        decomposition exercise, a troubleshooting table, and honest verdicts on the folklore.</p>
+        <div class="feats"><span>Prompt builder</span><span>Before / after</span><span>Decomposition</span><span>Troubleshooting</span><span>Myth-busting</span><span>Exercises</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="13-human.html">
+      <span class="n">13</span>
+      <div style="flex:1">
+        <div class="between"><h3>Human factors and adoption</h3><span class="mins">40 min</span></div>
+        <p>Why pilots fail. Starts by demonstrating automation bias on the audience, then covers
+        trust calibration, review strategies, deskilling and honest adoption metrics.</p>
+        <div class="feats"><span>Automation-bias experiment</span><span>Reliance curve</span><span>In / on / out of the loop</span><span>Workflow check</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="14-limits.html">
+      <span class="n">14</span>
+      <div style="flex:1">
+        <div class="between"><h3>Limits and open questions</h3><span class="mins">35 min</span></div>
+        <p>What these systems cannot do and why, the reliability wall, what nobody knows yet, the
+        three serious positions on where this goes, and how to read the claims.</p>
+        <div class="feats"><span>Compounding calculator</span><span>Interpretability</span><span>Three positions</span><span>Claim assessment</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="15-capstone.html">
+      <span class="n">15</span>
+      <div style="flex:1">
+        <div class="between"><h3>Capstone</h3><span class="mins">75 min</span></div>
+        <p>A use-case canvas for your own work, with a computed scorecard, a recommended approach,
+        three concrete next steps, and a portfolio grid for the whole room's ideas.</p>
+        <div class="feats"><span>Use-case canvas</span><span>Scorecard</span><span>Next steps</span><span>Portfolio grid</span><span>Workshop agenda</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="partband" style="margin-top:2.6rem">
+    <span class="k">☰</span>
+    <div><h2>Running the series</h2><span class="note">Tracks, format and practicalities.</span></div>
+  </div>
+
+  <h3>Suggested tracks</h3>
+  <p>The full series is about eleven hours, which is a six- to eight-week programme of weekly
+  sessions. These shorter paths work as stand-alone deliveries.</p>
+
+  <div class="tracks">
+    <div class="track">
+      <h4>Half-day executive</h4>
+      <div class="seq">1 · 4 · 5 · 10 · 14</div>
+      <p>What it is, how the language models work, what it costs, what the law requires, and what is
+      genuinely uncertain. Skip the mathematics entirely; keep the RAG simulator and the training
+      calculator.</p>
+    </div>
+    <div class="track">
+      <h4>One day, engineers</h4>
+      <div class="seq">2 · 3 · 6 · 7 · 11</div>
+      <p>The mechanism, the right algorithm for the data, the data itself, and the engineering
+      applications. The most technically satisfying path and the one that generates the best use
+      cases.</p>
+    </div>
+    <div class="track">
+      <h4>One day, delivery teams</h4>
+      <div class="seq">7 · 8 · 9 · 13 · 15</div>
+      <p>Data, evaluation, agents, human factors, capstone. For people who will actually build or
+      own something. Assumes Part I was delivered earlier.</p>
+    </div>
+    <div class="track">
+      <h4>Two hours, everyone</h4>
+      <div class="seq">1 · 12 · 13.1</div>
+      <p>Vocabulary, the prompting workshop, and the automation-bias experiment. The broadest-appeal
+      combination, and it satisfies the AI-literacy obligation discussed in module 10.</p>
+    </div>
+    <div class="track">
+      <h4>The narrative spine</h4>
+      <div class="seq">2 → 3 → 4 → 8 → 13</div>
+      <p>If you only have one thread: the XOR failure in 2 is paid off in 3; the next-token objective
+      in 4 explains the failures; 8 makes them measurable; 13 shows why people accept them anyway.</p>
+    </div>
+    <div class="track">
+      <h4>Before each delivery</h4>
+      <div class="seq">check 5 and 10</div>
+      <p>Module 5's energy and cost figures and module 10's regulatory dates both move quickly, and
+      both are sourced on the page. Ten minutes of checking protects your credibility.</p>
+    </div>
+  </div>
+
+  <div class="callout key mt2">
+    <span class="ctitle">How to run a session</span>
+    <p class="mb0">Each module is one page you project directly from a browser — no internet connection
+    required. Work top to bottom and stop at every <strong>Lab</strong> block to let people try it
+    themselves; the labs are the module, and the prose is the handout. Press <kbd>N</kbd> for speaker
+    notes, which include timing, the questions to expect, and where to slow down.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="card">
+      <h4>Keyboard</h4>
+      <div class="keyrow">
+        <span><kbd>N</kbd> speaker notes</span>
+        <span><kbd>T</kbd> light / dark</span>
+        <span><kbd>←</kbd> <kbd>→</kbd> previous / next module</span>
+      </div>
+      <p class="small muted mt1 mb0">Speaker notes are hidden by default, so the same files can be
+      handed to attendees. They do appear when a page is printed to PDF.</p>
+    </div>
+    <div class="card">
+      <h4>Honesty about the material</h4>
+      <p class="small mb0">Every calculator computes its numbers live — the networks really train, the
+      surrogates really fit, the statistics are really computed. Three things are authored rather than
+      live and are labelled as such on the page: the tokenizer in module 4.1, the next-token
+      probabilities in 4.3, and the attention maps in 4.4. Module 5's figures are sourced and dated;
+      module 10 is an engineer's orientation and not legal advice.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <p><strong>The thread that holds the whole series together</strong> is <em>“it is all weighted sums
+    and one loop”</em>. Say it in module 2 and call back to it in module 4 and module 14 — people
+    remember the callback, and it is the antidote to both credulity and mystification.</p>
+    <ul>
+      <li>Module 2 ends on a failure (XOR). Leave the room slightly stuck; module 3 opens by rescuing
+      them. Do not spoil it.</li>
+      <li>Module 4.8's RAG demo and module 9.3's poisoned document are the two most persuasive things in
+      the series for a management audience. Budget time for both.</li>
+      <li>Module 13.1 works only if you do not warn them. Resist explaining first.</li>
+      <li>Module 7's readiness checklist and module 15's canvas are the two artefacts worth collecting.
+      Together they are the most accurate picture of AI readiness anyone in the organisation will
+      produce this year.</li>
+      <li>Record attendance. Under the AI-literacy obligation discussed in module 10.8, this series is a
+      compliance measure as well as a training one.</li>
+    </ul>
+  </div>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <div class="footnav"></div>
+    <p class="small muted mt2 mb0">Internal training material. Figures in module 5 and regulatory dates
+    in module 10 are sourced and dated on the page — check them before each delivery, as both move
+    quickly.</p>
+  </div>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10 · Governance, security and the AI Act — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .tier {
+    display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: start;
+    border: 1px solid var(--line); border-left-width: 4px; border-radius: var(--r);
+    padding: 14px 16px; margin-bottom: 10px; background: var(--panel);
+  }
+  .tier .num {
+    font-family: var(--mono); font-size: 1.5rem; font-weight: 700; text-align: center;
+  }
+  .tier h3 { font-size: 1.02rem; margin-bottom: .2em; }
+  .tier p { font-size: .88rem; margin-bottom: .4em; }
+  .tier.t0 { border-left-color: var(--bad); } .tier.t0 .num { color: var(--bad); }
+  .tier.t1 { border-left-color: var(--warn); } .tier.t1 .num { color: var(--warn); }
+  .tier.t2 { border-left-color: var(--accent); } .tier.t2 .num { color: var(--accent); }
+  .tier.t3 { border-left-color: var(--good); } .tier.t3 .num { color: var(--good); }
+  .oblist li { font-size: .88rem; }
+  .datagrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px,1fr)); gap: 10px; }
+  .dcell {
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: .86rem;
+    background: var(--panel);
+  }
+  .dcell.no { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+  .dcell.cond { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+  .dcell.ok { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 30%, transparent); }
+  .dcell .v { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: 3px; }
+  .legalbox {
+    border: 2px dashed var(--warn); background: var(--warn-soft); border-radius: var(--r-lg);
+    padding: 18px 20px; margin: 1.5rem 0;
+  }
+  .legalbox .t {
+    font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--warn); display: block; margin-bottom: .5em;
+  }
+  .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 800px) { .roles { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body data-page="p10">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 10 · Part II — Engineering it</span>
+  <h1>Governance, security and the AI Act</h1>
+  <p class="lead">The least popular module and one of the two or three most important. For a European
+  manufacturer this is not a compliance afterthought — it changes what you are allowed to build, what
+  you must document while building it, and who signs.</p>
+</header>
+
+<main class="wrap">
+
+<div class="legalbox">
+  <span class="t">Read this first</span>
+  <p class="mb0">I am not a lawyer and this module is not legal advice. It is an engineer's orientation
+  map, accurate as of <strong>September 2026</strong>, intended to help you ask your legal, privacy and
+  compliance colleagues the right questions early rather than late. The law has already been amended
+  once during its transition period — see section 10.3 — so <strong>verify every date and obligation
+  with your own legal function before acting</strong>, and re-check before each delivery of this
+  seminar.</p>
+</div>
+
+<!-- ============================================= 10.1 -->
+<section class="chapter" id="why">
+  <h2>10.1 · Why an engineer should care</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h4>It is product legislation</h4>
+      <p class="small mb0">The AI Act is built like CE-marking law, not like data-protection law. If you
+      have ever been near type approval or machinery conformity, the shape is familiar: risk
+      classification, technical documentation, conformity assessment, post-market monitoring,
+      incident reporting. That is engineering work, and it happens <em>during</em> development.</p>
+    </div>
+    <div class="card">
+      <h4>Documentation is not retrofittable</h4>
+      <p class="small mb0">The obligations ask for records of data governance, testing, accuracy and
+      human oversight — the module 7 and module 8 artefacts. Produced as you go, they are nearly free.
+      Reconstructed a year later for an assessment, they are expensive and sometimes impossible.</p>
+    </div>
+    <div class="card">
+      <h4>Most of it is good practice anyway</h4>
+      <p class="small mb0">Read the high-risk obligations next to the module 8 evaluation checklist and
+      the overlap is striking. A team that evaluates honestly, logs properly and keeps a human in the
+      loop is most of the way there for reasons that have nothing to do with law.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 10.2 -->
+<section class="chapter" id="tiers">
+  <h2>10.2 · Four tiers, and where you probably sit</h2>
+  <p>The Act classifies by <strong>use</strong>, not by technology. The same model can be unregulated in
+  one application and high-risk in another — which means the classification question belongs to whoever
+  defines the use case, not to whoever builds the model.</p>
+
+  <div class="tier t0">
+    <span class="num">0</span>
+    <div>
+      <h3>Prohibited</h3>
+      <p>A short list of practices banned outright, applicable since <strong>2 February 2025</strong>.
+      Includes social scoring, manipulative techniques that exploit vulnerabilities, untargeted scraping
+      of facial images, inferring sensitive characteristics from biometrics, and — directly relevant to
+      employers — <strong>emotion recognition in the workplace</strong>, outside narrow safety and medical
+      exceptions.</p>
+      <p class="small muted mb0">The workplace emotion-recognition ban catches more well-intentioned
+      product ideas than people expect: driver or operator “engagement” monitoring, sentiment scoring of
+      employee communications, interview analysis.</p>
+    </div>
+  </div>
+
+  <div class="tier t1">
+    <span class="num">1</span>
+    <div>
+      <h3>High-risk</h3>
+      <p>Permitted, with substantial obligations. Two routes in:</p>
+      <ul class="small" style="margin-bottom:.5em">
+        <li><strong>Annex I</strong> — AI that is a safety component of a product already covered by EU
+        harmonisation legislation: vehicles, machinery, lifts, PPE, medical devices, toys. For an
+        automotive engineering organisation <em>this is the route that matters</em>.</li>
+        <li><strong>Annex III</strong> — eight listed areas: biometrics, critical infrastructure,
+        education, <strong>employment</strong> (recruitment, task allocation, monitoring, promotion,
+        termination), essential private and public services including credit and insurance, law
+        enforcement, migration, and justice.</li>
+      </ul>
+      <p class="small mb0">Note that ordinary HR use of AI — CV screening, candidate ranking, allocating
+      work — lands in Annex III. It is the most common way a manufacturer acquires a high-risk system
+      without intending to.</p>
+    </div>
+  </div>
+
+  <div class="tier t2">
+    <span class="num">2</span>
+    <div>
+      <h3>Transparency obligations</h3>
+      <p>Systems that interact with people or generate content. People must be told they are dealing
+      with an AI; synthetic audio, image, video and text must be machine-readably marked; deepfakes must
+      be disclosed. These apply from <strong>2 August 2026</strong>, with a later date for systems that
+      were already on the market.</p>
+      <p class="small muted mb0">This is the tier most internal chat assistants and content tools land
+      in. The obligations are light, and they are obligations.</p>
+    </div>
+  </div>
+
+  <div class="tier t3">
+    <span class="num">3</span>
+    <div>
+      <h3>Minimal risk</h3>
+      <p class="mb0">Everything else — predictive maintenance, defect detection on parts, demand
+      forecasting, simulation surrogates, document search. <strong>No specific obligations under the
+      Act</strong> beyond the general AI-literacy duty. This is where the large majority of industrial AI
+      sits, and saying so plainly is useful: the Act is not a blanket burden on engineering use of
+      machine learning.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">Separately: general-purpose AI models</span>
+    <p class="mb0">Providers of general-purpose models (the frontier labs) have their own obligations,
+    applicable since <strong>2 August 2025</strong>: technical documentation, a copyright policy, a
+    public summary of training data, and further requirements for models presenting systemic risk. You
+    are almost certainly not a GPAI provider — but you should <strong>ask your vendors for their
+    documentation</strong>, because you will need it for your own assessments.</p>
+  </div>
+</section>
+
+<!-- ============================================= 10.3 -->
+<section class="chapter" id="dates">
+  <h2>10.3 · The timeline, as amended</h2>
+  <p>The Act entered into force on 1 August 2024 and applies in stages. In 2026 the high-risk deadlines
+  were <strong>deferred</strong> by the Digital AI Omnibus — a genuinely significant change, and a good
+  illustration of why you should not build a compliance plan from a slide deck older than a few months.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Application dates</h3><span class="tag">As of September 2026</span></div>
+    <div id="dateHost"></div>
+    <p class="srcnote small muted mt1 mb0">The Digital AI Omnibus on AI was proposed by the Commission on
+    19 November 2025, agreed and signed in July 2026, and entered into force on 27 July 2026. It deferred
+    the Annex III high-risk deadline from 2 August 2026 to 2 December 2027 and the Annex I deadline to
+    2 August 2028, while leaving the Article 50 transparency obligations on their original schedule. It
+    also made other targeted changes — confirm the consolidated text with your legal function rather
+    than relying on this summary.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">What the deferral does and does not mean</span>
+    <p class="mb0">It buys time for the heaviest obligations. It does <strong>not</strong> defer the
+    prohibitions (in force since February 2025), the AI-literacy duty (same date), the GPAI obligations
+    (August 2025), or the transparency rules (August 2026). And for anything that will be high-risk, the
+    extra time is only useful if it is spent building the documentation and evaluation practice that the
+    obligations require — which, conveniently, is modules 7 and 8.</p>
+  </div>
+</section>
+
+<!-- ============================================= 10.4 -->
+<section class="chapter" id="classify">
+  <h2>10.4 · Classify a use case</h2>
+  <p>Answer for one specific use case. The output is an orientation, not a determination.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Risk-tier orientation tool</h3><span class="tag try">Try “CV screening”, then “defect detection”</span></div>
+    <div class="btnrow">
+      <span class="small muted">Load an example:</span>
+      <button class="btn sm" data-ex="cv">CV screening</button>
+      <button class="btn sm" data-ex="defect">Defect detection on parts</button>
+      <button class="btn sm" data-ex="adas">Driver-assistance function</button>
+      <button class="btn sm" data-ex="chat">Internal document assistant</button>
+      <button class="btn sm" data-ex="emotion">Operator attention monitoring</button>
+      <button class="btn sm" id="qClear">Clear</button>
+    </div>
+    <div class="split-wide">
+      <div id="qHost"></div>
+      <div>
+        <div class="verdict info" id="clsVerdict"><span class="lvl">Answer the questions</span>
+        An orientation on tier, role and obligations will appear here.</div>
+        <div class="card mt1" id="clsOb" style="min-height:280px"></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Provider or deployer — the distinction that decides your workload</h3>
+  <div class="roles">
+    <div class="card">
+      <h4 style="color:var(--warn)">Provider</h4>
+      <p class="small">You develop an AI system and place it on the market or put it into service under
+      your own name — <em>or</em> you put your name on someone else's, or you substantially modify one,
+      or you change its intended purpose into a high-risk one.</p>
+      <p class="small mb0"><b>For a high-risk system that means:</b> risk management system, data
+      governance, technical documentation, automatic logging, instructions for deployers, human-oversight
+      design, accuracy/robustness/cybersecurity requirements, a quality management system, conformity
+      assessment, CE marking, registration, post-market monitoring and serious-incident reporting.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">Deployer</h4>
+      <p class="small">You use an AI system under your own authority, in the course of your professional
+      activity. This is what most companies are, most of the time.</p>
+      <p class="small mb0"><b>For a high-risk system that means:</b> use it according to the provider's
+      instructions, assign competent human oversight with the authority to override, ensure input data is
+      relevant and representative, monitor operation and report serious incidents, keep the logs, and
+      inform affected workers and their representatives before putting it into use. Lighter than provider
+      duties — and not nothing.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The trap</span>
+    <p class="mb0">Fine-tuning a vendor's model on your data, or wrapping it in your own product and
+    putting your name on it, can move you from deployer to <strong>provider</strong> — and with it the
+    entire documentation and conformity burden. Establish which side of that line each project is on
+    <em>before</em> the architecture is fixed, because it is a far cheaper conversation then.</p>
+  </div>
+</section>
+
+<!-- ============================================= 10.5 -->
+<section class="chapter" id="prompt">
+  <h2>10.5 · What may go into a prompt</h2>
+  <p>The most frequent real-world governance question, asked hundreds of times a day across any large
+  company, usually answered by guessing. Pick what you want to send and where.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Data-in-prompt orientation</h3><span class="tag try">Compare a consumer tool with an on-premise model</span></div>
+    <div class="split">
+      <div>
+        <h4>What is in the prompt</h4>
+        <div class="chips" id="dataChips"></div>
+        <h4 class="mt1">Where it is going</h4>
+        <div class="segmented" id="destSeg">
+          <button data-v="0" class="on">Free consumer AI tool</button>
+          <button data-v="1">Enterprise account, no-training terms</button>
+          <button data-v="2">EU-hosted managed service, DPA in place</button>
+          <button data-v="3">Self-hosted, on our own hardware</button>
+        </div>
+        <div class="card mt1" id="destNote" style="min-height:130px"></div>
+      </div>
+      <div>
+        <div class="datagrid" id="dataOut"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Shadow AI is the actual exposure</span>
+    <p class="mb0">While the governance committee deliberates, people paste whatever they need into
+    whatever tool is open, because it saves them an hour. A restrictive policy with no sanctioned
+    alternative does not prevent this — it only ensures it happens somewhere you cannot see.
+    <strong>Providing a good enough approved tool is a more effective control than any policy
+    document.</strong></p>
+  </div>
+</section>
+
+<!-- ============================================= 10.6 -->
+<section class="chapter" id="ip">
+  <h2>10.6 · Intellectual property, briefly and carefully</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Inputs — what models were trained on</h4>
+      <p class="small">Multiple major lawsuits over the use of copyrighted material in training are
+      unresolved across several jurisdictions, and outcomes differ. The EU has a text-and-data-mining
+      framework with a rights-holder opt-out, and the AI Act requires GPAI providers to have a copyright
+      policy and publish a training-data summary.</p>
+      <p class="small mb0"><b>What this means for you as a user:</b> prefer vendors who offer an IP
+      indemnity, and read what it actually covers. Several major vendors now do.</p>
+    </div>
+    <div class="card">
+      <h4>Outputs — who owns what comes out</h4>
+      <p class="small">Broadly, copyright protects human creative expression. Purely machine-generated
+      output may attract no copyright at all in several jurisdictions, including under EU and US practice
+      — which means <em>you may not be able to stop anyone else using it</em>. Meaningful human
+      authorship changes the analysis.</p>
+      <p class="small mb0"><b>Practical consequence:</b> do not assume AI-generated material is yours to
+      protect. For anything that matters commercially — a design, a brand asset, code in a product —
+      involve legal and document the human contribution.</p>
+    </div>
+    <div class="card">
+      <h4>“Open-weight” is not “open source”</h4>
+      <p class="small mb0">Several widely used open-weight licences impose acceptable-use restrictions,
+      user-count thresholds, naming requirements or limits on using outputs to train competing models.
+      Have the licence reviewed before you build a product on the model. The word “open” is doing
+      marketing work in this sentence.</p>
+    </div>
+    <div class="card">
+      <h4>Code assistants</h4>
+      <p class="small mb0">A model can reproduce training code, including copyleft-licensed code, which
+      creates a licence-contamination question in a commercial product. Mitigations: vendor settings that
+      suppress verbatim matches, licence scanning in CI, and keeping generated code out of anything you
+      ship without review. Treat this as a supply-chain control, not a legal footnote.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">Trade secrets — the one people forget</span>
+    <p class="mb0">Trade-secret protection depends on having taken <em>reasonable steps</em> to keep the
+    information secret. Pasting an unreleased design into a third-party service whose terms permit
+    training on your input can undermine that argument. This risk is independent of data protection, it
+    applies to information about no identifiable person at all, and it is frequently the more serious
+    exposure for an engineering organisation.</p>
+  </div>
+</section>
+
+<!-- ============================================= 10.7 -->
+<section class="chapter" id="vendor">
+  <h2>10.7 · Questions to put to a vendor</h2>
+  <p>Generated from the classification and data choices you made above, so it adapts to what you are
+  actually doing. Take it into the procurement meeting.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Vendor due-diligence questions</h3><span class="tag try">Change your answers above and come back</span></div>
+    <div id="vendorHost"></div>
+    <div class="btnrow">
+      <button class="btn sm" id="vCopy">Copy the list</button>
+      <span class="small muted" id="vCopied"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 10.8 -->
+<section class="chapter" id="operating">
+  <h2>10.8 · An operating model that is not theatre</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>The four things that do the work</h3>
+      <ol class="small mb0">
+        <li><strong>An AI inventory.</strong> One list of every AI use in the company, with owner,
+        purpose, data touched, tier and review date. You cannot govern what you cannot enumerate, and
+        building this list is usually the most revealing week of the whole programme.</li>
+        <li><strong>One lightweight review gate</strong> proportionate to tier: minimal risk gets a
+        register entry, high-risk gets a full assessment. A single heavy process for everything
+        guarantees people route around it.</li>
+        <li><strong>A sanctioned toolset</strong> that is genuinely good, so the compliant path is also
+        the easy path.</li>
+        <li><strong>AI literacy</strong> — which the Act requires of providers and deployers alike, and
+        which this seminar series is. Record attendance: it is evidence.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>The four that are theatre</h3>
+      <ul class="small mb0">
+        <li>A 40-page policy nobody reads, with no approved tool provided.</li>
+        <li>A committee that reviews slides rather than systems, after the build.</li>
+        <li>A blanket ban, which produces shadow AI and no visibility.</li>
+        <li>A vendor questionnaire returned by the vendor's marketing department and filed unread.</li>
+      </ul>
+      <p class="small mt1 mb0">The test for any control: does it change what gets built, or only what
+      gets documented?</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Governance readiness</h3><span class="tag try">Tick what exists today</span></div>
+    <div class="split">
+      <div class="checklist" id="govList"></div>
+      <div>
+        <div class="verdict info" id="govVerdict"><span class="lvl">Nothing ticked</span>Work down the list.</div>
+        <div class="card mt1" id="govGaps" style="min-height:220px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Open this module by asking who in the room has pasted something into a public AI tool this
+      month. Hands go up, or they do not and everyone knows they should have. Either way you have the
+      audience's attention and the shadow-AI point makes itself.</li>
+      <li>The AI-literacy obligation is a genuinely useful card to play internally: this seminar is a
+      compliance measure, which makes it easier to get time in people's calendars.</li>
+      <li>Do not present the Act as a threat. The honest framing: it is product-safety legislation
+      applied to software, most industrial machine learning falls outside its heavy obligations, and the
+      documentation it asks for is what a well-run project produces anyway.</li>
+      <li>Have your own legal or compliance colleague in the room for this session if you can. Every
+      question you cannot answer is one they can — and the co-delivery does more for the relationship
+      than the content does.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>That completes Part II: data, evaluation, agents and governance. Part III is about application —
+  and it opens with the one that matters most to an engineering organisation.</p>
+  <p><a href="11-engineering.html"><strong>Module 11 · AI in engineering and simulation →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+
+  /* ============================================ 10.3 dates */
+  var DATES = [
+    ['1 Aug 2024', '2024-08-01', 'The AI Act enters into force. Nothing applies yet; the transition clock starts.'],
+    ['2 Feb 2025', '2025-02-02', '<b>Prohibited practices</b> apply — including emotion recognition in the workplace. <b>AI-literacy obligation</b> applies to providers and deployers.'],
+    ['2 Aug 2025', '2025-08-02', '<b>General-purpose AI model obligations</b> apply. Governance structures and penalties regime in place.'],
+    ['2 Aug 2026', '2026-08-02', '<b>Article 50 transparency obligations</b> apply: disclosure of AI interaction, marking of synthetic content, deepfake labelling. General applicability of most remaining provisions.'],
+    ['2 Dec 2026', '2026-12-02', 'Marking obligations extend to systems already on the market before August 2026.'],
+    ['2 Dec 2027', '2027-12-02', '<b>Annex III high-risk obligations</b> apply — deferred from 2 August 2026 by the Digital AI Omnibus. Employment, credit, education, biometrics and the rest.'],
+    ['2 Aug 2028', '2028-08-02', '<b>Annex I high-risk obligations</b> apply — AI as a safety component of products under EU harmonisation legislation. <b>The date that matters for vehicles and machinery.</b>']
+  ];
+  function drawDates() {
+    var now = new Date();
+    var nextFound = false;
+    document.getElementById('dateHost').innerHTML = DATES.map(function (d) {
+      var dt = new Date(d[1]);
+      var past = dt < now;
+      var cls = past ? 'past' : (!nextFound ? 'next' : '');
+      if (!past && !nextFound) nextFound = true;
+      return '<div class="drow ' + cls + '"><span class="d">' + d[0] +
+        (past ? ' ✓' : (cls === 'next' ? ' ← next' : '')) + '</span><span class="t">' + d[2] + '</span></div>';
+    }).join('');
+  }
+
+  /* ============================================ 10.4 classifier */
+  var QS = [
+    { id: 'prohibited', q: 'Does the system do any of the following?',
+      multi: true,
+      opts: [
+        ['social', 'Social scoring of people'],
+        ['emotion', 'Emotion recognition at work or in education'],
+        ['scrape', 'Untargeted scraping of facial images'],
+        ['manip', 'Techniques that exploit vulnerabilities to distort behaviour'],
+        ['biocat', 'Inferring sensitive characteristics from biometrics'],
+        ['none', 'None of these']
+      ],
+      hint: 'These are the prohibited practices. Note that operator or driver “attention” and “engagement” monitoring at work frequently falls under emotion recognition.' },
+    { id: 'annex1', q: 'Is the AI a safety component of a product already covered by EU product legislation?',
+      opts: [['yes', 'Yes — vehicle, machinery, medical device, lift, PPE, toy…'], ['no', 'No']],
+      hint: 'This is the Annex I route into high-risk, and the one most likely to apply in an automotive engineering context. “Safety component” is a term of art — check it with legal rather than by intuition.' },
+    { id: 'annex3', q: 'Is it used in one of the listed Annex III areas?',
+      multi: true,
+      opts: [
+        ['bio', 'Biometric identification or categorisation'],
+        ['infra', 'Safety of critical infrastructure'],
+        ['edu', 'Education: access, assessment, proctoring'],
+        ['emp', 'Employment: recruitment, task allocation, monitoring, promotion, termination'],
+        ['svc', 'Essential services, credit scoring, insurance pricing'],
+        ['law', 'Law enforcement, migration, justice, democratic processes'],
+        ['none', 'None of these']
+      ],
+      hint: 'HR uses are the common surprise. Screening CVs, ranking candidates or allocating work by algorithm sits here.' },
+    { id: 'interact', q: 'Does it interact directly with people, or generate or manipulate content?',
+      multi: true,
+      opts: [
+        ['chat', 'People interact with it directly (chat, voice)'],
+        ['gen', 'It generates text, images, audio or video'],
+        ['deep', 'It produces realistic depictions of real people or events'],
+        ['none', 'Neither']
+      ],
+      hint: 'This determines the Article 50 transparency duties, which apply from August 2026 regardless of tier.' },
+    { id: 'role', q: 'What is your role with respect to this system?',
+      opts: [
+        ['deploy', 'We use a third-party system as it comes'],
+        ['modify', 'We fine-tune it, wrap it in our product, or put our name on it'],
+        ['build', 'We build it ourselves']
+      ],
+      hint: 'Fine-tuning, rebranding or substantially modifying a system can make you the provider, with the full obligation set.' },
+    { id: 'eu', q: 'Is it used in the EU, or does its output affect people in the EU?',
+      opts: [['yes', 'Yes'], ['no', 'No']],
+      hint: 'The Act has extraterritorial reach: output affecting people in the EU is enough to bring a system in scope.' }
+  ];
+  var ANS = {};
+  var EXAMPLES = {
+    cv: { prohibited: { none: 1 }, annex1: 'no', annex3: { emp: 1 }, interact: { none: 1 }, role: 'deploy', eu: 'yes' },
+    defect: { prohibited: { none: 1 }, annex1: 'no', annex3: { none: 1 }, interact: { none: 1 }, role: 'build', eu: 'yes' },
+    adas: { prohibited: { none: 1 }, annex1: 'yes', annex3: { none: 1 }, interact: { none: 1 }, role: 'build', eu: 'yes' },
+    chat: { prohibited: { none: 1 }, annex1: 'no', annex3: { none: 1 }, interact: { chat: 1, gen: 1 }, role: 'deploy', eu: 'yes' },
+    emotion: { prohibited: { emotion: 1 }, annex1: 'no', annex3: { none: 1 }, interact: { none: 1 }, role: 'build', eu: 'yes' }
+  };
+  function drawQs() {
+    var host = document.getElementById('qHost');
+    if (!host.dataset.built) {
+      host.innerHTML = QS.map(function (q, i) {
+        return '<div class="qrow"><div class="q">' + (i + 1) + ' · ' + q.q + '</div>' +
+          '<div class="chips" data-q="' + q.id + '">' +
+          q.opts.map(function (o) { return '<button data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') +
+          '</div><div class="hint">' + q.hint + '</div></div>';
+      }).join('');
+      host.dataset.built = '1';
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        var wrap = e.target.parentNode, qid = wrap.getAttribute('data-q');
+        var qdef = QS.filter(function (q) { return q.id === qid; })[0];
+        var v = e.target.getAttribute('data-v');
+        if (qdef.multi) {
+          ANS[qid] = ANS[qid] && typeof ANS[qid] === 'object' ? ANS[qid] : {};
+          if (v === 'none') ANS[qid] = { none: 1 };
+          else { delete ANS[qid].none; ANS[qid][v] = !ANS[qid][v]; if (!ANS[qid][v]) delete ANS[qid][v]; }
+        } else ANS[qid] = v;
+        paintQs(); classify();
+      });
+    }
+    paintQs();
+  }
+  function paintQs() {
+    AI.qsa('#qHost .chips').forEach(function (wrap) {
+      var qid = wrap.getAttribute('data-q'), a = ANS[qid];
+      AI.qsa('button', wrap).forEach(function (b) {
+        var v = b.getAttribute('data-v');
+        var on = typeof a === 'object' && a ? !!a[v] : a === v;
+        b.classList.toggle('on', on);
+        b.classList.toggle('danger', on && qid === 'prohibited' && v !== 'none');
+      });
+    });
+  }
+  function anyOf(qid, keys) {
+    var a = ANS[qid];
+    if (!a || typeof a !== 'object') return false;
+    return keys.some(function (k) { return !!a[k]; });
+  }
+  function classify() {
+    var v = document.getElementById('clsVerdict'), ob = document.getElementById('clsOb');
+    var answered = QS.every(function (q) { return ANS[q.id] && (typeof ANS[q.id] !== 'object' || Object.keys(ANS[q.id]).length); });
+    if (!answered) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Answer the questions</span>An orientation on tier, role and obligations will appear here.';
+      ob.innerHTML = '<p class="small muted mb0">Six questions, or load one of the examples above.</p>';
+      buildVendor(null);
+      return;
+    }
+    var banned = anyOf('prohibited', ['social', 'emotion', 'scrape', 'manip', 'biocat']);
+    var hi1 = ANS.annex1 === 'yes';
+    var hi3 = anyOf('annex3', ['bio', 'infra', 'edu', 'emp', 'svc', 'law']);
+    var transparency = anyOf('interact', ['chat', 'gen', 'deep']);
+    var provider = ANS.role === 'build' || ANS.role === 'modify';
+    var inScope = ANS.eu === 'yes';
+    var tier, cls, oblig = '';
+
+    if (!inScope) {
+      tier = 'Outside the AI Act’s scope — but check other law';
+      cls = 'ok';
+      oblig = '<p class="small">The Act does not reach a system used outside the EU whose output does not affect people in the EU. Other regimes still apply — data protection, product safety, sector rules, and any local AI legislation.</p>' +
+        '<p class="small mb0"><b>Be careful with this answer.</b> “Affects people in the EU” is broad, and a system deployed at one site rarely stays there.</p>';
+    } else if (banned) {
+      tier = 'Prohibited — stop';
+      cls = 'hi';
+      oblig = '<p class="small">One or more of the selected practices is banned outright, and has been since <b>2 February 2025</b>. There is no compliance route, no conformity assessment and no risk-management mitigation that makes it permissible.</p>' +
+        '<p class="small"><b>What to do:</b> take this to legal now, before any further development. There is often a lawful redesign that achieves the underlying business goal — for example, measuring an objective safety signal such as eye closure or lane deviation rather than inferring an emotional state, or monitoring equipment rather than people.</p>' +
+        '<p class="small mb0">Penalties for prohibited practices are the highest in the Act.</p>';
+    } else if (hi1 || hi3) {
+      tier = 'High-risk' + (hi1 ? ' (Annex I — product safety component)' : ' (Annex III — listed area)');
+      cls = 'mid';
+      oblig = '<p class="small">Permitted, with the Act’s heaviest obligations. Applicable from <b>' +
+        (hi1 ? '2 August 2028' : '2 December 2027') + '</b> following the 2026 deferral — which is time to build the practice, not time to ignore it.</p>';
+      if (provider) {
+        oblig += '<p class="small"><b>You are likely a provider</b>, so expect to need: a risk-management system across the lifecycle; data governance covering relevance, representativeness and bias; technical documentation; automatic logging; instructions for deployers; human-oversight measures designed in; accuracy, robustness and cybersecurity requirements; a quality management system; conformity assessment and CE marking; registration; post-market monitoring; and serious-incident reporting.</p>';
+        if (hi1) oblig += '<p class="small">Because this is an Annex I product route, the AI conformity assessment is generally integrated into the <b>existing product conformity procedure</b> rather than running alongside it. Talk to the people who already do type approval or machinery conformity — they own the process you are joining.</p>';
+      } else {
+        oblig += '<p class="small"><b>You are likely a deployer</b>, so expect to need: use in accordance with the provider’s instructions; assignment of competent human oversight with real authority to override; input data that is relevant and representative; monitoring and serious-incident reporting; retention of logs; and — if it affects workers — informing employees and their representatives before putting it into use.</p>';
+      }
+      if (hi3 && anyOf('annex3', ['emp'])) oblig += '<p class="small"><b>Employment-specific note:</b> worker information duties and consultation obligations under national labour law often bite earlier and harder than the AI Act itself. Involve HR and works-council contacts at the idea stage.</p>';
+      oblig += '<p class="small mb0"><b>Engineering translation:</b> modules 7 and 8 of this course are most of what is being asked for. Start producing those artefacts now and the assessment becomes a documentation exercise rather than a project.</p>';
+    } else if (transparency) {
+      tier = 'Transparency obligations (Article 50)';
+      cls = 'ok';
+      oblig = '<p class="small">Not high-risk. Obligations apply from <b>2 August 2026</b>:</p><ul class="small oblist">';
+      if (anyOf('interact', ['chat'])) oblig += '<li>Tell people they are interacting with an AI system, unless it is obvious.</li>';
+      if (anyOf('interact', ['gen'])) oblig += '<li>Mark synthetic content in a machine-readable way as artificially generated or manipulated.</li>';
+      if (anyOf('interact', ['deep'])) oblig += '<li>Disclose deepfakes — realistic depictions of real people or events — clearly and visibly.</li>';
+      oblig += '</ul><p class="small mb0">Light obligations, easy to meet if designed in, awkward to retrofit across an existing content pipeline. And note the separate <b>AI-literacy duty</b>, which has applied since February 2025 regardless of tier.</p>';
+    } else {
+      tier = 'Minimal risk';
+      cls = 'ok';
+      oblig = '<p class="small">No specific obligations under the AI Act beyond the general AI-literacy duty. This is where most industrial machine learning sits — predictive maintenance, defect detection, forecasting, simulation surrogates, internal search.</p>' +
+        '<p class="small mb0"><b>Still applies:</b> data protection if personal data is involved, your own product-safety obligations, contractual and confidentiality duties, and the internal quality bar from module 8. “Minimal risk” under the Act does not mean “no review”.</p>';
+    }
+    v.className = 'verdict ' + cls;
+    v.innerHTML = '<span class="lvl">' + tier + '</span>' +
+      '<p class="small mb0">Orientation only — confirm with your legal and compliance function. Classification depends on the precise intended purpose, which is a document, not a conversation.</p>';
+    ob.innerHTML = '<h4>What that means in practice</h4>' + oblig;
+    buildVendor({ hi: hi1 || hi3, provider: provider, transparency: transparency, banned: banned });
+  }
+
+  /* ============================================ 10.5 data in prompt */
+  var DATAK = [
+    ['pers', 'Personal data (names, IDs, HR records)'],
+    ['emp', 'Employee data'],
+    ['cust', 'Customer data'],
+    ['secret', 'Unreleased designs / trade secrets'],
+    ['nda', 'Third-party confidential under NDA'],
+    ['safety', 'Safety-critical or homologation data'],
+    ['code', 'Proprietary source code'],
+    ['pub', 'Already-public information']
+  ];
+  var DEST = [
+    { n: 'Free consumer AI tool', note: 'Terms typically permit use of your input to improve the service, there is no data-processing agreement, retention is unclear and staff accounts are personal. Treat it as publishing.' },
+    { n: 'Enterprise account with no-training terms', note: 'Contractual commitment not to train on your data, with a DPA and defined retention. Suitable for a lot of internal work — read the actual terms, including subprocessors and retention for abuse monitoring.' },
+    { n: 'EU-hosted managed service with a DPA', note: 'As above plus data residency, which resolves most transfer questions and many internal objections. Usually the pragmatic default for a European company.' },
+    { n: 'Self-hosted on our own hardware', note: 'Nothing leaves your infrastructure, so confidentiality and residency questions largely disappear. You inherit serving, security and model-maintenance work instead (module 5.8), and access control becomes entirely yours to get right.' }
+  ];
+  var PD = { sel: {}, dest: 0 };
+  function dataVerdict(k, dest) {
+    var t = { v: 'ok', s: 'Generally acceptable', d: '' };
+    if (k === 'pub') return { v: 'ok', s: 'Fine', d: 'Already public. No confidentiality issue; the only question is whether the output is any good.' };
+    if (dest === 3) {
+      if (k === 'pers' || k === 'emp' || k === 'cust') return { v: 'cond', s: 'Conditional', d: 'No third-party transfer, but data-protection duties remain in full: lawful basis, purpose limitation, minimisation, retention, and rights of the people concerned. Self-hosting solves the transfer question, not the privacy question.' };
+      if (k === 'safety') return { v: 'cond', s: 'Conditional', d: 'Technically containable. Keep a human decision-maker in the path and expect this use to be in scope of your quality and homologation processes.' };
+      return { v: 'ok', s: 'Acceptable', d: 'Stays inside your infrastructure. Apply normal internal access control — retrieval must respect the permissions of the person asking, not of the service account.' };
+    }
+    if (k === 'pers' || k === 'emp' || k === 'cust') {
+      if (dest === 0) return { v: 'no', s: 'Do not', d: 'Personal data into a consumer service with no DPA and training on input. This is the clearest line on the page, and the most frequently crossed.' };
+      return { v: 'cond', s: 'Conditional', d: 'Possible with a DPA, a lawful basis, minimisation and a retention agreement — and after your privacy function has signed it off. Pseudonymise first wherever the task allows.' };
+    }
+    if (k === 'secret') {
+      if (dest === 0) return { v: 'no', s: 'Do not', d: 'This is the trade-secret exposure from section 10.6. Disclosure to a service that may train on your input can undermine the “reasonable steps to keep it secret” requirement that the protection depends on.' };
+      if (dest === 1) return { v: 'cond', s: 'Conditional', d: 'Contractually protected, and still a disclosure to a third party. For genuinely crown-jewel material, prefer self-hosting — and have someone decide what counts as crown-jewel before people have to guess.' };
+      return { v: 'cond', s: 'Conditional', d: 'Defensible with the right contract and residency. Decide explicitly which categories of design data are in and out of scope, and write it down.' };
+    }
+    if (k === 'nda') {
+      if (dest === 0) return { v: 'no', s: 'Do not', d: 'You almost certainly do not have the right to disclose a counterparty’s confidential information to a third-party service. This is a contract breach, not a policy preference.' };
+      return { v: 'cond', s: 'Check the NDA', d: 'Many NDAs restrict disclosure to named subprocessors or require consent. Read the specific agreement — the answer varies per counterparty and cannot be set by a blanket policy.' };
+    }
+    if (k === 'safety') {
+      if (dest === 0) return { v: 'no', s: 'Do not', d: 'Homologation and safety data in a consumer tool. Beyond confidentiality, you will not be able to evidence the provenance of any analysis, which is exactly what an assessment asks for.' };
+      return { v: 'cond', s: 'Conditional', d: 'Usable for drafting and search with a human decision-maker in the path. Never as the basis of a safety determination without the controls from module 8 and the documentation from 10.4.' };
+    }
+    if (k === 'code') {
+      if (dest === 0) return { v: 'no', s: 'Do not', d: 'Proprietary source into a service that trains on input. Use a sanctioned code assistant with enterprise terms instead — and note the licence-contamination question in 10.6.' };
+      return { v: 'cond', s: 'Conditional', d: 'Standard with enterprise terms, which is how most engineering organisations now work. Confirm no-training terms, and keep secrets and credentials out of the files you expose.' };
+    }
+    return t;
+  }
+  function drawData() {
+    var host = document.getElementById('dataChips');
+    if (!host.innerHTML) {
+      host.innerHTML = DATAK.map(function (d) { return '<button data-k="' + d[0] + '">' + d[1] + '</button>'; }).join('');
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        var k = e.target.getAttribute('data-k');
+        PD.sel[k] = !PD.sel[k];
+        e.target.classList.toggle('on', !!PD.sel[k]);
+        drawData();
+      });
+    }
+    document.getElementById('destNote').innerHTML = '<h4>' + DEST[PD.dest].n + '</h4><p class="small mb0">' +
+      DEST[PD.dest].note + '</p>';
+    var keys = DATAK.filter(function (d) { return PD.sel[d[0]]; });
+    if (!keys.length) {
+      document.getElementById('dataOut').innerHTML =
+        '<p class="small muted">Select what would be in the prompt.</p>';
+      return;
+    }
+    document.getElementById('dataOut').innerHTML = keys.map(function (d) {
+      var r = dataVerdict(d[0], PD.dest);
+      return '<div class="dcell ' + r.v + '"><span class="v">' + r.s + '</span><b>' + d[1] + '</b><br>' + r.d + '</div>';
+    }).join('');
+  }
+
+  /* ============================================ 10.7 vendor questions */
+  var VBASE = [
+    'Do you train on our inputs or outputs by default? Can that be contractually disabled, and is it disabled for our tenant today?',
+    'Where is our data processed and stored, and which subprocessors are involved?',
+    'What is the retention period for prompts and outputs, including any retention for abuse monitoring, and can it be set to zero?',
+    'Do you offer an intellectual-property indemnity for model output? What exactly does it cover and exclude?',
+    'How do you notify us of model version changes, and can we pin a version for a defined period?',
+    'What logging do we get: full prompts, tool calls, outputs, timestamps, user identity?',
+    'What is your incident notification process and timeline?',
+    'Can you provide your security certifications and the results of your most recent penetration test?'
+  ];
+  function buildVendor(state) {
+    var list = VBASE.slice();
+    if (state && state.hi) {
+      list = list.concat([
+        'Will you provide the technical documentation and instructions for use that a deployer of a high-risk AI system needs?',
+        'Can you evidence your data governance: how training data was selected, its representativeness, and bias testing performed?',
+        'What accuracy, robustness and cybersecurity metrics do you publish, and on what test data?',
+        'What human-oversight features does the system provide — how does an operator understand, override and stop it?',
+        'Will you support us in a conformity assessment, and have you undergone one yourself?'
+      ]);
+    }
+    if (state && state.provider) {
+      list = list.concat([
+        'If we fine-tune or wrap your model, what documentation of the base model will you provide for our own assessment?',
+        'What are the licence terms for the weights, including any use restrictions or thresholds?',
+        'What training-data summary can you share, and what is your copyright policy?'
+      ]);
+    }
+    if (state && state.transparency) {
+      list = list.concat([
+        'Does your output carry machine-readable provenance marking for synthetic content, and in which formats?'
+      ]);
+    }
+    if (PD.dest === 0) {
+      list.unshift('Are we using a consumer tier? If so, what is the migration path to enterprise terms, and by when?');
+    }
+    document.getElementById('vendorHost').innerHTML =
+      '<ol class="oblist">' + list.map(function (q) { return '<li>' + q + '</li>'; }).join('') + '</ol>';
+    window.__vlist = list;
+  }
+
+  /* ============================================ 10.8 governance checklist */
+  var GOV = [
+    ['An AI inventory exists', 'One list of every AI use in the company, with owner, purpose, data, tier and review date.', 3, 'Start it this week, in a spreadsheet. Completeness matters more than tooling, and building it will surprise you.'],
+    ['A proportionate review gate', 'Minimal-risk uses get a register entry; high-risk uses get a full assessment. Different paths, one process.', 3, 'A single heavy gate for everything is the most reliable way to create shadow AI.'],
+    ['A sanctioned toolset', 'An approved assistant with enterprise terms that people actually prefer to the alternatives.', 3, 'This is a control, not a perk. Without it, policy is unenforceable.'],
+    ['Written data rules', 'Clear guidance on what may go into which tool — the section 10.5 question, answered once.', 2, 'One page, with examples. Long policies do not get read and therefore do not change behaviour.'],
+    ['AI literacy delivered and recorded', 'Staff who use or oversee AI have had training, and you can evidence it.', 2, 'Required of providers and deployers since February 2025. This seminar counts — record attendance.'],
+    ['Named accountability per system', 'Every AI use has one person accountable for its outputs, not a committee.', 2, 'Accountability shared across a steering group is accountability nobody holds.'],
+    ['Legal and privacy involved early', 'They see use cases at the idea stage, not at the go-live gate.', 2, 'Late involvement is what produces the late veto everyone resents.'],
+    ['Vendor terms reviewed', 'Somebody has actually read the training, retention, residency and indemnity terms of the tools in use.', 2, 'Section 10.7 is your starting list. Marketing answers do not count.'],
+    ['Incident path defined', 'People know how to report an AI-related problem, and who acts on it.', 2, 'Include the boring cases: a wrong answer acted on, data pasted into the wrong tool.'],
+    ['Human oversight designed in', 'For anything consequential, a named person can understand, override and stop the system.', 3, 'Both an Act obligation for high-risk systems and simply how you avoid the failures in modules 9 and 13.']
+  ];
+  function drawGov() {
+    var host = document.getElementById('govList');
+    if (!host.innerHTML) {
+      host.innerHTML = GOV.map(function (r, i) {
+        return '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b><span class="sub">' + r[1] + '</span></span></label>';
+      }).join('');
+      host.addEventListener('change', drawGov);
+    }
+    var got = 0, total = 0, gaps = [];
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      var i = parseInt(cb.getAttribute('data-i'), 10);
+      total += GOV[i][2];
+      if (cb.checked) got += GOV[i][2]; else gaps.push(GOV[i]);
+    });
+    var pct = got / total, v = document.getElementById('govVerdict');
+    if (!got) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nothing ticked</span>Work down the list.';
+    } else if (pct >= 0.85) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Governed — ' + Math.round(pct * 100) + '%</span>' +
+        'Unusually well placed. The remaining work is keeping the inventory current, which is a standing job rather than a project.';
+    } else if (pct >= 0.5) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Partly governed — ' + Math.round(pct * 100) + '%</span>' +
+        'Typical for 2026, and workable. Close the gaps opposite in order; each is weeks of effort, not a programme.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Ungoverned — ' + Math.round(pct * 100) + '%</span>' +
+        'AI is being used in the organisation whether or not this list is ticked. The first two items — an inventory and a sanctioned tool — buy more risk reduction than everything else combined.';
+    }
+    var g = '<h4>Where to start</h4>';
+    if (!gaps.length) g += '<p class="small mb0" style="color:var(--good)">Nothing outstanding. Re-check quarterly — this list decays.</p>';
+    else {
+      g += '<ul class="small mb0">';
+      gaps.sort(function (a, b) { return b[2] - a[2]; }).slice(0, 5).forEach(function (r) {
+        g += '<li><b>' + r[0] + ':</b> ' + r[3] + '</li>';
+      });
+      g += '</ul>';
+    }
+    document.getElementById('govGaps').innerHTML = g;
+  }
+
+  window.PAGE_INIT = function () {
+    drawDates();
+    drawQs(); classify();
+    AI.qsa('[data-ex]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var ex = EXAMPLES[b.getAttribute('data-ex')];
+        ANS = JSON.parse(JSON.stringify(ex));
+        paintQs(); classify();
+      });
+    });
+    AI.on(document.getElementById('qClear'), 'click', function () { ANS = {}; paintQs(); classify(); });
+
+    drawData();
+    AI.segmented(document.getElementById('destSeg'), function (v) {
+      PD.dest = parseInt(v, 10); drawData(); classify();
+    });
+
+    AI.on(document.getElementById('vCopy'), 'click', function () {
+      var txt = (window.__vlist || []).map(function (q, i) { return (i + 1) + '. ' + q; }).join('\n');
+      try {
+        navigator.clipboard.writeText(txt);
+        document.getElementById('vCopied').textContent = 'Copied to the clipboard.';
+      } catch (e) {
+        document.getElementById('vCopied').textContent = 'Copy failed — select the list and copy manually.';
+      }
+      setTimeout(function () { document.getElementById('vCopied').textContent = ''; }, 3000);
+    });
+
+    drawGov();
+  };
+})();
+</script>
+</body>
+</html>

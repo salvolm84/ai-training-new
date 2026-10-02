@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15 · Capstone — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 400px; }
+  .canvasgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .canvasgrid { grid-template-columns: 1fr; } }
+  .caselist { display: grid; gap: 6px; }
+  .caseitem {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; background: var(--panel);
+    font-size: .88rem;
+  }
+  .caseitem.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .caseitem .nm { cursor: pointer; font-weight: 600; }
+  .caseitem button {
+    font: inherit; font-size: .74rem; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--bg-2); color: var(--ink-3);
+  }
+  .caseitem button:hover { border-color: var(--bad); color: var(--bad); }
+  .stepbox {
+    border-left: 3px solid var(--accent); background: var(--bg-2); border-radius: 0 var(--r) var(--r) 0;
+    padding: 12px 16px; margin-bottom: 8px;
+  }
+  .stepbox .n {
+    font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--accent); display: block; margin-bottom: 3px;
+  }
+  .agenda { display: grid; gap: 8px; }
+  .agenda .row {
+    display: grid; grid-template-columns: 76px 1fr; gap: 14px; align-items: start;
+    border-bottom: 1px solid var(--line-2); padding: 10px 0;
+  }
+  .agenda .row:last-child { border-bottom: none; }
+  .agenda .tm { font-family: var(--mono); font-size: .84rem; font-weight: 700; color: var(--accent); }
+  .summary {
+    font-size: .92rem; line-height: 1.75;
+  }
+  .summary h3 { font-size: 1.05rem; margin: 1em 0 .3em; }
+  .summary dl { margin: 0 0 1em; }
+  @media print {
+    .lab, .chapter, .card { break-inside: avoid; }
+    #portfolioSection, .caselist, .agenda { display: block; }
+  }
+</style>
+</head>
+<body data-page="p15">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 15 · Part III — Applying it</span>
+  <h1>Capstone</h1>
+  <p class="lead">Fourteen modules of general material. This one produces something: a specific use case
+  from your own work, run through everything the course covered, with an honest scorecard and three
+  concrete next steps.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">How to run this session</span>
+  <p class="mb0">Teams of three to four, each bringing one real candidate use case. Forty minutes filling
+  the canvas, twenty minutes presenting to the room, fifteen minutes plotting everything on the
+  portfolio grid. The deliverable is not a decision — it is <strong>a short list of pre-qualified ideas
+  with their gaps named</strong>, which is what the person sponsoring this series actually wanted.</p>
+</div>
+
+<!-- ============================================= 15.1 -->
+<section class="chapter" id="canvas">
+  <h2>15.1 · The use-case canvas</h2>
+  <p>Fill it in for one use case. Everything is saved in this browser, so you can come back to it.</p>
+
+  <div class="lab">
+    <div class="lab-head">
+      <h3>Lab · Canvas</h3>
+      <span class="tag try">Be honest rather than optimistic</span>
+    </div>
+
+    <div class="btnrow">
+      <button class="btn primary" id="cNew">New use case</button>
+      <button class="btn sm" id="cSave">Save</button>
+      <button class="btn sm" id="cPrint">Print / save as PDF</button>
+      <button class="btn sm" id="cExample">Load an example</button>
+      <span class="small muted" id="cStatus"></span>
+    </div>
+
+    <div class="caselist mt1" id="caseList"></div>
+
+    <div class="canvasgrid mt1">
+      <div>
+        <h4>The problem</h4>
+        <div class="field">
+          <label for="f_name">Name of the use case</label>
+          <input type="text" id="f_name" placeholder="e.g. Standards question answering for the design office">
+        </div>
+        <div class="field">
+          <label for="f_who">Whose problem is this? Name a person or a role</label>
+          <input type="text" id="f_who" placeholder="e.g. the four engineers who field standards queries">
+          <div class="help">If you cannot name anyone, this is a technology project, not an improvement
+          project (module 13.6).</div>
+        </div>
+        <div class="field">
+          <label for="f_today">What do they do today?</label>
+          <textarea id="f_today" rows="2" placeholder="e.g. search a SharePoint of 900 PDFs, or ask a colleague"></textarea>
+        </div>
+        <div class="field">
+          <label for="f_change">What output or decision changes if this works?</label>
+          <textarea id="f_change" rows="2" placeholder="e.g. answers with a clause citation in 2 minutes instead of 40"></textarea>
+        </div>
+
+        <h4 class="mt1">The size of it</h4>
+        <div class="grid g2" style="gap:12px">
+          <div class="field" style="margin-bottom:0">
+            <label for="f_freq">Times per month</label>
+            <input type="number" id="f_freq" value="200" min="1">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="f_mins">Minutes each, today</label>
+            <input type="number" id="f_mins" value="30" min="1">
+          </div>
+        </div>
+
+        <h4 class="mt1">What kind of task is it?</h4>
+        <div class="chips" id="taskChips"></div>
+      </div>
+
+      <div>
+        <h4>The data</h4>
+        <div class="field">
+          <label for="f_data">What data exists today?</label>
+          <select id="f_data">
+            <option value="0">Nothing usable exists yet</option>
+            <option value="1">It exists but is messy, scattered or inaccessible</option>
+            <option value="2" selected>It exists, is accessible, and is reasonably clean</option>
+            <option value="3">It exists and is already labelled for this exact task</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f_label">Is the target written down?</label>
+          <select id="f_label">
+            <option value="0">No — we would argue about what a correct answer is</option>
+            <option value="1" selected>Partly — experts mostly agree</option>
+            <option value="2">Yes — there is a written definition two people would apply identically</option>
+          </select>
+          <div class="help">Module 7.2. This is the item most projects cannot tick, and the cheapest to fix.</div>
+        </div>
+        <div class="field">
+          <label for="f_baseline">Do you know how well people do it today?</label>
+          <select id="f_baseline">
+            <option value="0" selected>No</option>
+            <option value="1">Roughly, anecdotally</option>
+            <option value="2">Yes, measured</option>
+          </select>
+          <div class="help">Module 8.5. Without it you cannot tell whether the model is good, or build a business case.</div>
+        </div>
+
+        <h4 class="mt1">The risk</h4>
+        <div class="field">
+          <label for="f_conseq">If it is wrong and nobody notices, what happens?</label>
+          <select id="f_conseq">
+            <option value="0">Nothing much — someone re-reads it</option>
+            <option value="1" selected>Wasted work or rework</option>
+            <option value="2">Real cost, or an external commitment</option>
+            <option value="3">Customer impact or reputational damage</option>
+            <option value="4">Safety, homologation or regulatory consequence</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Also true of this use case</label>
+          <div class="chips" id="riskChips"></div>
+        </div>
+        <div class="field">
+          <label for="f_review">Who reviews the output, and when?</label>
+          <input type="text" id="f_review" placeholder="e.g. the asking engineer, before using the answer">
+          <div class="help">Module 13.3. “A human reviews it” with no name and no allocated time is an alibi.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 15.2 -->
+<section class="chapter" id="scorecard">
+  <h2>15.2 · The scorecard</h2>
+  <div class="lab">
+    <div class="lab-head"><h3>Assessment</h3><span class="tag">Computed from the canvas</span></div>
+    <div class="split-wide">
+      <div>
+        <div class="sbar"><span>Value at stake</span><div class="tr"><div class="fi" id="bar_value"></div></div><span class="vv" id="v_value">—</span></div>
+        <div class="sbar"><span>Feasibility</span><div class="tr"><div class="fi" id="bar_feas"></div></div><span class="vv" id="v_feas">—</span></div>
+        <div class="sbar"><span>Risk</span><div class="tr"><div class="fi" id="bar_risk"></div></div><span class="vv" id="v_risk">—</span></div>
+        <div class="sbar"><span>Readiness to start</span><div class="tr"><div class="fi" id="bar_ready"></div></div><span class="vv" id="v_ready">—</span></div>
+
+        <div class="readout mt1">
+          <div class="stat"><span class="k">hours per year at stake</span><span class="v" id="o_hours">—</span></div>
+          <div class="stat"><span class="k">of which realistically saved</span><span class="v" id="o_saved">—</span><span class="u">at 50%</span></div>
+          <div class="stat hl"><span class="k">indicative annual value</span><span class="v" id="o_value">—</span></div>
+          <div class="stat"><span class="k">est. running cost / year</span><span class="v" id="o_run">—</span></div>
+        </div>
+        <p class="small muted mt1 mb0">Value uses €65 per engineer-hour and assumes only half the time is
+        genuinely recovered — which is optimistic-realistic rather than optimistic. Running cost uses the
+        token estimate below at €3 per million tokens; for non-language tasks it is a rough compute and
+        maintenance allowance instead.</p>
+      </div>
+      <div>
+        <div class="verdict" id="verdict"></div>
+        <div class="card mt1" id="approach" style="min-height:230px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>What to do next</h3><span class="tag">Three concrete steps</span></div>
+    <div id="steps"></div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Written summary</h3><span class="tag try">Copy this into your own document</span></div>
+    <div class="summary" id="summary"></div>
+    <div class="btnrow">
+      <button class="btn sm" id="sCopy">Copy the summary</button>
+      <span class="small muted" id="sCopied"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 15.3 -->
+<section class="chapter" id="portfolioSection">
+  <h2>15.3 · The portfolio</h2>
+  <p>Every use case you have saved, plotted. Bubble size is risk. This is the picture to take to the
+  sponsor — not the individual canvases.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Value against feasibility</h3><span class="tag try">Save several, then look at the shape</span></div>
+    <canvas id="portCv" class="cv"></canvas>
+    <div class="grid g4 mt1">
+      <div class="card"><h4 style="color:var(--good)">Top right — do these</h4><p class="small mb0">High
+      value, feasible now. There are usually fewer than people expect, and they are usually less exciting
+      than the ones in the top left.</p></div>
+      <div class="card"><h4 style="color:var(--warn)">Top left — fix the gap</h4><p class="small mb0">Worth
+      doing and not yet possible. The blocker is almost always data or a written target definition. That
+      is the work to fund, and it is cheaper than a model.</p></div>
+      <div class="card"><h4>Bottom right — quick wins</h4><p class="small mb0">Easy and modest. Take one
+      or two to build capability and credibility, then stop. A portfolio of only these is a hobby.</p></div>
+      <div class="card"><h4 style="color:var(--ink-3)">Bottom left — say no</h4><p class="small mb0">Low
+      value, not feasible. Saying so explicitly, with the canvas as evidence, is one of the more valuable
+      things this course can do for your organisation.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 15.4 -->
+<section class="chapter" id="agenda">
+  <h2>15.4 · Workshop agenda</h2>
+  <div class="lab">
+    <div class="lab-head"><h3>75 minutes</h3><span class="tag">For the facilitator</span></div>
+    <div class="agenda" id="agendaHost"></div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Two facilitation warnings</span>
+    <p class="mb0">First, the room will want to discuss <em>solutions</em> and you must keep them on the
+    <em>problem</em> until the data section is filled in — otherwise every canvas becomes “we should use
+    an LLM”. Second, protect the honesty of the data and risk answers. The scorecard is only useful if
+    people tick “no written definition” when that is true, and there is social pressure not to. Say
+    explicitly that a low readiness score is a <strong>useful finding, not a failed canvas</strong>.</p>
+  </div>
+</section>
+
+<!-- ============================================= 15.5 -->
+<section class="chapter" id="close">
+  <h2>15.5 · Closing the series</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>What we covered</h3>
+      <ul class="small mb0">
+        <li><strong>Part I</strong> — what the machine is: a weighted sum, a training loop, a
+        next-token predictor, and its electricity bill.</li>
+        <li><strong>Part II</strong> — how to engineer with it: the right algorithm for the data, the
+        data itself, honest evaluation, agents and their permissions, and the law.</li>
+        <li><strong>Part III</strong> — how it lands: engineering applications, prompting as a skill,
+        the human factors that decide adoption, the limits, and your own use case.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>The four sentences worth remembering</h3>
+      <ol class="small mb0">
+        <li><strong>It is all weighted sums and one loop.</strong> Nothing in any of this is magic, and
+        knowing that is what lets you specify it.</li>
+        <li><strong>The model learns your dataset, not your intention.</strong> Most failures trace back
+        to this.</li>
+        <li><strong>A system without an evaluation set is an anecdote.</strong> Build the test before
+        the thing.</li>
+        <li><strong>The bottleneck is never the model.</strong> It is data, integration, review capacity
+        and who is accountable — all of which are yours.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">And the one instruction</span>
+    <p class="mb0">Pick the use case in the top-right of your portfolio grid. Write its evaluation set
+    first — thirty real cases with expected answers, which takes an afternoon. Then build the smallest
+    thing that could pass it. <strong>You will learn more from that afternoon than from any further
+    reading</strong>, and you will have done the single step that most AI projects skip.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Collect the canvases. Even half-completed, they are the most accurate picture of AI readiness
+      in the organisation that anyone will produce this year, and they are evidence for the AI inventory
+      in module 10.8.</li>
+      <li>Expect two or three genuinely good ideas from a room of twenty, and expect at least one to be
+      something nobody in the AI programme had thought of, because the people with the problems are in
+      the room and the people with the technology were guessing.</li>
+      <li>End by telling people what happens next and who decides. A capstone that produces a list
+      nobody actions is worse than no capstone, because it teaches the room that this was theatre.</li>
+      <li>Finally: record attendance across the series. It is your AI-literacy evidence under module
+      10.8, and it is the easiest compliance box any of us will ever tick.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <div class="footnav"></div>
+    <p class="small muted mt2 mb0">End of the series. Module 5's figures and module 10's dates need
+    re-checking before each delivery.</p>
+  </div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+  var KEY = 'aisem-cases';
+
+  var TASKK = [
+    ['search', 'Find / answer from documents'],
+    ['extract', 'Extract structured data'],
+    ['summar', 'Summarise text'],
+    ['draft', 'Draft a document'],
+    ['classify', 'Classify or route'],
+    ['predict', 'Predict a number or outcome'],
+    ['vision', 'Judge an image'],
+    ['optimise', 'Optimise a design or plan'],
+    ['act', 'Take actions in systems']
+  ];
+  var RISKK = [
+    ['pers', 'Involves personal data'],
+    ['emp', 'Affects employment decisions'],
+    ['ext', 'Output goes outside the company'],
+    ['cert', 'Touches certified or homologated work'],
+    ['auto', 'Would run unattended'],
+    ['untrusted', 'Reads documents from outside the company']
+  ];
+
+  var CUR = null, LIST = [];
+
+  function blank() {
+    return { id: Date.now(), name: '', who: '', today: '', change: '',
+      freq: 200, mins: 30, task: {}, data: 2, label: 1, baseline: 0,
+      conseq: 1, risk: {}, review: '' };
+  }
+  var EXAMPLE = {
+    name: 'Standards question answering for the design office',
+    who: 'The four senior engineers who currently field standards queries all day',
+    today: 'Colleagues ask them directly, or search a SharePoint of ~900 PDFs. Answers take 20–60 minutes and sometimes cite a superseded revision.',
+    change: 'An engineer gets an answer with the clause quoted and referenced in under two minutes, and the senior engineers get their afternoons back.',
+    freq: 240, mins: 35, task: { search: 1 }, data: 2, label: 1, baseline: 0,
+    conseq: 2, risk: { cert: 1 }, review: 'The asking engineer checks the quoted clause before relying on it'
+  };
+
+  function load() {
+    try { LIST = JSON.parse(AI.readLS(KEY) || '[]'); } catch (e) { LIST = []; }
+    if (!Array.isArray(LIST)) LIST = [];
+  }
+  function persist() { AI.writeLS(KEY, JSON.stringify(LIST)); }
+
+  function readForm() {
+    CUR.name = document.getElementById('f_name').value;
+    CUR.who = document.getElementById('f_who').value;
+    CUR.today = document.getElementById('f_today').value;
+    CUR.change = document.getElementById('f_change').value;
+    CUR.freq = Math.max(1, parseFloat(document.getElementById('f_freq').value) || 1);
+    CUR.mins = Math.max(1, parseFloat(document.getElementById('f_mins').value) || 1);
+    CUR.data = parseInt(document.getElementById('f_data').value, 10);
+    CUR.label = parseInt(document.getElementById('f_label').value, 10);
+    CUR.baseline = parseInt(document.getElementById('f_baseline').value, 10);
+    CUR.conseq = parseInt(document.getElementById('f_conseq').value, 10);
+    CUR.review = document.getElementById('f_review').value;
+  }
+  function writeForm() {
+    document.getElementById('f_name').value = CUR.name;
+    document.getElementById('f_who').value = CUR.who;
+    document.getElementById('f_today').value = CUR.today;
+    document.getElementById('f_change').value = CUR.change;
+    document.getElementById('f_freq').value = CUR.freq;
+    document.getElementById('f_mins').value = CUR.mins;
+    document.getElementById('f_data').value = CUR.data;
+    document.getElementById('f_label').value = CUR.label;
+    document.getElementById('f_baseline').value = CUR.baseline;
+    document.getElementById('f_conseq').value = CUR.conseq;
+    document.getElementById('f_review').value = CUR.review;
+    paintChips();
+  }
+  function paintChips() {
+    AI.qsa('#taskChips button').forEach(function (b) {
+      b.classList.toggle('on', !!CUR.task[b.getAttribute('data-k')]);
+    });
+    AI.qsa('#riskChips button').forEach(function (b) {
+      var on = !!CUR.risk[b.getAttribute('data-k')];
+      b.classList.toggle('on', on);
+      b.classList.toggle('danger', on);
+    });
+  }
+
+  /* ---------------- scoring ---------------- */
+  var TASKINFO = {
+    search: { feas: 3, mat: 'high', llm: true, tok: 6000,
+      app: 'Retrieval-augmented generation (module 4.8)',
+      note: 'The best first project for most organisations: no labelling, minimal regulatory exposure, immediate value, and it surfaces your document-governance problems early. Insist on clause citations so every answer is checkable in seconds.' },
+    extract: { feas: 3, mat: 'high', llm: true, tok: 9000,
+      app: 'LLM extraction with a fixed schema (module 12.1)',
+      note: 'Highly reliable when you specify the schema, ban inference and require a page or clause reference per row. Sample five rows per batch against the source and record the error rate — that is your evaluation set forming itself.' },
+    summar: { feas: 3, mat: 'high', llm: true, tok: 8000,
+      app: 'LLM summarisation with a fixed output structure (module 12.2)',
+      note: 'Low risk, immediately useful, and the failure mode is blandness rather than danger. Name the reader and cap the length or you will get generic output.' },
+    draft: { feas: 3, mat: 'high', llm: true, tok: 7000,
+      app: 'LLM drafting from a template, with human review (module 12.1)',
+      note: 'Works because a person reviews it. Require an assumptions list at the end of every draft — it turns a plausible document into a reviewable one.' },
+    classify: { feas: 2, mat: 'high', llm: true, tok: 1200,
+      app: 'LLM classification for low volume; a small fine-tuned or classical model at high volume',
+      note: 'The whole task is the category definitions, which are the written label definitions from module 7.2. If you cannot write them, no model will be consistent — and neither are your people.' },
+    predict: { feas: 2, mat: 'high', llm: false, tok: 0,
+      app: 'Gradient boosting on tabular features (module 6.3)',
+      note: 'Not a language-model problem. Trees will beat a neural network here, train in minutes, need no GPU, and tell you which columns mattered. Start with a logistic or linear baseline you must beat.' },
+    vision: { feas: 1, mat: 'medium', llm: false, tok: 0,
+      app: 'Convolutional network, or anomaly detection on good parts (modules 3.5, 6.6)',
+      note: 'High value and the biggest project on this list, because the labelling is the schedule. If defects are rare or unlabelled, invert it: train on healthy parts and flag deviation. Budget the labelling explicitly (module 7.6).' },
+    optimise: { feas: 2, mat: 'medium', llm: false, tok: 0,
+      app: 'Surrogate model plus infill optimisation (module 11.3)',
+      note: 'Often the highest-return engineering application and the least discussed. Document the validity envelope and verify every proposed design with a real solver run (module 11.5).' },
+    act: { feas: 0, mat: 'low', llm: true, tok: 25000,
+      app: 'An agent — read-only or propose-only first (module 9.8)',
+      note: 'The highest-risk category on this list. Start read-only for weeks, then propose-only, and automate only the narrow segment the data proves is safe. Design the permissions before the prompt, and read module 9.4 before granting any tool that writes or sends.' }
+  };
+
+  function score() {
+    var s = {};
+    var hours = CUR.freq * 12 * CUR.mins / 60;
+    s.hours = hours;
+    s.saved = hours * 0.5;
+    s.value = s.saved * 65;
+    s.valueScore = Math.min(1, Math.log10(Math.max(1, s.value)) / 6);
+
+    var tasks = Object.keys(CUR.task).filter(function (k) { return CUR.task[k]; });
+    s.tasks = tasks;
+    var tf = tasks.length ? tasks.reduce(function (a, k) { return a + TASKINFO[k].feas; }, 0) / tasks.length : 1.5;
+    /* feasibility: data + written target + task maturity, penalised for many task types at once */
+    var feas = (CUR.data / 3) * 0.38 + (CUR.label / 2) * 0.28 + (tf / 3) * 0.28 + (CUR.baseline / 2) * 0.06;
+    if (tasks.length > 2) feas *= 0.85;
+    s.feas = Math.max(0.02, Math.min(1, feas));
+
+    var risk = CUR.conseq / 4 * 0.5;
+    if (CUR.risk.pers) risk += 0.1;
+    if (CUR.risk.emp) risk += 0.16;
+    if (CUR.risk.ext) risk += 0.08;
+    if (CUR.risk.cert) risk += 0.14;
+    if (CUR.risk.auto) risk += 0.12;
+    if (CUR.risk.untrusted) risk += 0.08;
+    if (CUR.task.act) risk += 0.1;
+    if (!CUR.review.trim()) risk += 0.08;
+    s.risk = Math.max(0.02, Math.min(1, risk));
+
+    s.ready = Math.max(0.02, Math.min(1,
+      (CUR.data / 3) * 0.3 + (CUR.label / 2) * 0.3 + (CUR.baseline / 2) * 0.2 +
+      (CUR.review.trim() ? 0.1 : 0) + (CUR.who.trim() ? 0.1 : 0)));
+
+    var tok = tasks.reduce(function (a, k) { return Math.max(a, TASKINFO[k].tok); }, 0);
+    s.tok = tok * CUR.freq * 12;
+    s.run = tok ? s.tok / 1e6 * 3 : Math.max(2000, s.hours * 4);
+    s.tokPer = tok;
+    return s;
+  }
+
+  function draw() {
+    var s = score();
+    function bar(id, v, col) {
+      document.getElementById('bar_' + id).style.width = Math.round(v * 100) + '%';
+      document.getElementById('bar_' + id).style.background = C(col);
+    }
+    bar('value', s.valueScore, '--accent');
+    bar('feas', s.feas, s.feas > 0.66 ? '--good' : s.feas > 0.4 ? '--warn' : '--bad');
+    bar('risk', s.risk, s.risk > 0.6 ? '--bad' : s.risk > 0.35 ? '--warn' : '--good');
+    bar('ready', s.ready, s.ready > 0.66 ? '--good' : s.ready > 0.4 ? '--warn' : '--bad');
+    document.getElementById('v_value').textContent = Math.round(s.valueScore * 100);
+    document.getElementById('v_feas').textContent = Math.round(s.feas * 100);
+    document.getElementById('v_risk').textContent = Math.round(s.risk * 100);
+    document.getElementById('v_ready').textContent = Math.round(s.ready * 100);
+
+    document.getElementById('o_hours').textContent = F.c(s.hours);
+    document.getElementById('o_saved').textContent = F.c(s.saved);
+    document.getElementById('o_value').textContent = '€' + F.c(s.value);
+    document.getElementById('o_run').textContent = '€' + F.c(s.run);
+
+    /* verdict */
+    var v = document.getElementById('verdict');
+    var cls, lvl, txt;
+    if (!s.tasks.length) {
+      cls = 'info'; lvl = 'Choose a task type';
+      txt = 'The recommendation depends on what kind of task this is. Pick one — or at most two.';
+    } else if (s.risk > 0.62 && s.ready < 0.55) {
+      cls = 'hi'; lvl = 'Not yet — high risk, low readiness';
+      txt = 'The consequence of an undetected error is serious and the foundations are not in place. This is not a reason to abandon it: it is a reason to fix the data and the target definition first, and to keep a human in the loop when you do start.';
+    } else if (s.risk > 0.62) {
+      cls = 'mid'; lvl = 'Proceed with a human in the loop';
+      txt = 'Feasible, and the error consequence means this must be propose-only with a named reviewer and allocated review time. Check module 10.4 for the regulatory tier before designing anything.';
+    } else if (s.feas < 0.42) {
+      cls = 'mid'; lvl = 'Fix the gap first';
+      txt = 'The value may well be there and the foundations are not. The blocker is almost certainly the data or the written target definition — both cheaper to fix than a model, and both reusable across every future project.';
+    } else if (s.valueScore < 0.4) {
+      cls = 'mid'; lvl = 'Feasible, modest value';
+      txt = 'Worth doing as a capability-building exercise if you need one, and not worth a programme. Be honest about which it is in the write-up.';
+    } else {
+      cls = 'ok'; lvl = 'Good candidate — start here';
+      txt = 'Meaningful value, workable foundations, manageable risk. Write the evaluation set before you build anything.';
+    }
+    v.className = 'verdict ' + cls;
+    v.innerHTML = '<span class="lvl">' + lvl + '</span><p class="small mb0">' + txt + '</p>';
+
+    /* approach */
+    var a = '<h4>Recommended approach</h4>';
+    if (!s.tasks.length) a += '<p class="small mb0">Select a task type above.</p>';
+    else {
+      s.tasks.forEach(function (k) {
+        a += '<p class="small" style="margin-bottom:.4em"><b>' + TASKINFO[k].app + '</b><br>' + TASKINFO[k].note + '</p>';
+      });
+      if (s.tasks.length > 2) a += '<p class="small" style="color:var(--warn)"><b>You have selected ' +
+        s.tasks.length + ' task types.</b> That is a programme, not a use case. Split it, and pick the one with the clearest owner — module 12.4 is about exactly this.</p>';
+      if (s.tokPer) a += '<p class="small muted mb0">Token estimate: about ' + F.c(s.tokPer) +
+        ' tokens per instance, ' + F.c(s.tok) + ' per year. Module 5.4 has the wider cost picture.</p>';
+      else a += '<p class="small muted mb0">Not a language-model task, so cost is compute plus maintenance rather than tokens. The running-cost figure opposite is a rough allowance only.</p>';
+    }
+    document.getElementById('approach').innerHTML = a;
+
+    /* next steps */
+    var steps = [];
+    if (!CUR.who.trim()) steps.push(['Name the person', 'Go and find the colleague whose week this improves, and ask them whether they want it. If nobody surfaces, stop here — module 13.6.']);
+    if (CUR.label < 2) steps.push(['Write down what a correct answer is', 'One page, with three borderline examples, agreed by two experts. This is the highest-leverage week of the project and it blocks everything downstream — module 7.2.']);
+    if (CUR.baseline < 2) steps.push(['Measure the current process', 'Time 20 real instances and record how often the current answer turns out to be wrong. Without this you cannot claim an improvement or defend a business case — module 8.5.']);
+    if (CUR.data < 2) steps.push(['Establish data access', 'Not “we have the data” but a pipeline that can read it, legally and technically, today. In most organisations this is the longest-lead item — module 7.7.']);
+    steps.push(['Write the evaluation set', 'Thirty real cases with expected answers, including five where the correct answer is “not in the sources” and two awkward ones your experts argue about. An afternoon’s work, and it is the artefact the whole project hangs on — module 8.7.']);
+    if (s.risk > 0.5) steps.push(['Check the regulatory tier and design the review', 'Run this use case through module 10.4, and decide now who reviews the output, when, and with how much allocated time — module 13.3.']);
+    steps.push(['Build the smallest thing that could pass the evaluation', 'Prompt and retrieval before fine-tuning; a linear or tree baseline before a neural network. Measure, then decide whether anything more is justified.']);
+    document.getElementById('steps').innerHTML = steps.slice(0, 5).map(function (st, i) {
+      return '<div class="stepbox"><span class="n">Step ' + (i + 1) + '</span><b>' + st[0] + '</b>' +
+        '<p class="small mb0" style="margin-top:.3em">' + st[1] + '</p></div>';
+    }).join('');
+
+    /* summary */
+    var DATAT = ['nothing usable yet', 'exists but messy or inaccessible', 'accessible and reasonably clean', 'already labelled for this task'];
+    var LABT = ['not written down', 'partly — experts mostly agree', 'written and unambiguous'];
+    var BASET = ['not measured', 'known anecdotally', 'measured'];
+    var CONT = ['someone re-reads it', 'wasted work or rework', 'real cost or an external commitment', 'customer or reputational impact', 'safety, homologation or regulatory consequence'];
+    var sum = '';
+    sum += '<h3>' + (CUR.name || '(unnamed use case)') + '</h3>';
+    sum += '<p><b>Whose problem:</b> ' + (CUR.who || '— not identified —') + '<br>' +
+      '<b>Today:</b> ' + (CUR.today || '—') + '<br>' +
+      '<b>What changes:</b> ' + (CUR.change || '—') + '</p>';
+    sum += '<p><b>Scale:</b> ' + F.c(CUR.freq) + ' times a month at ' + CUR.mins + ' minutes each — ' +
+      F.c(s.hours) + ' hours a year, of which perhaps ' + F.c(s.saved) + ' are recoverable (≈€' +
+      F.c(s.value) + ' a year at €65/hour). Estimated running cost €' + F.c(s.run) + ' a year.</p>';
+    sum += '<p><b>Task type:</b> ' + (s.tasks.length ? s.tasks.map(function (k) {
+      return TASKK.filter(function (t) { return t[0] === k; })[0][1];
+    }).join(', ') : 'not specified') + '<br>' +
+      '<b>Recommended approach:</b> ' + (s.tasks.length ? s.tasks.map(function (k) { return TASKINFO[k].app; }).join('; ') : '—') + '</p>';
+    sum += '<p><b>Data:</b> ' + DATAT[CUR.data] + '. <b>Target definition:</b> ' + LABT[CUR.label] +
+      '. <b>Human baseline:</b> ' + BASET[CUR.baseline] + '.</p>';
+    sum += '<p><b>If it is wrong and unnoticed:</b> ' + CONT[CUR.conseq] + '.';
+    var rl = RISKK.filter(function (r) { return CUR.risk[r[0]]; }).map(function (r) { return r[1].toLowerCase(); });
+    if (rl.length) sum += ' Also: ' + rl.join('; ') + '.';
+    sum += '<br><b>Review:</b> ' + (CUR.review || '— not defined —') + '</p>';
+    sum += '<p><b>Assessment:</b> ' + lvl + '. Feasibility ' + Math.round(s.feas * 100) +
+      '/100, risk ' + Math.round(s.risk * 100) + '/100, readiness ' + Math.round(s.ready * 100) + '/100.</p>';
+    sum += '<p><b>Next steps:</b></p><ol>' + steps.slice(0, 5).map(function (st) {
+      return '<li><b>' + st[0] + '</b> — ' + st[1] + '</li>';
+    }).join('') + '</ol>';
+    document.getElementById('summary').innerHTML = sum;
+    window.__sumtext = document.getElementById('summary').innerText || '';
+
+    drawPort();
+  }
+
+  /* ---------------- list ---------------- */
+  function drawList() {
+    var host = document.getElementById('caseList');
+    if (!LIST.length) {
+      host.innerHTML = '<p class="small muted mb0">No use cases saved yet. Fill the canvas below and press <b>Save</b>.</p>';
+      return;
+    }
+    host.innerHTML = LIST.map(function (c) {
+      var s2 = scoreOf(c);
+      return '<div class="caseitem' + (CUR && c.id === CUR.id ? ' sel' : '') + '" data-id="' + c.id + '">' +
+        '<span class="nm">' + (c.name || '(unnamed)') + '</span>' +
+        '<span class="small muted">F ' + Math.round(s2.feas * 100) + ' · R ' + Math.round(s2.risk * 100) +
+        ' · €' + F.c(s2.value) + '</span>' +
+        '<button data-del="' + c.id + '">delete</button></div>';
+    }).join('');
+    host.querySelectorAll('[data-del]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var id = parseInt(b.getAttribute('data-del'), 10);
+        LIST = LIST.filter(function (x) { return x.id !== id; });
+        persist(); drawList(); draw();
+      });
+    });
+    AI.qsa('.caseitem .nm', host).forEach(function (n) {
+      n.addEventListener('click', function () {
+        var id = parseInt(n.parentNode.getAttribute('data-id'), 10);
+        var c = LIST.filter(function (x) { return x.id === id; })[0];
+        if (c) { CUR = JSON.parse(JSON.stringify(c)); writeForm(); drawList(); draw(); }
+      });
+    });
+  }
+  function scoreOf(c) {
+    var save = CUR;
+    CUR = c;
+    var s2 = score();
+    CUR = save;
+    return s2;
+  }
+
+  /* ---------------- portfolio ---------------- */
+  var portPlot;
+  function drawPort() {
+    portPlot.resize(); portPlot.clear();
+    portPlot.dom = [0, 100]; portPlot.ran = [0, 100];
+    var g = portPlot.ctx;
+    portPlot.clip(function (ctx) {
+      ctx.fillStyle = C('--good-soft');
+      ctx.fillRect(portPlot.X(50), portPlot.pad.t, portPlot.X(100) - portPlot.X(50), portPlot.Y(50) - portPlot.pad.t);
+      ctx.fillStyle = C('--warn-soft');
+      ctx.fillRect(portPlot.pad.l, portPlot.pad.t, portPlot.X(50) - portPlot.pad.l, portPlot.Y(50) - portPlot.pad.t);
+    });
+    portPlot.frame({ xticks: 4, yticks: 4, xlabel: 'feasibility →', ylabel: 'value at stake →',
+      xfmt: function (x) { return x.toFixed(0); }, yfmt: function (y) { return y.toFixed(0); } });
+    portPlot.clip(function (ctx) {
+      portPlot.line([[50, 0], [50, 100]], C('--line'), 1.5, [5, 4]);
+      portPlot.line([[0, 50], [100, 50]], C('--line'), 1.5, [5, 4]);
+      var all = LIST.slice();
+      if (CUR && !LIST.some(function (x) { return x.id === CUR.id; })) all.push(CUR);
+      all.forEach(function (c) {
+        var s2 = scoreOf(c);
+        var x = s2.feas * 100, y = s2.valueScore * 100;
+        var r = 6 + s2.risk * 16;
+        ctx.beginPath();
+        ctx.arc(portPlot.X(x), portPlot.Y(y), r, 0, 6.2832);
+        ctx.fillStyle = (s2.risk > 0.6 ? C('--bad') : s2.risk > 0.35 ? C('--warn') : C('--accent')) + '55';
+        ctx.fill();
+        ctx.strokeStyle = s2.risk > 0.6 ? C('--bad') : s2.risk > 0.35 ? C('--warn') : C('--accent');
+        ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = C('--ink');
+        ctx.font = '600 11px system-ui, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        var nm = (c.name || '(unnamed)');
+        if (nm.length > 34) nm = nm.slice(0, 32) + '…';
+        ctx.fillText(nm, portPlot.X(x), portPlot.Y(y) + r + 4);
+      });
+      ctx.font = '700 11px system-ui, sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillStyle = C('--warn'); ctx.fillText('FIX THE GAP', portPlot.X(2), portPlot.Y(98));
+      ctx.fillStyle = C('--good'); ctx.textAlign = 'right';
+      ctx.fillText('DO THESE', portPlot.X(98), portPlot.Y(98));
+      ctx.fillStyle = C('--ink-3'); ctx.textAlign = 'left';
+      ctx.fillText('SAY NO', portPlot.X(2), portPlot.Y(6));
+      ctx.textAlign = 'right';
+      ctx.fillText('QUICK WINS', portPlot.X(98), portPlot.Y(6));
+    });
+    if (!LIST.length && (!CUR || !CUR.name)) {
+      g.fillStyle = C('--ink-3');
+      g.font = '600 13px system-ui, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('Save a use case to see it here', portPlot.X(50), portPlot.Y(50));
+    }
+  }
+
+  /* ---------------- agenda ---------------- */
+  var AGENDA = [
+    ['0:00', '<b>Frame it.</b> Each team states their candidate use case in one sentence, out loud. No discussion yet. This alone kills one or two ideas, cheaply.'],
+    ['0:05', '<b>The problem half of the canvas.</b> Whose problem, what they do today, what changes, how often, how long. Facilitator enforces the rule: <i>no talking about solutions yet</i>.'],
+    ['0:20', '<b>The data and risk half.</b> This is where the honest answers matter and where teams will want to be optimistic. Remind them that a low readiness score is a finding, not a failure.'],
+    ['0:35', '<b>Read the scorecard and the next steps.</b> Teams note which of the five steps they could start next week without approval from anyone.'],
+    ['0:45', '<b>Present.</b> Three minutes per team: the use case, the score, the single biggest gap. Room asks one question each.'],
+    ['1:00', '<b>Plot the portfolio.</b> All use cases on the grid together. Discuss the shape rather than individual cases — where the cluster sits says more about the organisation than about any one idea.'],
+    ['1:10', '<b>Close.</b> Facilitator states what happens to these canvases, who reads them, and when the group will hear back. Do not skip this.']
+  ];
+
+  window.PAGE_INIT = function () {
+    load();
+    CUR = LIST.length ? JSON.parse(JSON.stringify(LIST[LIST.length - 1])) : blank();
+
+    document.getElementById('taskChips').innerHTML = TASKK.map(function (t) {
+      return '<button data-k="' + t[0] + '">' + t[1] + '</button>';
+    }).join('');
+    document.getElementById('riskChips').innerHTML = RISKK.map(function (t) {
+      return '<button data-k="' + t[0] + '">' + t[1] + '</button>';
+    }).join('');
+    document.getElementById('taskChips').addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      var k = e.target.getAttribute('data-k');
+      CUR.task[k] = !CUR.task[k];
+      paintChips(); draw();
+    });
+    document.getElementById('riskChips').addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      var k = e.target.getAttribute('data-k');
+      CUR.risk[k] = !CUR.risk[k];
+      paintChips(); draw();
+    });
+
+    ['f_name', 'f_who', 'f_today', 'f_change', 'f_freq', 'f_mins', 'f_review'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', function () { readForm(); draw(); });
+    });
+    ['f_data', 'f_label', 'f_baseline', 'f_conseq'].forEach(function (id) {
+      document.getElementById(id).addEventListener('change', function () { readForm(); draw(); });
+    });
+
+    AI.on(document.getElementById('cNew'), 'click', function () {
+      CUR = blank(); writeForm(); drawList(); draw();
+      document.getElementById('cStatus').textContent = 'New blank canvas.';
+    });
+    AI.on(document.getElementById('cSave'), 'click', function () {
+      readForm();
+      if (!CUR.name.trim()) { document.getElementById('cStatus').textContent = 'Give it a name first.'; return; }
+      var i = -1;
+      LIST.forEach(function (x, k) { if (x.id === CUR.id) i = k; });
+      if (i >= 0) LIST[i] = JSON.parse(JSON.stringify(CUR));
+      else LIST.push(JSON.parse(JSON.stringify(CUR)));
+      persist(); drawList(); draw();
+      document.getElementById('cStatus').textContent = 'Saved in this browser.';
+      setTimeout(function () { document.getElementById('cStatus').textContent = ''; }, 2500);
+    });
+    AI.on(document.getElementById('cExample'), 'click', function () {
+      CUR = JSON.parse(JSON.stringify(EXAMPLE));
+      CUR.id = Date.now();
+      writeForm(); draw();
+      document.getElementById('cStatus').textContent = 'Example loaded — edit it freely.';
+    });
+    AI.on(document.getElementById('cPrint'), 'click', function () { window.print(); });
+    AI.on(document.getElementById('sCopy'), 'click', function () {
+      try {
+        navigator.clipboard.writeText(window.__sumtext || '');
+        document.getElementById('sCopied').textContent = 'Copied.';
+      } catch (e) {
+        document.getElementById('sCopied').textContent = 'Copy failed — select the text above.';
+      }
+      setTimeout(function () { document.getElementById('sCopied').textContent = ''; }, 2500);
+    });
+
+    document.getElementById('agendaHost').innerHTML = AGENDA.map(function (a) {
+      return '<div class="row"><span class="tm">' + a[0] + '</span><span>' + a[1] + '</span></div>';
+    }).join('');
+
+    portPlot = new AI.Plot(document.getElementById('portCv'),
+      { dom: [0, 100], ran: [0, 100], pad: { l: 52, r: 20, t: 18, b: 44 } });
+    AI.onRedraw(drawPort);
+
+    writeForm();
+    drawList();
+    draw();
+  };
+})();
+</script>
+</body>
+</html>

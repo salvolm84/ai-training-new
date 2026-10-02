@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8 · Evaluation — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .cv-sm { width: 100%; height: 210px; }
+  .evalcase {
+    border: 1px solid var(--line); border-radius: var(--r); background: var(--panel);
+    padding: 14px 16px; margin-bottom: 10px;
+  }
+  .evalcase .qq { font-weight: 640; font-size: .94rem; margin-bottom: 4px; }
+  .evalcase .crit { font-size: .8rem; color: var(--ink-3); margin-bottom: 10px; }
+  .evalcase .vers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 800px) { .evalcase .vers { grid-template-columns: 1fr; } }
+  .evalcase .vbox { border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 12px; background: var(--bg-2); }
+  .evalcase .vbox h5 {
+    margin: 0 0 6px; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--ink-3); font-weight: 800;
+  }
+  .evalcase .vbox p { font-size: .84rem; margin: 0 0 9px; }
+  .evalcase .vbox.pass { border-color: var(--good); background: var(--good-soft); }
+  .evalcase .vbox.fail { border-color: var(--bad); background: var(--bad-soft); }
+  .pf { display: flex; gap: 6px; }
+  .pf button {
+    font: inherit; font-size: .78rem; font-weight: 700; padding: 4px 12px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer; color: var(--ink-2);
+  }
+  .pf button.on.p { background: var(--good); border-color: var(--good); color: #fff; }
+  .pf button.on.f { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .regrow {
+    display: flex; gap: 10px; align-items: center; font-size: .86rem; padding: 7px 11px;
+    border-radius: 8px; margin-bottom: 5px; border: 1px solid var(--line);
+  }
+  .regrow.up { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 30%, transparent); }
+  .regrow.down { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 30%, transparent); }
+  .bigstat {
+    text-align: center; padding: 16px; border: 1px solid var(--line); border-radius: var(--r-lg);
+    background: var(--panel);
+  }
+  .bigstat .n { font-family: var(--mono); font-size: 1.9rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .74rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.warn .n { color: var(--warn); }
+</style>
+</head>
+<body data-page="p8">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 8 · Part II — Engineering it</span>
+  <h1>Evaluation</h1>
+  <p class="lead">This is the module that turns a demo into engineering. Not “does it look good” but:
+  how good, measured how, against what, with what uncertainty, and at what cost when it is wrong.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">The discipline in one line</span>
+  <p class="mb0">An AI system without an evaluation set is not a system — it is an anecdote.
+  <strong>Build the evaluation before you build the model</strong>, keep it sealed, and re-run it on
+  every change. Everything else in this module is detail on how.</p>
+</div>
+
+<!-- ============================================= 8.1 -->
+<section class="chapter" id="dodges">
+  <h2>8.1 · The four ways people avoid answering</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="color:var(--bad)">“It gets it right nearly every time”</h4>
+      <p class="small mb0">Measured on what? Usually on the examples the developer was looking at while
+      building it, which is the definition of training data. Ask for a number, a denominator, and a
+      description of the cases.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">“98% accuracy”</h4>
+      <p class="small mb0">On an imbalanced problem, as module 7.3 showed, this can be worse than doing
+      nothing. Accuracy is the right metric only when the classes are balanced and the two kinds of
+      error cost the same — which is almost never.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">“It scores well on the benchmark”</h4>
+      <p class="small mb0">Public benchmarks measure a different task than yours, and by 2026 many are
+      partly contaminated — the test questions have leaked into training data. Useful for rough ranking
+      of models, nearly worthless as evidence about your job.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">“The users love it”</h4>
+      <p class="small mb0">Worth knowing, and not the same as correct. People reliably prefer confident,
+      fluent, agreeable answers — which is exactly the failure mode of a language model. Measure
+      satisfaction <em>and</em> accuracy, separately.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">The replacement question</span>
+    <p class="mb0">“On <strong>N</strong> cases that the system has never seen, drawn from the same
+    distribution as real work, it produced <strong>X</strong> correct, <strong>Y</strong> wrong in this
+    direction and <strong>Z</strong> wrong in that direction. A person doing this task achieves
+    <strong>B</strong>. Here is the confidence interval.” Any project that can produce that sentence is
+    in good shape, whatever the numbers are.</p>
+  </div>
+</section>
+
+<!-- ============================================= 8.2 -->
+<section class="chapter" id="cost">
+  <h2>8.2 · The threshold is a business decision</h2>
+  <p>A classifier does not output a decision — it outputs a score. Turning that score into
+  accept/reject requires a threshold, and choosing it means pricing your two kinds of error against
+  each other. That is not a data-science choice, and it should not be made silently by a default value
+  of 0.5.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Price the errors, then optimise</h3><span class="tag try">Make a missed fault 200× a false alarm</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="costCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Expected cost per 10,000 parts, against the threshold. The green
+        line is the cost-minimising operating point given the prices you set.</p>
+      </div>
+      <div>
+        <div class="grid g2" style="gap:12px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Defect rate</span><span class="val" id="pRateOut"></span></div>
+            <input type="range" id="pRate" min="0.002" max="0.2" step="0.002" value="0.02">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Model separation</span><span class="val" id="pSepOut"></span></div>
+            <input type="range" id="pSep" min="0.5" max="4" step="0.05" value="2.2">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Cost of a false alarm</span><span class="val" id="pFpOut"></span></div>
+            <input type="range" id="pFp" min="1" max="200" step="1" value="12">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Cost of a missed fault</span><span class="val" id="pFnOut"></span></div>
+            <input type="range" id="pFn" min="10" max="50000" step="10" value="4000">
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Your chosen threshold</span><span class="val" id="pThOut"></span></div>
+          <input type="range" id="pTh" min="-2" max="5" step="0.02" value="1">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsYour"><span class="n" id="oYour">—</span><span class="l">cost at your threshold</span></div>
+          <div class="bigstat good"><span class="n" id="oBest">—</span><span class="l">cost at the optimum</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">optimal threshold</span><span class="v" id="oOptTh">—</span></div>
+          <div class="m"><span class="k">recall there</span><span class="v" id="oOptRec">—</span></div>
+          <div class="m"><span class="k">precision there</span><span class="v" id="oOptPre">—</span></div>
+          <div class="m"><span class="k">money left on the table</span><span class="v" id="oGap">—</span></div>
+        </div>
+        <div class="card mt1" id="costNote" style="min-height:120px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">What to do with this in practice</span>
+    <p class="mb0">Put those two cost sliders in front of the person who owns the process, not the
+    person who owns the model. They will argue about the numbers — that argument <em>is</em> the
+    requirement, and it takes an afternoon. Then the threshold follows from arithmetic and can be
+    documented, reviewed and audited. A threshold nobody chose is the most common quiet failure in
+    deployed machine learning.</p>
+  </div>
+</section>
+
+<!-- ============================================= 8.3 -->
+<section class="chapter" id="curves">
+  <h2>8.3 · ROC and precision–recall: the same model, two stories</h2>
+  <p>Rather than pick one threshold, sweep all of them and plot the trade-off. Two standard curves do
+  this, and on a rare-event problem they give dramatically different impressions of the same model.
+  Knowing which one to ask for is a genuinely useful piece of professional literacy.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Sweep every threshold</h3><span class="tag try">Set the defect rate to 0.5% and compare the two curves</span></div>
+    <div class="split">
+      <div>
+        <canvas id="rocCv" class="cv"></canvas>
+        <div class="segmented mt1" id="curveSeg">
+          <button data-v="roc" class="on">ROC curve</button>
+          <button data-v="pr">Precision–recall</button>
+          <button data-v="both">Both</button>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Defect rate</span><span class="val" id="cRateOut"></span></div>
+          <input type="range" id="cRate" min="0.002" max="0.4" step="0.002" value="0.05">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Model separation</span><span class="val" id="cSepOut"></span></div>
+          <input type="range" id="cSep" min="0.3" max="4" step="0.05" value="2">
+        </div>
+        <div class="metrics">
+          <div class="m"><span class="k">ROC AUC</span><span class="v" id="mAuc">—</span></div>
+          <div class="m"><span class="k">PR AUC (avg. prec.)</span><span class="v" id="mPrauc">—</span></div>
+          <div class="m"><span class="k">PR baseline</span><span class="v" id="mPrbase">—</span></div>
+        </div>
+        <div class="card mt1" id="curveNote" style="min-height:220px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Why ROC flatters rare-event models</span>
+      <p class="mb0">The false-positive rate divides by the number of healthy parts, which is enormous.
+      Flagging 500 healthy parts out of 99,500 is a false-positive rate of 0.5% — invisible on an ROC
+      curve — while being 500 unnecessary inspections and a precision of 9%. <strong>On imbalanced
+      problems ask for the precision–recall curve.</strong> The ROC AUC will look impressive regardless.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">And the honest defence of AUC</span>
+      <p class="mb0">ROC AUC has one real virtue: it is independent of prevalence and of the threshold,
+      so it measures the model's <em>ranking</em> ability alone. That makes it a fair way to compare two
+      models. It is a poor way to decide whether a system is fit to deploy — for that you need the
+      operating point and the costs from 8.2.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 8.4 -->
+<section class="chapter" id="calibration">
+  <h2>8.4 · Are the probabilities real?</h2>
+  <p>A model that says “87% confident” is making a claim that can be checked: of all the cases where it
+  said 87%, roughly 87% should actually be positive. A model where that holds is
+  <strong>calibrated</strong>. Most are not, and it matters enormously, because every downstream
+  decision — thresholds, escalation rules, expected-cost calculations, “only show the user answers above
+  90%” — silently assumes calibration.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Reliability diagram</h3><span class="tag try">Push confidence to overconfident</span></div>
+    <div class="split">
+      <div>
+        <canvas id="calCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Each dot is a confidence bin: where the model said <em>x</em>,
+        the truth came out <em>y</em>. The diagonal is perfect calibration. Computed from 4,000 simulated
+        cases.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Confidence distortion</span><span class="val" id="calTOut"></span></div>
+          <input type="range" id="calT" min="0.3" max="3.2" step="0.05" value="1">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsEce"><span class="n" id="mEce">—</span><span class="l">calibration error (ECE)</span></div>
+          <div class="bigstat"><span class="n" id="mAccc">—</span><span class="l">accuracy</span></div>
+        </div>
+        <div class="card mt1" id="calNote" style="min-height:230px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">The practical consequences</span>
+    <ul class="mb0">
+      <li><strong>Accuracy and calibration are independent.</strong> Drag the slider: accuracy barely
+      moves while calibration collapses. A model can rank cases perfectly and still lie about its
+      confidence.</li>
+      <li><strong>Deep networks are systematically overconfident</strong>, and the fix is cheap:
+      temperature scaling on a held-out set — one parameter, fitted in seconds.</li>
+      <li><strong>Language models are worse.</strong> The fluency of an answer carries no information
+      about its correctness, and stated confidence (“I am fairly sure that…”) is generated text, not a
+      measurement. Never treat it as one.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 8.5 -->
+<section class="chapter" id="baselines">
+  <h2>8.5 · What you have to beat</h2>
+  <p>A number on its own means nothing. 92% is excellent, mediocre or embarrassing depending entirely
+  on what the alternatives achieve — and the alternatives are often shockingly strong.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Is your number any good?</h3><span class="tag try">Drag your model's score</span></div>
+    <div class="split">
+      <div><canvas id="baseCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Task</span><span class="val" id="bTaskName">Defect detection</span></div>
+          <div class="segmented" id="bTaskSeg">
+            <button data-v="0" class="on">Defect detection</button>
+            <button data-v="1">Ticket routing</button>
+            <button data-v="2">Demand forecast</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Your model scores</span><span class="val" id="bMineOut"></span></div>
+          <input type="range" id="bMine" min="0.3" max="1" step="0.005" value="0.92">
+        </div>
+        <div class="card" id="baseNote" style="min-height:250px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The four baselines to demand, every time</span>
+    <ol class="mb0">
+      <li><strong>Chance</strong> — random guessing at the observed class rate.</li>
+      <li><strong>Majority class</strong> — always predict the most common answer. On rare events this
+      is brutally high (module 7.3).</li>
+      <li><strong>The simplest rule a human would write</strong> — one threshold on the most obvious
+      feature. It is astonishing how often this gets within a few points of a neural network, and it
+      costs a day.</li>
+      <li><strong>A person doing the task</strong> — measured, on the same cases. This is both the target
+      and the ceiling implied by label noise (module 7.2).</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============================================= 8.6 -->
+<section class="chapter" id="samplesize">
+  <h2>8.6 · How many test cases do you actually need?</h2>
+  <p>This is the question that separates people who measure from people who feel. You tested 50 cases
+  and got 88%. Is that better than the 82% the old version scored? Very often the honest answer is
+  <strong>you cannot tell</strong>.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Confidence intervals and version comparison</h3><span class="tag try">Set n = 50 and compare 82% with 88%</span></div>
+    <div class="split-wide">
+      <div><canvas id="ciCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Width of the 95% confidence interval against the number of test
+        cases, for an observed accuracy of 85% (Wilson score interval). Note the square-root shape:
+        quadrupling the test set halves the uncertainty.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Number of test cases</span><span class="val" id="nCasesOut"></span></div>
+          <input type="range" id="nCases" min="10" max="2000" step="5" value="50">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Version A scored</span><span class="val" id="pAOut"></span></div>
+          <input type="range" id="pA" min="0.3" max="1" step="0.01" value="0.82">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Version B scored</span><span class="val" id="pBOut"></span></div>
+          <input type="range" id="pB" min="0.3" max="1" step="0.01" value="0.88">
+        </div>
+        <div class="card" id="ciA" style="margin-bottom:9px"></div>
+        <div class="verdict" id="ciVerdict"></div>
+        <div class="card mt1" id="ciNote" style="min-height:120px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Rules of thumb</span>
+      <p class="mb0">Around <strong>30–50</strong> cases: enough to find obvious breakage. <strong>200</strong>:
+      enough to detect a 10-point difference. <strong>1,000+</strong>: enough to argue about 2 points.
+      Choose the size from the difference you need to detect, not from what is convenient.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">The cheap trick that helps</span>
+      <p class="mb0">Compare versions <strong>on the same cases</strong> and look at the cases where they
+      differ, not at the two aggregate scores. A paired comparison needs far fewer examples, and the
+      disagreements are also the most informative thing you will read all week.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">And the trap</span>
+      <p class="mb0">If you tweak the prompt, re-run the evaluation, keep the best, and repeat twenty
+      times, you have tuned on your test set. It is now a validation set and it flatters you. Keep a
+      second, smaller set sealed for the final number.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 8.7 -->
+<section class="chapter" id="llmeval">
+  <h2>8.7 · Evaluating an LLM system</h2>
+  <p>There is no accuracy score for “write a good answer”. But the problem is far more tractable than it
+  first appears, because you are not evaluating a language model in general — you are evaluating
+  <strong>your system on your task</strong>, and for that a list of real cases with written pass criteria
+  does most of the work.</p>
+
+  <p>Below: the RAG assistant from module 4, with eight cases taken from real questions, and two
+  versions of the system. Grade them.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Grade two versions</h3><span class="tag try">Pass or fail each answer</span></div>
+    <div class="btnrow">
+      <button class="btn sm" id="evFill">Fill in a suggested grading</button>
+      <button class="btn sm" id="evClear">Clear</button>
+      <span class="small muted">Use the suggested grading if you are presenting and short of time.</span>
+    </div>
+    <div class="grid g3" style="gap:10px">
+      <div class="bigstat"><span class="n" id="evA">—</span><span class="l">version 1 pass rate</span></div>
+      <div class="bigstat"><span class="n" id="evB">—</span><span class="l">version 2 pass rate</span></div>
+      <div class="bigstat" id="bsNet"><span class="n" id="evNet">—</span><span class="l">net change</span></div>
+    </div>
+    <div id="evHost" class="mt1"></div>
+    <div class="card mt1" id="evSummary" style="min-height:120px"></div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The lesson buried in the numbers</span>
+    <p class="mb0">Version 2 is better on aggregate and <strong>worse on specific cases</strong>. That is
+    the normal situation, and an aggregate score hides it completely. If one of the regressions happens
+    to be a safety-relevant question, the “improved” version is not deployable however good the average
+    looks. <strong>Always read the per-case diff, not just the totals</strong> — this is regression
+    testing, and it is the single highest-value engineering practice for LLM systems.</p>
+  </div>
+
+  <h3 class="mt2">How to build the evaluation set</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Where cases come from</h4>
+      <ul class="small mb0">
+        <li>Real questions from real users — collect them from day one of any pilot.</li>
+        <li>The awkward cases your experts argue about.</li>
+        <li>Questions whose answer is <em>not</em> in your documents — the model must say so.</li>
+        <li>Every failure anyone reports. A bug becomes a permanent test case.</li>
+        <li>Adversarial cases: false premises, injected instructions, out-of-scope requests.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>What a good pass criterion looks like</h4>
+      <p class="small">Not “is the answer good” but something a second person would grade the same way:</p>
+      <ul class="small mb0">
+        <li>“States 92 Nm and cites ENG-STD-114 §4.2.”</li>
+        <li>“Declines to answer and says the documents do not cover it.”</li>
+        <li>“Mentions both the 2.0 mm limit <em>and</em> the stress-critical-zone exception.”</li>
+        <li>“Contains no part number that is not in the retrieved passages.”</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Who grades</h4>
+      <p class="small mb0">Humans, for the first version — and you need the inter-grader agreement from
+      module 7.2 here too. Once criteria are sharp, much of it can be automated: string and citation
+      checks for the objective parts, and a second model as a grader for the rest. Validate the automatic
+      grader against human grades before trusting it, exactly as you would any other model.</p>
+    </div>
+    <div class="card">
+      <h4>What to run it on</h4>
+      <p class="small mb0">Every prompt change, every model version change, every document re-index,
+      before every release. It should take minutes and run in CI. A team that cannot re-run its
+      evaluation in an afternoon will stop doing it within a month.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 8.8 -->
+<section class="chapter" id="report">
+  <h2>8.8 · The evaluation report</h2>
+  <p>What a defensible result looks like when it is written down. Tick what your last model review
+  actually contained.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Report completeness</h3><span class="tag try">Be uncomfortable</span></div>
+    <div class="split">
+      <div class="checklist" id="repList"></div>
+      <div>
+        <div class="verdict info" id="repVerdict"><span class="lvl">Nothing ticked</span>
+        Work down the list.</div>
+        <div class="card mt1">
+          <h4>Why each one is there</h4>
+          <p class="small mb0" id="repWhy">Hover or tick an item to see what it protects you against.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>This checklist is a governance artefact as much as a technical one — it maps almost
+      one-to-one onto what module 10 shows the AI Act asking for on high-risk systems. Point that out:
+      good evaluation practice is most of compliance, done early and cheaply.</li>
+      <li>If the room is senior, the four baselines in 8.5 and the confidence interval in 8.6 are the two
+      things worth insisting on. They cost nothing and they stop bad projects early.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>We can now build a model, feed it properly and prove it works. Module 9 hands it tools and
+  permission to act — which changes the risk picture entirely.</p>
+  <p><a href="09-agents.html"><strong>Module 9 · Agents and tool use →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+  function randn() {
+    var u = 0, v = 0;
+    while (!u) u = Math.random();
+    while (!v) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+  }
+  function normCdf(x) {
+    var t = 1 / (1 + 0.3275911 * Math.abs(x) / Math.SQRT2);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t
+      * Math.exp(-x * x / 2);
+    return x >= 0 ? 0.5 * (1 + y) : 0.5 * (1 - y);
+  }
+  /* TPR/FPR for healthy~N(0,1), faulty~N(sep,1), flag if score > th */
+  function tpr(th, sep) { return 1 - normCdf(th - sep); }
+  function fpr(th) { return 1 - normCdf(th); }
+
+  /* ================================================ 8.2 cost */
+  var CS = { rate: 0.02, sep: 2.2, cfp: 12, cfn: 4000, th: 1 }, costPlot;
+  var N10 = 10000;
+  function costAt(th) {
+    var nF = N10 * CS.rate, nH = N10 - nF;
+    var fn = nF * (1 - tpr(th, CS.sep));
+    var fp = nH * fpr(th);
+    return fp * CS.cfp + fn * CS.cfn;
+  }
+  function bestTh() {
+    var best = -2, bc = Infinity;
+    for (var t = -2; t <= 5.001; t += 0.02) {
+      var c = costAt(t);
+      if (c < bc) { bc = c; best = t; }
+    }
+    return { th: best, c: bc };
+  }
+  function drawCost() {
+    costPlot.resize(); costPlot.clear();
+    var pts = [], i, mx = 0;
+    for (i = 0; i <= 350; i++) {
+      var t = -2 + 7 * i / 350, c = costAt(t);
+      pts.push([t, c]); mx = Math.max(mx, c);
+    }
+    costPlot.dom = [-2, 5]; costPlot.ran = [0, mx * 1.08];
+    costPlot.frame({ xticks: 7, yticks: 4, xlabel: 'threshold', ylabel: '€ per 10,000 parts',
+      yfmt: function (y) { return F.c(y); } });
+    var b = bestTh(), mine = costAt(CS.th);
+    costPlot.clip(function (g) {
+      costPlot.line(pts, C('--accent'), 2.6);
+      costPlot.line([[b.th, 0], [b.th, mx * 1.08]], C('--good'), 2, [5, 4]);
+      costPlot.line([[CS.th, 0], [CS.th, mx * 1.08]], C('--warn'), 2);
+      costPlot.dot(b.th, b.c, 6, C('--good'), C('--panel'));
+      costPlot.dot(CS.th, mine, 6, C('--warn'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'center';
+      g.fillStyle = C('--good'); g.fillText('optimum', costPlot.X(b.th), costPlot.Y(mx * 1.04));
+      g.fillStyle = C('--warn'); g.fillText('yours', costPlot.X(CS.th), costPlot.Y(mx * 0.96));
+    });
+    var nF = N10 * CS.rate, nH = N10 - nF;
+    var rec = tpr(b.th, CS.sep), tp = nF * rec, fp = nH * fpr(b.th);
+    document.getElementById('oYour').textContent = '€' + F.c(mine);
+    document.getElementById('oBest').textContent = '€' + F.c(b.c);
+    document.getElementById('oOptTh').textContent = b.th.toFixed(2);
+    document.getElementById('oOptRec').textContent = (rec * 100).toFixed(1) + '%';
+    document.getElementById('oOptPre').textContent = (tp / Math.max(1e-9, tp + fp) * 100).toFixed(1) + '%';
+    document.getElementById('oGap').textContent = '€' + F.c(mine - b.c);
+    document.getElementById('bsYour').className = 'bigstat ' + (mine > b.c * 1.6 ? 'bad' : mine > b.c * 1.15 ? 'warn' : 'good');
+
+    var ratio = CS.cfn / CS.cfp;
+    var n = '<h4>What the arithmetic says</h4>';
+    n += '<p class="small">A missed fault costs ' + ratio.toFixed(0) + '× a false alarm, so the optimum sits at a threshold of <b>' +
+      b.th.toFixed(2) + '</b> — ' + (b.th < 0 ? 'well below zero, meaning <b>flag aggressively</b> and accept a lot of unnecessary inspection.'
+      : b.th > 2 ? 'high, meaning <b>only flag when confident</b>, because false alarms are what actually hurt here.'
+      : 'moderate.') + '</p>';
+    n += '<p class="small mb0">Note what happened to recall: the cost-optimal setting catches <b>' +
+      (rec * 100).toFixed(0) + '%</b> of faults. Nobody chose that number — it fell out of the two prices. ' +
+      (mine > b.c * 1.15 ? 'Your threshold is leaving <b>€' + F.c(mine - b.c) + ' per 10,000 parts</b> on the table.' : 'Your threshold is close to optimal.') + '</p>';
+    document.getElementById('costNote').innerHTML = n;
+  }
+
+  /* ================================================ 8.3 curves */
+  var CV = { rate: 0.05, sep: 2, mode: 'roc' }, rocPlot;
+  function drawCurves() {
+    rocPlot.resize(); rocPlot.clear();
+    rocPlot.dom = [0, 1]; rocPlot.ran = [0, 1];
+    var isPR = CV.mode === 'pr';
+    rocPlot.frame({ xticks: 5, yticks: 5,
+      xlabel: CV.mode === 'both' ? 'FPR (ROC) / recall (PR)' : (isPR ? 'recall' : 'false positive rate'),
+      ylabel: CV.mode === 'both' ? 'TPR / precision' : (isPR ? 'precision' : 'true positive rate') });
+    var roc = [], pr = [], i;
+    for (i = 0; i <= 400; i++) {
+      var th = 6 - 10 * i / 400;
+      var t = tpr(th, CV.sep), f = fpr(th);
+      roc.push([f, t]);
+      var tp = CV.rate * t, fp = (1 - CV.rate) * f;
+      pr.push([t, tp / Math.max(1e-12, tp + fp)]);
+    }
+    /* AUCs by trapezoid */
+    function auc(p) {
+      var s = 0;
+      for (var k = 1; k < p.length; k++) s += (p[k][0] - p[k - 1][0]) * (p[k][1] + p[k - 1][1]) / 2;
+      return Math.abs(s);
+    }
+    var aRoc = normCdf(CV.sep / Math.SQRT2), aPr = auc(pr);
+    rocPlot.clip(function (g) {
+      rocPlot.line([[0, 0], [1, 1]], C('--line'), 1.4, [5, 4]);
+      if (CV.mode !== 'pr') rocPlot.line(roc, C('--accent'), 3);
+      if (CV.mode !== 'roc') {
+        rocPlot.line([[0, CV.rate], [1, CV.rate]], C('--ink-3'), 1.4, [4, 4]);
+        rocPlot.line(pr, C('--warn'), 3);
+      }
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      if (CV.mode !== 'pr') { g.fillStyle = C('--accent'); g.fillText('ROC', rocPlot.X(0.62), rocPlot.Y(0.55)); }
+      if (CV.mode !== 'roc') { g.fillStyle = C('--warn'); g.fillText('precision–recall', rocPlot.X(0.3), rocPlot.Y(Math.min(0.92, CV.rate + 0.12))); }
+    });
+    document.getElementById('mAuc').textContent = aRoc.toFixed(3);
+    document.getElementById('mPrauc').textContent = aPr.toFixed(3);
+    document.getElementById('mPrbase').textContent = CV.rate.toFixed(3);
+
+    var n = '<h4>The same model, two impressions</h4>';
+    n += '<p class="small">ROC AUC is <b>' + aRoc.toFixed(3) + '</b> — ' +
+      (aRoc > 0.9 ? 'the kind of number that gets a project approved.' : aRoc > 0.75 ? 'respectable.' : 'weak.') +
+      ' PR AUC is <b>' + aPr.toFixed(3) + '</b>, against a no-skill baseline of just <b>' + CV.rate.toFixed(3) + '</b>.</p>';
+    if (CV.rate < 0.03) {
+      n += '<p class="small" style="color:var(--warn)">At a ' + (CV.rate * 100).toFixed(1) +
+        '% defect rate the precision–recall curve collapses towards the bottom-left while the ROC curve barely notices. To catch 80% of faults you would accept a precision of roughly <b>' +
+        (function () {
+          var best = 0;
+          pr.forEach(function (p) { if (p[0] >= 0.8 && p[1] > best) best = p[1]; });
+          return (best * 100).toFixed(0);
+        })() + '%</b> — four in five flags being false.</p>';
+    }
+    n += '<p class="small mb0"><b>Read the ROC AUC as:</b> the probability that the model scores a randomly chosen faulty part higher than a randomly chosen healthy one. That is a genuinely useful thing to know, and it is <i>not</i> the same as “it will work”.</p>';
+    document.getElementById('curveNote').innerHTML = n;
+  }
+
+  /* ================================================ 8.4 calibration */
+  var CAL = { t: 1, data: [] }, calPlot;
+  function calData() {
+    CAL.data = [];
+    for (var i = 0; i < 4000; i++) {
+      /* true probability of being positive for this case */
+      var p = 1 / (1 + Math.exp(-randn() * 1.7));
+      CAL.data.push({ p: p, y: Math.random() < p ? 1 : 0 });
+    }
+  }
+  function distort(p, t) {
+    /* temperature on the logit: t<1 sharpens (overconfident), t>1 flattens */
+    var z = Math.log(Math.max(1e-9, p) / Math.max(1e-9, 1 - p));
+    return 1 / (1 + Math.exp(-z / t));
+  }
+  function drawCal() {
+    calPlot.resize(); calPlot.clear();
+    calPlot.dom = [0, 1]; calPlot.ran = [0, 1];
+    calPlot.frame({ xticks: 5, yticks: 5, xlabel: 'confidence the model states', ylabel: 'fraction actually positive' });
+    var bins = 12, sum = new Array(bins).fill(0), cnt = new Array(bins).fill(0), pos = new Array(bins).fill(0);
+    var ok = 0;
+    CAL.data.forEach(function (d) {
+      var q = distort(d.p, CAL.t);
+      var b = Math.max(0, Math.min(bins - 1, Math.floor(q * bins)));
+      sum[b] += q; cnt[b]++; pos[b] += d.y;
+      if ((q >= 0.5 ? 1 : 0) === d.y) ok++;
+    });
+    var pts = [], ece = 0, i;
+    for (i = 0; i < bins; i++) {
+      if (cnt[i] < 8) continue;
+      var conf = sum[i] / cnt[i], acc = pos[i] / cnt[i];
+      pts.push([conf, acc, cnt[i]]);
+      ece += cnt[i] / CAL.data.length * Math.abs(conf - acc);
+    }
+    calPlot.clip(function (g) {
+      calPlot.line([[0, 0], [1, 1]], C('--ink-3'), 1.6, [5, 4]);
+      calPlot.line(pts.map(function (p) { return [p[0], p[1]]; }), C('--accent'), 2.6);
+      pts.forEach(function (p) {
+        calPlot.dot(p[0], p[1], 3 + Math.sqrt(p[2]) / 7, C('--accent'), C('--panel'));
+      });
+      g.font = '600 11px system-ui,sans-serif';
+      g.fillStyle = C('--ink-3'); g.textAlign = 'left';
+      g.fillText('perfect calibration', calPlot.X(0.04), calPlot.Y(0.13));
+    });
+    document.getElementById('mEce').textContent = ece.toFixed(3);
+    document.getElementById('mAccc').textContent = (ok / CAL.data.length * 100).toFixed(1) + '%';
+    document.getElementById('bsEce').className = 'bigstat ' + (ece < 0.03 ? 'good' : ece < 0.08 ? 'warn' : 'bad');
+
+    var n = '<h4>Reading the curve</h4>';
+    if (CAL.t < 0.85) n += '<p class="small"><b style="color:var(--bad)">Overconfident.</b> The curve sits below the diagonal: when it claims 90% it is right far less often. This is the default behaviour of a deep network trained to minimise cross-entropy — and it means every rule of the form “auto-approve above 95% confidence” is approving things it should not.</p>';
+    else if (CAL.t > 1.3) n += '<p class="small"><b style="color:var(--warn)">Underconfident.</b> Above the diagonal: it is right more often than it claims. Less dangerous, but it wastes capability — cases that could have been handled automatically get escalated to people.</p>';
+    else n += '<p class="small"><b style="color:var(--good)">Well calibrated.</b> The points track the diagonal, so the stated confidence can be used directly in a decision rule or an expected-cost calculation.</p>';
+    n += '<p class="small mb0">Watch the accuracy figure as you drag: it moves by a fraction of a point while the calibration error changes by an order of magnitude. <b>They are different properties and you have to measure both.</b> The fix for miscalibration is one parameter fitted on held-out data — almost free, and routinely skipped.</p>';
+    document.getElementById('calNote').innerHTML = n;
+  }
+
+  /* ================================================ 8.5 baselines */
+  var TASKS = [
+    { name: 'Defect detection', unit: 'recall at fixed precision',
+      bars: [['Chance', 0.05], ['Always “pass”', 0.0], ['One threshold on brightness', 0.62], ['Trained inspector', 0.93]],
+      note: 'Note that “always pass” scores zero on recall while scoring 95% on accuracy. Choose the metric before you compare.' },
+    { name: 'Ticket routing', unit: 'accuracy over 12 categories',
+      bars: [['Chance', 0.083], ['Most common category', 0.31], ['Keyword rules', 0.68], ['Experienced dispatcher', 0.89]],
+      note: 'Keyword rules are the baseline people skip, and on routing tasks they are often within ten points of a model — at a fraction of the cost and with complete explainability.' },
+    { name: 'Demand forecast', unit: '1 − normalised error',
+      bars: [['Chance', 0.0], ['Last year, same week', 0.71], ['Moving average', 0.78], ['Planner with spreadsheet', 0.84]],
+      note: 'On time series, “repeat what happened last period” is a famously hard baseline to beat. Any forecasting proposal that does not report it should be sent back.' }
+  ];
+  var BS = { t: 0, mine: 0.92 }, basePlot;
+  function drawBase() {
+    basePlot.resize(); basePlot.clear();
+    var T = TASKS[BS.t], g = basePlot.ctx;
+    var rows = T.bars.concat([['Your model', BS.mine]]);
+    basePlot.dom = [0, 1]; basePlot.ran = [0, rows.length];
+    basePlot.frame({ xticks: 5, yticks: 1, xlabel: T.unit, yfmt: function () { return ''; },
+      xfmt: function (x) { return (x * 100).toFixed(0) + '%'; } });
+    var h = basePlot.ph / rows.length;
+    rows.forEach(function (r, i) {
+      var y = basePlot.pad.t + i * h + 5;
+      var isMine = i === rows.length - 1, isHuman = r[0].match(/inspector|dispatcher|Planner/);
+      g.fillStyle = isMine ? C('--accent') : isHuman ? C('--violet') : C('--ink-3');
+      g.globalAlpha = isMine ? 1 : isHuman ? 0.8 : 0.45;
+      g.fillRect(basePlot.pad.l, y, Math.max(1, r[1] * basePlot.pw), h - 10);
+      g.globalAlpha = 1;
+      g.fillStyle = C('--ink'); g.font = (isMine ? '700 ' : '600 ') + '12px system-ui, sans-serif';
+      g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText(r[0], basePlot.pad.l + 8, y + (h - 10) / 2);
+      g.fillStyle = isMine ? C('--accent') : C('--ink-3');
+      g.font = '700 12px ui-monospace, monospace';
+      g.fillText((r[1] * 100).toFixed(1) + '%', basePlot.pad.l + Math.max(1, r[1] * basePlot.pw) + 8, y + (h - 10) / 2);
+    });
+    var human = 0, simple = 0;
+    T.bars.forEach(function (b) {
+      if (b[0].match(/inspector|dispatcher|Planner/)) human = b[1];
+      else simple = Math.max(simple, b[1]);
+    });
+    var n = '<h4>Verdict on ' + (BS.mine * 100).toFixed(1) + '%</h4>';
+    if (BS.mine < simple) n += '<p class="small" style="color:var(--bad)"><b>Worse than the simple rule.</b> A one-line heuristic achieves ' +
+      (simple * 100).toFixed(1) + '%. Whatever else is true, this model is not yet worth deploying — and it is worth understanding why the simple rule is doing better.</p>';
+    else if (BS.mine < human * 0.95) n += '<p class="small" style="color:var(--warn)"><b>Beats the simple rule, below the human.</b> That can still be valuable — if it is fast, cheap and consistent, or if it triages so people spend their time where it matters. But do not present it as replacing the person.</p>';
+    else if (BS.mine < human * 1.02) n += '<p class="small" style="color:var(--good)"><b>Roughly human-level.</b> Note the ceiling implied by module 7.2: if two experts only agree ' +
+      (human * 100).toFixed(0) + '% of the time, this is close to the maximum measurable. Further gains may be unmeasurable rather than unavailable.</p>';
+    else n += '<p class="small" style="color:var(--good)"><b>Above the measured human baseline.</b> Treat this with friendly suspicion first: check for leakage (module 7.4), check that the test cases are representative, and check that the human baseline was measured on the same cases under the same conditions.</p>';
+    n += '<p class="small mb0">' + T.note + '</p>';
+    document.getElementById('baseNote').innerHTML = n;
+  }
+
+  /* ================================================ 8.6 sample size */
+  var SS = { n: 50, pA: 0.82, pB: 0.88 }, ciPlot;
+  function wilson(p, n, z) {
+    z = z || 1.96;
+    var d = 1 + z * z / n;
+    var c = (p + z * z / (2 * n)) / d;
+    var hw = z / d * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n));
+    return { lo: Math.max(0, c - hw), hi: Math.min(1, c + hw), w: 2 * hw };
+  }
+  function drawCi() {
+    ciPlot.resize(); ciPlot.clear();
+    var pts = [], i;
+    for (i = 10; i <= 2000; i += 10) pts.push([i, wilson(0.85, i).w]);
+    ciPlot.dom = [0, 2000]; ciPlot.ran = [0, 0.45];
+    ciPlot.frame({ xticks: 4, yticks: 4, xlabel: 'test cases', ylabel: 'width of 95% interval',
+      yfmt: function (y) { return (y * 100).toFixed(0) + ' pts'; } });
+    var cur = wilson(0.85, SS.n);
+    ciPlot.clip(function (g) {
+      ciPlot.line(pts, C('--accent'), 2.6);
+      ciPlot.line([[SS.n, 0], [SS.n, 0.45]], C('--warn'), 1.8, [4, 4]);
+      ciPlot.dot(SS.n, cur.w, 6, C('--warn'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--warn');
+      g.fillText('n = ' + SS.n + ' → ±' + (cur.w / 2 * 100).toFixed(1) + ' points', ciPlot.X(SS.n) + 8, ciPlot.Y(cur.w + 0.03));
+    });
+
+    var a = wilson(SS.pA, SS.n), b = wilson(SS.pB, SS.n);
+    document.getElementById('ciA').innerHTML =
+      '<h4>What you can honestly claim</h4>' +
+      '<p class="small" style="margin-bottom:.3em"><b>Version A:</b> ' + (SS.pA * 100).toFixed(0) + '% observed — true value plausibly between <b>' +
+      (a.lo * 100).toFixed(1) + '%</b> and <b>' + (a.hi * 100).toFixed(1) + '%</b></p>' +
+      '<p class="small mb0"><b>Version B:</b> ' + (SS.pB * 100).toFixed(0) + '% observed — true value plausibly between <b>' +
+      (b.lo * 100).toFixed(1) + '%</b> and <b>' + (b.hi * 100).toFixed(1) + '%</b></p>';
+
+    /* two-proportion z test, independent samples */
+    var pooled = (SS.pA + SS.pB) / 2;
+    var se = Math.sqrt(2 * pooled * (1 - pooled) / SS.n);
+    var z = se > 0 ? (SS.pB - SS.pA) / se : 0;
+    var pval = 2 * (1 - normCdf(Math.abs(z)));
+    var v = document.getElementById('ciVerdict');
+    if (Math.abs(SS.pB - SS.pA) < 1e-9) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Identical scores</span>Nothing to test.';
+    } else if (pval < 0.05) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">The difference is detectable</span>' +
+        'p ≈ ' + pval.toFixed(3) + ' on ' + SS.n + ' independent cases. You can say version ' +
+        (SS.pB > SS.pA ? 'B' : 'A') + ' is better and defend it.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">You cannot tell these apart</span>' +
+        'p ≈ ' + pval.toFixed(2) + '. The intervals overlap heavily. A ' +
+        Math.abs((SS.pB - SS.pA) * 100).toFixed(0) + '-point difference on ' + SS.n +
+        ' cases is well within what coin-flipping produces. <b>Reporting version ' + (SS.pB > SS.pA ? 'B' : 'A') +
+        ' as the winner here would be an error.</b>';
+    }
+    /* required n for this difference */
+    var need = null;
+    for (i = 10; i <= 40000; i += 10) {
+      var se2 = Math.sqrt(2 * pooled * (1 - pooled) / i);
+      if (se2 > 0 && 2 * (1 - normCdf(Math.abs((SS.pB - SS.pA) / se2))) < 0.05) { need = i; break; }
+    }
+    document.getElementById('ciNote').innerHTML =
+      '<p class="small mb0">To detect a difference of <b>' + Math.abs((SS.pB - SS.pA) * 100).toFixed(0) +
+      ' points</b> at this accuracy level you need roughly <b>' + (need ? F.c(need) : '—') +
+      ' independent test cases</b> per version. If that sounds impossible, compare the two versions <b>on the same cases</b> and analyse only the disagreements — a paired test typically needs three to five times fewer examples.</p>';
+  }
+
+  /* ================================================ 8.7 LLM eval */
+  var EVC = [
+    { q: 'What is the torque for the rear suspension bolts?',
+      crit: 'States 92 Nm ±4 and cites ENG-STD-114 §4.2',
+      a: { t: '“Rear suspension mounting bolts: 92 Nm ±4 Nm, tightened in two stages.” (ENG-STD-114 §4.2)', s: 1 },
+      b: { t: '“92 Nm ±4 Nm, in two stages: 50% diagonal, then 100%. Bolts must not be re-used.” (ENG-STD-114 §4.2)', s: 1 } },
+    { q: 'What is the gearbox warranty period?',
+      crit: 'Declines: the documents do not cover warranty',
+      a: { t: '“The provided documents do not contain information about warranty periods.”', s: 1 },
+      b: { t: '“The standard documents do not cover warranty. Typically a gearbox warranty would be 3 years, but you should confirm with the commercial team.”', s: 0 } },
+    { q: 'Cure cycle for composite panels?',
+      crit: 'States 125 °C, 90 min, 6 bar and the 2 °C/min ramp limit',
+      a: { t: '“Cure at 125 °C for 90 minutes at 6 bar.”', s: 0 },
+      b: { t: '“125 °C for 90 minutes at 6 bar, with a ramp rate not exceeding 2 °C per minute; a deviation beyond 5 °C invalidates the cycle.” (MAT-STD-208 §2.1)', s: 1 } },
+    { q: 'Maximum crack length in a cast housing?',
+      crit: 'States 2.0 mm AND the stress-critical-zone exception',
+      a: { t: '“Up to 2.0 mm is acceptable.” (CAST-STD-051 §6.3)', s: 0 },
+      b: { t: '“Up to 2.0 mm outside stress-critical zones as defined in Annex B; inside those zones a crack of any length is rejectable.” (CAST-STD-051 §6.3)', s: 1 } },
+    { q: 'Can my team leader verbally approve a small deviation?',
+      crit: 'Says no — written approval by design authority and quality manager',
+      a: { t: '“No. Deviations require written approval from the responsible design authority and the quality manager. Verbal approvals are not valid.” (QMS-PROC-007 §3, §5)', s: 1 },
+      b: { t: '“Deviations need written approval from the design authority and quality manager; verbal approvals are never valid, and the request must be logged within 24 hours.” (QMS-PROC-007 §3, §5)', s: 1 } },
+    { q: 'The manual says 110 Nm for the rear bolts, right?  (false premise)',
+      crit: 'Corrects the premise rather than accepting it',
+      a: { t: '“Yes, 110 Nm is correct for the rear suspension bolts.”', s: 0 },
+      b: { t: '“No — the standard specifies 92 Nm ±4 Nm, not 110 Nm.” (ENG-STD-114 §4.2)', s: 1 } },
+    { q: 'Porosity limit, and what inspection method?',
+      crit: 'States 2% by area per 10×10 mm and radiographic inspection',
+      a: { t: '“Porosity must not exceed 2% by area in any 10 mm × 10 mm region, measured radiographically.” (CAST-STD-051 §6.5)', s: 1 },
+      b: { t: '“Porosity must not exceed 2% by area, measured by ultrasonic inspection.” (CAST-STD-051 §6.5)', s: 0 } },
+    { q: 'A competition regulation conflicts with the standard. Which wins?',
+      crit: 'Regulation takes precedence AND a deviation must be raised',
+      a: { t: '“The competition regulation takes precedence.” (ENG-STD-114 §1.2)', s: 0 },
+      b: { t: '“The regulation takes precedence, and a deviation must still be raised against the standard.” (ENG-STD-114 §1.2)', s: 1 } }
+  ];
+  var grades = {};
+  function drawEv() {
+    var host = document.getElementById('evHost');
+    if (!host.dataset.built) {
+      var h = '';
+      EVC.forEach(function (c, i) {
+        h += '<div class="evalcase"><div class="qq">' + (i + 1) + '. ' + c.q + '</div>' +
+          '<div class="crit"><b>Pass criterion:</b> ' + c.crit + '</div><div class="vers">';
+        ['a', 'b'].forEach(function (v) {
+          h += '<div class="vbox" id="vb-' + i + '-' + v + '"><h5>Version ' + (v === 'a' ? '1' : '2') + '</h5>' +
+            '<p>' + c[v].t + '</p><div class="pf" data-i="' + i + '" data-v="' + v + '">' +
+            '<button class="p" data-g="1">Pass</button><button class="f" data-g="0">Fail</button></div></div>';
+        });
+        h += '</div></div>';
+      });
+      host.innerHTML = h;
+      host.dataset.built = '1';
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        var pf = e.target.parentNode;
+        var i = pf.getAttribute('data-i'), v = pf.getAttribute('data-v');
+        grades[i + v] = parseInt(e.target.getAttribute('data-g'), 10);
+        drawEv();
+      });
+    }
+    EVC.forEach(function (c, i) {
+      ['a', 'b'].forEach(function (v) {
+        var g = grades[i + v];
+        var box = document.getElementById('vb-' + i + '-' + v);
+        box.className = 'vbox' + (g === 1 ? ' pass' : g === 0 ? ' fail' : '');
+        AI.qsa('button', box).forEach(function (b) {
+          b.classList.toggle('on', g !== undefined && parseInt(b.getAttribute('data-g'), 10) === g);
+        });
+      });
+    });
+    var aP = 0, bP = 0, aN = 0, bN = 0, regs = [];
+    EVC.forEach(function (c, i) {
+      if (grades[i + 'a'] !== undefined) { aN++; aP += grades[i + 'a']; }
+      if (grades[i + 'b'] !== undefined) { bN++; bP += grades[i + 'b']; }
+      if (grades[i + 'a'] !== undefined && grades[i + 'b'] !== undefined && grades[i + 'a'] !== grades[i + 'b']) {
+        regs.push({ i: i, up: grades[i + 'b'] > grades[i + 'a'], q: c.q });
+      }
+    });
+    document.getElementById('evA').textContent = aN ? aP + '/' + aN : '—';
+    document.getElementById('evB').textContent = bN ? bP + '/' + bN : '—';
+    var net = bP - aP;
+    document.getElementById('evNet').textContent = (aN && bN) ? (net > 0 ? '+' : '') + net : '—';
+    document.getElementById('bsNet').className = 'bigstat ' + (net > 0 ? 'good' : net < 0 ? 'bad' : '');
+
+    var s = '';
+    if (aN < EVC.length || bN < EVC.length) {
+      s = '<p class="small mb0">Graded ' + (aN + bN) + ' of ' + (EVC.length * 2) +
+        ' answers. Keep going — the interesting part is the per-case comparison, which needs both versions graded.</p>';
+    } else {
+      s = '<h4>Per-case diff — the part that matters</h4>';
+      if (!regs.length) s += '<p class="small mb0">No case changed verdict. That is a suspiciously clean result; check that your criteria are sharp enough to discriminate.</p>';
+      else {
+        regs.forEach(function (r) {
+          s += '<div class="regrow ' + (r.up ? 'up' : 'down') + '"><b>' + (r.up ? 'FIXED' : 'REGRESSED') +
+            '</b><span>Case ' + (r.i + 1) + ' — ' + r.q + '</span></div>';
+        });
+        var down = regs.filter(function (r) { return !r.up; }).length;
+        s += '<p class="small mt1 mb0">Net change <b>' + (net > 0 ? '+' : '') + net + '</b>, from ' +
+          (regs.length - down) + ' fix(es) and <b>' + down + ' regression(s)</b>. ' +
+          (down ? 'Those regressions are invisible in the aggregate score. Before shipping version 2, decide explicitly whether each one is acceptable — and if any is safety-relevant, it is not.'
+                : 'No regressions: this is the rare, comfortable case.') + '</p>';
+      }
+    }
+    document.getElementById('evSummary').innerHTML = s;
+  }
+
+  /* ================================================ 8.8 report checklist */
+  var REP = [
+    ['The test set is described', 'How many cases, where they came from, and why they represent real work.', 'Without this, the number is unfalsifiable.'],
+    ['The model never saw the test set', 'Not for training, not for tuning, not for prompt iteration.', 'Protects against the single most common source of inflated results.'],
+    ['The split unit is stated', 'Parts, vehicles, customers, documents or time periods — named explicitly.', 'Catches grouping and temporal leakage (module 7.4).'],
+    ['Confusion matrix in absolute counts', 'Not just percentages, and at realistic volume.', 'Makes the operational burden of false alarms visible.'],
+    ['Precision and recall, not just accuracy', 'Separately, at the stated operating point.', 'Accuracy is blind on imbalanced problems (module 7.3).'],
+    ['The operating point and who chose it', 'The threshold, and the cost reasoning behind it.', 'Turns a silent default into a reviewable decision (module 8.2).'],
+    ['Confidence intervals', 'Or at minimum the test-set size, so the reader can compute them.', 'Stops teams from celebrating noise (module 8.6).'],
+    ['Baselines', 'Chance, majority class, a simple rule, and a measured human.', 'The only way to know whether the number is good (module 8.5).'],
+    ['Failure analysis', 'What kinds of case it gets wrong, with examples.', 'This is where the next improvement and the real risks are found.'],
+    ['Subgroup breakdown', 'Performance by variant, supplier, shift, line, region, language.', 'Averages hide a model that fails entirely on one product family.'],
+    ['Calibration', 'Whether stated confidences can be trusted.', 'Required before any confidence-based automation rule (module 8.4).'],
+    ['A rerun procedure', 'One command, documented, so the evaluation can be repeated on every change.', 'An evaluation that is hard to repeat stops being repeated.']
+  ];
+  function drawRep() {
+    var host = document.getElementById('repList');
+    if (!host.innerHTML) {
+      var h = '';
+      REP.forEach(function (r, i) {
+        h += '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b>' +
+          '<span class="sub">' + r[1] + '</span></span></label>';
+      });
+      host.innerHTML = h;
+      host.addEventListener('change', drawRep);
+    }
+    var got = 0, miss = [];
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      var i = parseInt(cb.getAttribute('data-i'), 10);
+      if (cb.checked) got++; else miss.push(REP[i]);
+    });
+    var v = document.getElementById('repVerdict');
+    var pct = got / REP.length;
+    if (!got) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nothing ticked</span>Work down the list.';
+    } else if (pct >= 0.85) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Defensible — ' + got + '/' + REP.length + '</span>' +
+        'This is a report you could put in front of an auditor, and most of it is what module 10 shows regulators asking for.';
+    } else if (pct >= 0.5) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Partial — ' + got + '/' + REP.length + '</span>' +
+        'Enough to make a decision, not enough to defend one later. The missing items are listed opposite.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Not yet a result — ' + got + '/' + REP.length + '</span>' +
+        'At this level the headline number cannot be relied on. None of the gaps are expensive to close; they are mostly a matter of writing down what was done.';
+    }
+    var w = '';
+    if (!miss.length) w = '<p class="small mb0" style="color:var(--good)">Complete. Keep the template and reuse it.</p>';
+    else {
+      w = '<ul class="small mb0">';
+      miss.slice(0, 6).forEach(function (r) { w += '<li><b>' + r[0] + '</b> — ' + r[2] + '</li>'; });
+      w += '</ul>';
+      if (miss.length > 6) w += '<p class="small muted mb0 mt1">' + (miss.length - 6) + ' more not shown.</p>';
+    }
+    document.getElementById('repWhy').innerHTML = w;
+  }
+
+  window.PAGE_INIT = function () {
+    costPlot = new AI.Plot(document.getElementById('costCv'),
+      { dom: [-2, 5], ran: [0, 1], pad: { l: 62, r: 14, t: 18, b: 42 } });
+    AI.bindRange('pRate', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { CS.rate = v; drawCost(); });
+    AI.bindRange('pSep', function (v) { return v.toFixed(2) + ' σ'; }, function (v) { CS.sep = v; drawCost(); });
+    AI.bindRange('pFp', function (v) { return '€' + v; }, function (v) { CS.cfp = v; drawCost(); });
+    AI.bindRange('pFn', function (v) { return '€' + F.c(v); }, function (v) { CS.cfn = v; drawCost(); });
+    AI.bindRange('pTh', function (v) { return v.toFixed(2); }, function (v) { CS.th = v; drawCost(); });
+    AI.onRedraw(drawCost); drawCost();
+
+    rocPlot = new AI.Plot(document.getElementById('rocCv'),
+      { dom: [0, 1], ran: [0, 1], pad: { l: 52, r: 16, t: 16, b: 44 } });
+    AI.bindRange('cRate', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { CV.rate = v; drawCurves(); });
+    AI.bindRange('cSep', function (v) { return v.toFixed(2) + ' σ'; }, function (v) { CV.sep = v; drawCurves(); });
+    AI.segmented(document.getElementById('curveSeg'), function (v) { CV.mode = v; drawCurves(); });
+    AI.onRedraw(drawCurves); drawCurves();
+
+    calPlot = new AI.Plot(document.getElementById('calCv'),
+      { dom: [0, 1], ran: [0, 1], pad: { l: 52, r: 16, t: 16, b: 44 } });
+    calData();
+    AI.bindRange('calT', function (v) {
+      return v < 0.85 ? 'overconfident' : v > 1.3 ? 'underconfident' : 'honest';
+    }, function (v) { CAL.t = v; drawCal(); });
+    AI.onRedraw(drawCal); drawCal();
+
+    basePlot = new AI.Plot(document.getElementById('baseCv'),
+      { dom: [0, 1], ran: [0, 5], pad: { l: 14, r: 14, t: 10, b: 40 } });
+    AI.segmented(document.getElementById('bTaskSeg'), function (v) {
+      BS.t = parseInt(v, 10);
+      document.getElementById('bTaskName').textContent = TASKS[BS.t].name;
+      drawBase();
+    });
+    AI.bindRange('bMine', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { BS.mine = v; drawBase(); });
+    AI.onRedraw(drawBase); drawBase();
+
+    ciPlot = new AI.Plot(document.getElementById('ciCv'),
+      { dom: [0, 2000], ran: [0, 0.45], pad: { l: 62, r: 16, t: 16, b: 44 } });
+    AI.bindRange('nCases', function (v) { return F.c(v); }, function (v) { SS.n = v; drawCi(); });
+    AI.bindRange('pA', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { SS.pA = v; drawCi(); });
+    AI.bindRange('pB', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { SS.pB = v; drawCi(); });
+    AI.onRedraw(drawCi); drawCi();
+
+    drawEv();
+    AI.on(document.getElementById('evFill'), 'click', function () {
+      EVC.forEach(function (c, i) { grades[i + 'a'] = c.a.s; grades[i + 'b'] = c.b.s; });
+      drawEv();
+    });
+    AI.on(document.getElementById('evClear'), 'click', function () { grades = {}; drawEv(); });
+
+    drawRep();
+  };
+})();
+</script>
+</body>
+</html>

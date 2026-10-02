@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6 · Beyond neural networks — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 330px; }
+  .cv-sm { width: 100%; height: 210px; }
+  .treeview {
+    font-family: var(--mono); font-size: .8rem; line-height: 1.7; max-height: 300px; overflow: auto;
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px;
+  }
+  .treeview .cond { color: var(--accent); }
+  .treeview .leaf { color: var(--good); font-weight: 700; }
+  .treeview .leaf.c0 { color: var(--warn); }
+  .treeview .meta { color: var(--ink-3); }
+  .grid-world { display: grid; gap: 3px; }
+  .gw-cell {
+    aspect-ratio: 1; border-radius: 6px; display: grid; place-items: center; position: relative;
+    font-size: .7rem; font-weight: 700; border: 1px solid var(--line);
+  }
+  .gw-cell .arrow { font-size: 1.1rem; line-height: 1; }
+  .gw-cell.wall { background: var(--ink-3); border-color: var(--ink-3); }
+  .gw-cell.goal { background: var(--good); color: #fff; border-color: var(--good); }
+  .gw-cell.pit  { background: var(--bad); color: #fff; border-color: var(--bad); }
+  .gw-cell.agent::after {
+    content: ""; position: absolute; width: 38%; height: 38%; border-radius: 50%;
+    background: var(--accent); border: 2px solid #fff;
+  }
+  .vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; }
+  @media (max-width: 900px) { .vs { grid-template-columns: 1fr; } }
+  .vs .mid { font-weight: 800; color: var(--ink-3); font-size: 1.1rem; text-align: center; }
+  .winner { outline: 2px solid var(--good); outline-offset: 3px; }
+</style>
+</head>
+<body data-page="p6">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 6 · Part II — Engineering it</span>
+  <h1>Beyond neural networks</h1>
+  <p class="lead">The previous modules were about deep learning, because that is what makes the news.
+  Most of the value available to a manufacturing company is in the methods in this module — which are
+  older, cheaper, easier to explain, and frequently more accurate.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">The claim this module defends</span>
+  <p class="mb0">On <strong>tabular data</strong> — rows and columns, the shape of every database export
+  and every sensor log you have — a tree ensemble usually beats a neural network, trains in seconds
+  instead of hours, needs no GPU, and tells you which columns mattered. You will see that head to head
+  in section 6.4 with both models trained live. <strong>Reaching for deep learning by default is the
+  most common technical mistake in corporate AI.</strong></p>
+</div>
+
+<!-- ============================================= 6.1 -->
+<section class="chapter" id="paradigms">
+  <h2>6.1 · Three genuinely different questions</h2>
+  <div class="grid g3">
+    <div class="card" style="border-top:3px solid var(--accent)">
+      <h4 style="color:var(--accent)">Supervised</h4>
+      <h3>“What is the answer for this one?”</h3>
+      <p class="small">You have examples with known answers. The model learns the mapping. Two flavours:
+      <strong>classification</strong> (which category) and <strong>regression</strong> (what number).</p>
+      <p class="small mb0"><b>You need:</b> labels. That is the whole cost.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--accent-2)">
+      <h4 style="color:var(--accent-2)">Unsupervised</h4>
+      <h3>“What is in here?”</h3>
+      <p class="small">No answers, only data. The model finds structure: groups
+      (<strong>clustering</strong>), a compressed description (<strong>dimensionality reduction</strong>),
+      or things that do not fit (<strong>anomaly detection</strong>).</p>
+      <p class="small mb0"><b>You need:</b> data you already have. This is the underused half.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--violet)">
+      <h4 style="color:var(--violet)">Reinforcement</h4>
+      <h3>“What should I do next?”</h3>
+      <p class="small">No answers and no fixed dataset — an environment, actions, and a reward that may
+      arrive much later. The model learns a <strong>policy</strong> by trying things.</p>
+      <p class="small mb0"><b>You need:</b> a simulator, or a very tolerant real process. Section 6.7.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <p class="mb0">A useful test when someone describes a project: <em>what exactly is the label?</em> If
+    nobody can answer in one sentence, it is not a supervised learning project yet — it is either an
+    unsupervised problem, or a data-collection project wearing a machine-learning costume.</p>
+  </div>
+</section>
+
+<!-- ============================================= 6.2 -->
+<section class="chapter" id="trees">
+  <h2>6.2 · Decision trees: twenty questions, learned</h2>
+  <p>A decision tree asks a sequence of threshold questions about one feature at a time —
+  <em>is the coolant temperature above 96°C?</em> — and each answer narrows down the region of input
+  space you are in. Training means choosing which questions to ask, in which order.</p>
+
+  <p>The criterion is <strong>impurity</strong>. A group of samples that is all one class has impurity
+  zero; a 50/50 mix is maximally impure. A good split is one where the two resulting groups are each
+  purer than the parent. That reduction is called the <strong>information gain</strong>, and the
+  algorithm simply tries every feature and every threshold and keeps the best.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Choose a split by hand</h3><span class="tag try">Find the biggest gain</span></div>
+    <div class="btnrow">
+      <div class="segmented" id="tdsSeg">
+        <button data-v="blocks" class="on">Axis-aligned blocks</button>
+        <button data-v="stairs">Staircase</button>
+        <button data-v="circle">Diagonal ring</button>
+      </div>
+      <span class="small muted">The first two have axis-aligned structure — the natural home of trees.
+      The third does not, deliberately.</span>
+    </div>
+    <div class="split">
+      <div><canvas id="splitCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Split on which feature</span><span class="val" id="sfName">feature 1</span></div>
+          <div class="segmented" id="sfSeg">
+            <button data-v="0" class="on">feature 1 (x)</button>
+            <button data-v="1">feature 2 (y)</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Threshold</span><span class="val" id="sThOut"></span></div>
+          <input type="range" id="sTh" min="-1.15" max="1.15" step="0.01" value="0">
+        </div>
+        <div class="metrics">
+          <div class="m"><span class="k">parent impurity</span><span class="v" id="mG0">—</span></div>
+          <div class="m"><span class="k">after split</span><span class="v" id="mG1">—</span></div>
+          <div class="m"><span class="k">information gain</span><span class="v" id="mGain" style="color:var(--accent)">—</span></div>
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" id="sBest">Find the best split for me</button>
+        </div>
+        <div class="card" id="splitNote" style="min-height:130px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Grow the whole tree</h3><span class="tag try">Increase the depth one step at a time</span></div>
+    <div class="split-wide">
+      <div><canvas id="treeCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Maximum depth</span><span class="val" id="tDepOut"></span></div>
+          <input type="range" id="tDep" min="1" max="10" step="1" value="3">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Minimum samples per leaf</span><span class="val" id="tMinOut"></span></div>
+          <input type="range" id="tMin" min="1" max="30" step="1" value="4">
+        </div>
+        <div class="metrics">
+          <div class="m"><span class="k">train acc.</span><span class="v" id="mTrA">—</span></div>
+          <div class="m"><span class="k">test acc.</span><span class="v" id="mTeA">—</span></div>
+          <div class="m"><span class="k">leaves</span><span class="v" id="mLeaf">—</span></div>
+          <div class="m"><span class="k">questions asked</span><span class="v" id="mNodes">—</span></div>
+        </div>
+        <h4 class="mt1">The learned rules</h4>
+        <div class="treeview" id="treeText"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Why engineers like trees</span>
+      <p class="mb0">Read the box above: those are <strong>if-then rules you could put in a
+      specification</strong>. A tree is a learned expert system. It handles mixed units without scaling,
+      copes with missing values, is unbothered by monotone transformations, and tells you exactly why it
+      rejected a part. No other high-accuracy method is this transparent.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">And why one tree is not enough</span>
+      <p class="mb0">Push the depth to 10 and watch test accuracy fall while train accuracy hits 100% —
+      the overfitting from module 3, in a new costume. A single tree is also <em>unstable</em>: move a
+      few points and the whole structure changes, because an early split commits everything below it.
+      The fix is next.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 6.3 -->
+<section class="chapter" id="ensembles">
+  <h2>6.3 · Ensembles: many weak models, one strong one</h2>
+  <p>One deep tree overfits. The insight of the 1990s was that <strong>many shallow, deliberately
+  imperfect trees, combined, do not</strong>. There are two ways to combine them, and both are still
+  state of the art on tabular data thirty years later.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="color:var(--accent)">Random forest — vote in parallel</h4>
+      <p class="small">Train many trees, each on a random subsample of the rows <em>and</em> a random
+      subset of the columns, then average their votes. Each tree is mediocre and wrong in its own
+      direction; the errors partially cancel. Hard to overfit, trivially parallel, almost no tuning.</p>
+      <p class="small mb0"><b>Use when</b> you want a strong result in ten minutes with default settings.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--warn)">Gradient boosting — correct in sequence</h4>
+      <p class="small">Train a small tree. Look at what it got wrong. Train the next tree
+      <em>on the remaining error</em>. Repeat a few hundred times, adding each correction with a small
+      weight. Each tree is tiny; the sum is extremely accurate.</p>
+      <p class="small mb0"><b>Use when</b> you want the best number on a tabular problem. XGBoost,
+      LightGBM and CatBoost are implementations of this idea and they win most tabular competitions.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Watch an ensemble form</h3><span class="tag try">Drag the count from 1 upwards</span></div>
+    <div class="btnrow">
+      <div class="segmented" id="ensSeg">
+        <button data-v="forest" class="on">Random forest</button>
+        <button data-v="boost">Gradient boosting</button>
+      </div>
+      <button class="btn sm" id="ensRe">New random seed</button>
+    </div>
+    <div class="split-wide">
+      <div><canvas id="ensCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Number of trees</span><span class="val" id="eNOut"></span></div>
+          <input type="range" id="eN" min="1" max="80" step="1" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Depth of each tree</span><span class="val" id="eDOut"></span></div>
+          <input type="range" id="eD" min="1" max="6" step="1" value="3">
+        </div>
+        <div class="metrics">
+          <div class="m"><span class="k">train acc.</span><span class="v" id="eTr">—</span></div>
+          <div class="m"><span class="k">test acc.</span><span class="v" id="eTe">—</span></div>
+          <div class="m"><span class="k">total leaves</span><span class="v" id="eLv">—</span></div>
+        </div>
+        <canvas id="ensCurve" class="cv-sm mt1" style="height:170px"></canvas>
+        <p class="small muted mb0">Test accuracy against number of trees, computed live.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">The shape to notice</span>
+    <p class="mb0">With one tree the boundary is blocky and the test accuracy mediocre. By twenty trees
+    the boundary has softened into something that looks almost smooth, and accuracy has jumped. Then the
+    curve <strong>flattens</strong> — more trees stop helping but never really hurt, which is why
+    “number of trees” is the least dangerous hyperparameter in machine learning. Compare that with the
+    learning rate in module 2.</p>
+  </div>
+</section>
+
+<!-- ============================================= 6.4 -->
+<section class="chapter" id="headtohead">
+  <h2>6.4 · Head to head on tabular data</h2>
+  <p>Same data, same split, both trained in front of you. The neural network is the one from module 3;
+  the ensemble is the one from module 6.3.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Tree ensemble versus neural network</h3><span class="tag try">Run it a few times</span></div>
+    <div class="btnrow">
+      <button class="btn primary" id="h2hRun">Train both</button>
+      <div class="segmented" id="h2hSeg">
+        <button data-v="blocks" class="on">Axis-aligned blocks</button>
+        <button data-v="stairs">Staircase</button>
+        <button data-v="circle">Diagonal ring</button>
+      </div>
+    </div>
+    <div class="vs mt1">
+      <div class="card" id="h2hA">
+        <h4 style="color:var(--accent)">Bagged tree ensemble · 40 trees, depth 6</h4>
+        <div class="metrics">
+          <div class="m"><span class="k">test accuracy</span><span class="v" id="fAcc">—</span></div>
+          <div class="m"><span class="k">training time</span><span class="v" id="fTime">—</span><span class="u">ms</span></div>
+          <div class="m"><span class="k">hyperparameters tuned</span><span class="v">0</span></div>
+        </div>
+        <canvas id="fCv" class="cv-sm mt1"></canvas>
+      </div>
+      <div class="mid">vs</div>
+      <div class="card" id="h2hB">
+        <h4 style="color:var(--violet)">Neural network · 2–8–8–1, 2,000 epochs</h4>
+        <div class="metrics">
+          <div class="m"><span class="k">test accuracy</span><span class="v" id="nAcc">—</span></div>
+          <div class="m"><span class="k">training time</span><span class="v" id="nTime">—</span><span class="u">ms</span></div>
+          <div class="m"><span class="k">hyperparameters tuned</span><span class="v">4+</span></div>
+        </div>
+        <canvas id="nCv" class="cv-sm mt1"></canvas>
+      </div>
+    </div>
+    <div class="card mt1" id="h2hNote" style="min-height:90px">Press <b>Train both</b>.</div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">What to conclude, carefully</span>
+    <p class="mb0">Not “neural networks are bad”. The honest conclusion is that
+    <strong>architecture should follow the structure of the data</strong> — the same lesson as module 3.5.
+    Tabular data has no spatial or sequential structure to exploit, so the tree's ability to carve
+    axis-aligned regions is a better inductive bias than the network's ability to draw smooth curves.
+    Reverse the situation — images, text, audio, time series — and the network wins by an enormous
+    margin. The skill is knowing which situation you are in.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>This section exists to save the company money. Run it live, twice, and let the room see the
+      forest win on a dataset that looks like their data.</li>
+      <li>If someone objects that real tabular problems have 200 columns rather than 2: correct, and the
+      gap widens in the trees' favour, because a neural network then needs careful scaling, encoding of
+      categoricals and regularisation, while a boosted ensemble needs none of it.</li>
+      <li>Have the answer ready for “so when <em>should</em> we use deep learning on tabular data?” —
+      when you have an enormous dataset, when you need to fuse tabular data with text or images in one
+      model, or when you want embeddings of high-cardinality categories.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 6.5 -->
+<section class="chapter" id="clustering">
+  <h2>6.5 · Clustering: structure without labels</h2>
+  <p>You have 40,000 warranty claims and no categories. Clustering proposes categories. The most used
+  algorithm, k-means, is three lines: put <em>k</em> markers down at random, assign every point to its
+  nearest marker, move each marker to the centre of its points, repeat.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · k-means, one iteration at a time</h3><span class="tag try">Click to add points, then step</span></div>
+    <div class="split">
+      <div>
+        <canvas id="kmCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Crosses are centroids. Colour is the current assignment.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Number of clusters k</span><span class="val" id="kKOut"></span></div>
+          <input type="range" id="kK" min="1" max="7" step="1" value="3">
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" id="kStep">One iteration</button>
+          <button class="btn" id="kRun">Run to convergence</button>
+          <button class="btn sm" id="kSeed">Re-seed centroids</button>
+          <button class="btn sm" id="kNew">New data</button>
+          <button class="btn sm" id="kClear">Clear</button>
+        </div>
+        <div class="metrics">
+          <div class="m"><span class="k">iteration</span><span class="v" id="kIt">0</span></div>
+          <div class="m"><span class="k">inertia</span><span class="v" id="kIn">—</span></div>
+          <div class="m"><span class="k">points moved</span><span class="v" id="kMv">—</span></div>
+        </div>
+        <canvas id="kElbow" class="cv-sm mt1" style="height:170px"></canvas>
+        <p class="small muted mb0">Inertia against k — the “elbow” is the usual, unsatisfying way of
+        choosing k.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Three honest warnings</span>
+    <ul class="mb0">
+      <li><strong>k-means always succeeds.</strong> Give it structureless noise and it will still return
+      clusters, confidently. The algorithm has no concept of “there are no groups here”.</li>
+      <li><strong>You choose k.</strong> Re-seed the centroids a few times and watch the result change.
+      The elbow plot is a heuristic, not an answer.</li>
+      <li><strong>It assumes round, similar-sized blobs.</strong> Elongated or nested groups defeat it —
+      use DBSCAN or a Gaussian mixture instead.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 6.6 -->
+<section class="chapter" id="anomaly">
+  <h2>6.6 · Anomaly detection: the one that needs no labelled faults</h2>
+  <p>This deserves to be much better known in industry. The usual blocker for defect detection is that
+  you have very few examples of failure — sometimes none. Anomaly detection inverts the problem:
+  <strong>learn what normal looks like, then flag anything that is not it.</strong> Your enormous archive
+  of uneventful production data becomes the training set.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Learn “normal”, then flag the rest</h3><span class="tag try">Move the threshold</span></div>
+    <div class="split">
+      <div>
+        <canvas id="anCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Blue: healthy history the model was fitted to. Red: new parts.
+        Ellipses are contours of equal Mahalanobis distance — the model's notion of “this far from
+        normal”, which accounts for the fact that the two measurements are correlated.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Alarm threshold (distance from normal)</span><span class="val" id="aThOut"></span></div>
+          <input type="range" id="aTh" min="1" max="6" step="0.05" value="3">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>How unusual the real faults are</span><span class="val" id="aSevOut"></span></div>
+          <input type="range" id="aSev" min="1.5" max="6" step="0.1" value="3.6">
+        </div>
+        <div class="cm mt1">
+          <div class="h"></div><div class="h">flagged</div><div class="h">passed</div>
+          <div class="h side">faulty</div>
+          <div class="c tp"><span class="n" id="aTP">0</span><span class="l">caught</span></div>
+          <div class="c fn"><span class="n" id="aFN">0</span><span class="l">missed</span></div>
+          <div class="h side">healthy</div>
+          <div class="c fp"><span class="n" id="aFP">0</span><span class="l">false alarm</span></div>
+          <div class="c tn"><span class="n" id="aTN">0</span><span class="l">correct</span></div>
+        </div>
+        <div class="card mt1" id="anNote" style="min-height:140px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The trade-off is the product</span>
+    <p class="mb0">Tighten the threshold and you catch everything, including 200 healthy parts a day that
+    someone now has to re-inspect. Loosen it and the line runs smoothly while defects escape. There is no
+    setting that avoids the choice — <strong>and the correct setting depends on the relative cost of a
+    false alarm and a missed fault, which is a business decision, not a data-science one</strong>. Module
+    8 turns that into arithmetic you can put in front of a manager.</p>
+  </div>
+</section>
+
+<!-- ============================================= 6.7 -->
+<section class="chapter" id="rl">
+  <h2>6.7 · Reinforcement learning: learning to act</h2>
+  <p>The third paradigm, and the one behind AlphaGo, most robotics research, and — since 2024 — the
+  training of reasoning models. There is no dataset of correct answers. There is a world, a set of
+  possible actions, and a reward that usually arrives long after the action that earned it.</p>
+
+  <p>The classic method, <strong>Q-learning</strong>, keeps one number for every (state, action) pair:
+  the total future reward it expects if it takes that action here. Every time it acts, it nudges that
+  number towards what actually happened plus what it now expects next. That single update rule, applied
+  a few thousand times, produces a policy.</p>
+
+  <div class="eqbox" style="font-family:var(--mono);background:var(--bg-3);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;overflow-x:auto;line-height:1.9">
+    Q(s,a) ← Q(s,a) + <span style="color:var(--accent);font-weight:700">α</span> ·
+    [ r + <span style="color:var(--accent);font-weight:700">γ</span> · max Q(s′,a′) − Q(s,a) ]
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Q-learning in a gridworld</h3><span class="tag try">Run 200 episodes and watch the arrows</span></div>
+    <div class="split">
+      <div>
+        <div class="grid-world" id="gw" style="max-width:340px"></div>
+        <div class="flex mt1 small muted" style="gap:14px">
+          <span><span style="display:inline-block;width:11px;height:11px;background:var(--good);border-radius:3px"></span> goal +1</span>
+          <span><span style="display:inline-block;width:11px;height:11px;background:var(--bad);border-radius:3px"></span> pit −1</span>
+          <span><span style="display:inline-block;width:11px;height:11px;background:var(--ink-3);border-radius:3px"></span> wall</span>
+          <span>every step costs −0.02</span>
+        </div>
+      </div>
+      <div>
+        <div class="btnrow">
+          <button class="btn primary" id="rlEp">1 episode</button>
+          <button class="btn" id="rl200">200 episodes</button>
+          <button class="btn sm" id="rlGreedy">Show best route</button>
+          <button class="btn sm" id="rlReset">Forget everything</button>
+        </div>
+        <div class="grid g2" style="gap:12px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Learning rate α</span><span class="val" id="rlAOut"></span></div>
+            <input type="range" id="rlA" min="0.05" max="1" step="0.05" value="0.4">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Discount γ</span><span class="val" id="rlGOut"></span></div>
+            <input type="range" id="rlG" min="0.5" max="0.999" step="0.005" value="0.95">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Exploration ε</span><span class="val" id="rlEOut"></span></div>
+            <input type="range" id="rlE" min="0" max="1" step="0.02" value="0.2">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Show</span><span class="val" id="rlViewName">policy</span></div>
+            <div class="segmented" id="rlView">
+              <button data-v="policy" class="on">Policy</button>
+              <button data-v="value">Value</button>
+            </div>
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Initial Q values</span><span class="val" id="rlInitName">optimistic</span></div>
+            <div class="segmented" id="rlInit">
+              <button data-v="0" class="on">Optimistic (0)</button>
+              <button data-v="-1">Pessimistic (−1)</button>
+            </div>
+          </div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">episodes</span><span class="v" id="rlN">0</span></div>
+          <div class="m"><span class="k">last reward</span><span class="v" id="rlR">—</span></div>
+          <div class="m"><span class="k">avg. last 20</span><span class="v" id="rlAvg">—</span></div>
+          <div class="m"><span class="k">steps taken</span><span class="v" id="rlS">—</span></div>
+        </div>
+        <canvas id="rlCurve" class="cv-sm mt1" style="height:150px"></canvas>
+        <div class="card mt1" id="rlNote" style="min-height:110px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Set ε to 0 — and be surprised</span>
+      <p class="mb0">No exploration at all, and it <em>still</em> solves the maze. The reason is subtle
+      and worth knowing: every Q value starts at <strong>0</strong> while every step costs −0.02, so any
+      action the agent has not yet tried looks better than one it has. <strong>Optimistic initialisation
+      is doing the exploring for free.</strong></p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Now switch to pessimistic (−1)</span>
+      <p class="mb0">With ε = 0 it now fails essentially every time: the first route it stumbles into
+      looks better than the untried alternatives, so it commits to it forever. Raise ε and it recovers —
+      around 0.2 it succeeds about half the time, and by 0.5 reliably. <strong>That is exploration versus
+      exploitation</strong>, and this pair of settings is the cleanest demonstration of it you will get.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">And an honest note on γ</span>
+      <p class="mb0">On a maze this small, γ barely matters — every value from 0.5 to 0.99 converges in
+      30 to 50 episodes, and you can verify that yourself. γ encodes <em>how far ahead the agent
+      cares</em>, and it bites when the reward is far away or the episode is long. Do not take a
+      parameter's importance on faith because a textbook stressed it; on your problem, measure it.</p>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Why this is much harder in reality</span>
+    <p class="mb0">This gridworld has 36 states and the agent may die, for free, thousands of times. A
+    real process has effectively infinite states and each failure costs money, hardware or safety. That
+    is why industrial reinforcement learning runs in a simulator — and why <strong>the quality of the
+    simulator becomes the real project</strong>, which puts you back in module 11.</p>
+  </div>
+
+  <details class="reveal deeper">
+    <summary>Go deeper · reward hacking, and why it matters beyond robotics</summary>
+    <div class="body">
+      <p>An RL agent optimises the reward you wrote, not the outcome you wanted. The literature is full
+      of agents that found degenerate solutions: a boat-racing agent that learned to spin in circles
+      collecting respawning bonus points instead of finishing the race; simulated robots that exploited
+      physics-engine bugs to move without walking. The agent was not malfunctioning — the reward
+      function was an incomplete description of the goal.</p>
+      <p class="mb0">This is not a curiosity. The preference-tuning stage of every modern LLM (module
+      4.6) is reinforcement learning against a learned reward model, and the same failure appears as
+      <strong>sycophancy</strong>: the model learned that agreeable answers score well, which is true and
+      not what anyone wanted. Whenever you specify a metric for a learning system to maximise, assume it
+      will find the cheapest way to maximise exactly that.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============================================= 6.8 -->
+<section class="chapter" id="choose">
+  <h2>6.8 · Choosing</h2>
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Which family fits your problem</h3><span class="tag try">Answer three questions</span></div>
+    <div class="grid g3">
+      <div class="qrow" style="margin:0">
+        <div class="q">1 · What shape is your input?</div>
+        <div class="chips" id="cq1">
+          <button data-v="tab">Rows and columns</button>
+          <button data-v="img">Images</button>
+          <button data-v="seq">Time series / signal</button>
+          <button data-v="txt">Text or documents</button>
+          <button data-v="env">An environment to act in</button>
+        </div>
+      </div>
+      <div class="qrow" style="margin:0">
+        <div class="q">2 · Do you have labelled answers?</div>
+        <div class="chips" id="cq2">
+          <button data-v="many">Thousands, labelled</button>
+          <button data-v="few">A handful</button>
+          <button data-v="none">None at all</button>
+        </div>
+      </div>
+      <div class="qrow" style="margin:0">
+        <div class="q">3 · What must come out?</div>
+        <div class="chips" id="cq3">
+          <button data-v="cat">A category</button>
+          <button data-v="num">A number</button>
+          <button data-v="grp">Groups or outliers</button>
+          <button data-v="txtout">Text</button>
+          <button data-v="act">An action</button>
+        </div>
+      </div>
+    </div>
+    <div class="verdict info mt1" id="chooseOut"><span class="lvl">Answer the three questions</span>
+    The recommendation will name a first choice, a fallback, and what it will cost you.</div>
+  </div>
+
+  <div class="tablewrap mt2">
+    <table>
+      <thead><tr><th>Method</th><th>Best on</th><th>Explains itself</th><th>Needs a GPU</th><th>Typical training time</th></tr></thead>
+      <tbody>
+        <tr><td>Linear / logistic regression</td><td>Small tabular, when you need coefficients you can defend</td><td>Completely</td><td>No</td><td>Seconds</td></tr>
+        <tr><td>Decision tree</td><td>Tabular, when rules must be readable</td><td>Completely</td><td>No</td><td>Seconds</td></tr>
+        <tr><td>Random forest</td><td>Tabular, strong default</td><td>Feature importance</td><td>No</td><td>Seconds to minutes</td></tr>
+        <tr><td>Gradient boosting</td><td>Tabular, best accuracy</td><td>Feature importance</td><td>No</td><td>Minutes</td></tr>
+        <tr><td>k-means / DBSCAN</td><td>Finding groups with no labels</td><td>Partly</td><td>No</td><td>Seconds</td></tr>
+        <tr><td>Mahalanobis / isolation forest / autoencoder</td><td>Anomalies with no labelled faults</td><td>Partly</td><td>No / sometimes</td><td>Seconds to minutes</td></tr>
+        <tr><td>CNN</td><td>Images, spectrograms, 2D fields</td><td>Poorly (saliency maps at best)</td><td>Yes</td><td>Hours</td></tr>
+        <tr><td>Transformer</td><td>Text, code, sequences</td><td>Poorly</td><td>Yes</td><td>Hours to months</td></tr>
+        <tr><td>Reinforcement learning</td><td>Control and sequential decisions, in a simulator</td><td>Poorly</td><td>Usually</td><td>Hours to weeks</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Key takeaway</span>
+    <p class="mb0">Start at the top of that table and move down only when the simpler method has
+    demonstrably failed on your data. A logistic regression that works is worth more than a transformer
+    that might — it trains in seconds, you can explain it to an auditor, and it gives you the baseline
+    that tells you whether the complicated thing was worth building.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>Every method in this module and the four before it has the same dependency, and we have been
+  postponing it. Module 7 is about the data.</p>
+  <p><a href="07-data.html"><strong>Module 7 · Data →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+
+  /* ================================================== datasets */
+  function gen(kind, n, seed) {
+    var X = [], Y = [], i;
+    for (i = 0; i < n; i++) {
+      var x = Math.random() * 2 - 1, y = Math.random() * 2 - 1, c;
+      if (kind === 'blocks') {
+        var gx = Math.floor((x + 1) * 1.5), gy = Math.floor((y + 1) * 1.5);
+        c = (gx + gy) % 2;
+      } else if (kind === 'stairs') {
+        c = (Math.floor((x + 1) * 2) % 2 === 0) ? (y > -0.1 ? 1 : 0) : (y > 0.45 ? 1 : 0);
+      } else {
+        var r = Math.hypot(x * 0.95 + y * 0.3, y * 0.95 - x * 0.3);
+        c = (r > 0.45 && r < 0.82) ? 1 : 0;
+      }
+      if (Math.random() < 0.05) c = 1 - c;     /* label noise */
+      X.push([x, y]); Y.push(c);
+    }
+    return { X: X, Y: Y };
+  }
+  function split(d, frac) {
+    var n = d.X.length, k = Math.floor(n * frac);
+    return { trX: d.X.slice(0, k), trY: d.Y.slice(0, k), teX: d.X.slice(k), teY: d.Y.slice(k) };
+  }
+
+  /* ================================================== CART */
+  function gini(Y, idx) {
+    var n = idx.length, p1 = 0, i;
+    if (!n) return 0;
+    for (i = 0; i < n; i++) p1 += Y[idx[i]];
+    p1 /= n;
+    return 2 * p1 * (1 - p1);
+  }
+  function variance(res, idx) {
+    var n = idx.length, m = 0, v = 0, i;
+    if (!n) return 0;
+    for (i = 0; i < n; i++) m += res[idx[i]];
+    m /= n;
+    for (i = 0; i < n; i++) v += (res[idx[i]] - m) * (res[idx[i]] - m);
+    return v / n;
+  }
+  function bestSplit(X, Y, idx, feats, imp) {
+    var best = null, f, k, i;
+    var base = imp(Y, idx), n = idx.length;
+    for (k = 0; k < feats.length; k++) {
+      f = feats[k];
+      var vals = idx.map(function (j) { return X[j][f]; }).sort(function (a, b) { return a - b; });
+      var stride = Math.max(1, Math.floor(vals.length / 24));
+      for (i = stride; i < vals.length; i += stride) {
+        var th = (vals[i] + vals[i - 1]) / 2;
+        var L = [], R = [];
+        for (var j = 0; j < n; j++) (X[idx[j]][f] <= th ? L : R).push(idx[j]);
+        if (!L.length || !R.length) continue;
+        var g = (L.length * imp(Y, L) + R.length * imp(Y, R)) / n;
+        var gain = base - g;
+        if (!best || gain > best.gain) best = { f: f, th: th, gain: gain, L: L, R: R, after: g, base: base };
+      }
+    }
+    return best;
+  }
+  function buildTree(X, Y, idx, depth, maxD, minLeaf, feats, imp, leafVal) {
+    var node = { n: idx.length };
+    node.val = leafVal(Y, idx);
+    if (depth >= maxD || idx.length < 2 * minLeaf || imp(Y, idx) < 1e-9) { node.leaf = true; return node; }
+    var s = bestSplit(X, Y, idx, feats, imp);
+    if (!s || s.gain <= 1e-9 || s.L.length < minLeaf || s.R.length < minLeaf) { node.leaf = true; return node; }
+    node.f = s.f; node.th = s.th; node.gain = s.gain;
+    node.L = buildTree(X, Y, s.L, depth + 1, maxD, minLeaf, feats, imp, leafVal);
+    node.R = buildTree(X, Y, s.R, depth + 1, maxD, minLeaf, feats, imp, leafVal);
+    return node;
+  }
+  function meanY(Y, idx) { var s = 0; for (var i = 0; i < idx.length; i++) s += Y[idx[i]]; return idx.length ? s / idx.length : 0; }
+  function treePred(t, x) { while (!t.leaf) t = (x[t.f] <= t.th ? t.L : t.R); return t.val; }
+  function countLeaves(t) { return t.leaf ? 1 : countLeaves(t.L) + countLeaves(t.R); }
+  function countNodes(t) { return t.leaf ? 0 : 1 + countNodes(t.L) + countNodes(t.R); }
+  function fitTree(X, Y, maxD, minLeaf, feats) {
+    var idx = []; for (var i = 0; i < X.length; i++) idx.push(i);
+    return buildTree(X, Y, idx, 0, maxD, minLeaf, feats || [0, 1], gini, meanY);
+  }
+  function acc(t, X, Y, pred) {
+    var c = 0;
+    for (var i = 0; i < X.length; i++) if (((pred ? pred(X[i]) : treePred(t, X[i])) >= 0.5 ? 1 : 0) === Y[i]) c++;
+    return X.length ? c / X.length : 0;
+  }
+
+  /* ================================================== 6.2 split lab */
+  var SD = null, SS = { kind: 'blocks', f: 0, th: 0 }, splitPlot;
+  function regionShade(plot, fn, cell) {
+    cell = cell || 7;
+    plot.clip(function (ctx) {
+      for (var px = plot.pad.l; px < plot.pad.l + plot.pw; px += cell) {
+        for (var py = plot.pad.t; py < plot.pad.t + plot.ph; py += cell) {
+          ctx.fillStyle = fn(plot.iX(px + cell / 2), plot.iY(py + cell / 2));
+          ctx.fillRect(px, py, cell + 1, cell + 1);
+        }
+      }
+    });
+  }
+  function drawPoints(plot, X, Y, r) {
+    for (var i = 0; i < X.length; i++) {
+      plot.dot(X[i][0], X[i][1], r || 4.5, Y[i] ? C('--accent') : C('--warn'), C('--panel'));
+    }
+  }
+  function drawSplit() {
+    splitPlot.resize(); splitPlot.clear();
+    var f = SS.f, th = SS.th;
+    regionShade(splitPlot, function (x, y) {
+      var v = (f === 0 ? x : y) <= th;
+      return v ? C('--bg-3') : C('--bg-2');
+    }, 9);
+    splitPlot.frame({ xticks: 4, yticks: 4, xlabel: 'feature 1', ylabel: 'feature 2' });
+    splitPlot.clip(function () {
+      drawPoints(splitPlot, SD.X, SD.Y);
+      if (f === 0) splitPlot.line([[th, -1.2], [th, 1.2]], C('--accent'), 3);
+      else splitPlot.line([[-1.2, th], [1.2, th]], C('--accent'), 3);
+    });
+    var idx = [], i; for (i = 0; i < SD.X.length; i++) idx.push(i);
+    var L = [], R = [];
+    for (i = 0; i < SD.X.length; i++) (SD.X[i][f] <= th ? L : R).push(i);
+    var g0 = gini(SD.Y, idx);
+    var g1 = (L.length * gini(SD.Y, L) + R.length * gini(SD.Y, R)) / SD.X.length;
+    document.getElementById('mG0').textContent = g0.toFixed(3);
+    document.getElementById('mG1').textContent = g1.toFixed(3);
+    document.getElementById('mGain').textContent = (g0 - g1).toFixed(3);
+    var best = bestSplit(SD.X, SD.Y, idx, [0, 1], gini);
+    var note = '<h4>What the split achieved</h4>';
+    note += '<p class="small">Left group: ' + L.length + ' samples, impurity ' + gini(SD.Y, L).toFixed(3) +
+      '. Right group: ' + R.length + ' samples, impurity ' + gini(SD.Y, R).toFixed(3) + '.</p>';
+    if (best && (g0 - g1) > best.gain - 0.004) {
+      note += '<p class="small mb0" style="color:var(--good)"><b>That is essentially the optimal first question.</b> The algorithm searches exactly this way — every feature, every candidate threshold — and keeps the best. On two features and 300 samples that is a few thousand evaluations; on 200 features it is still trivial, which is why trees train in seconds.</p>';
+    } else {
+      note += '<p class="small mb0">The best available first split is <b>feature ' + (best.f + 1) + ' at ' +
+        best.th.toFixed(2) + '</b>, with a gain of ' + best.gain.toFixed(3) + ' against your ' + (g0 - g1).toFixed(3) +
+        '. Keep going, or press the button.</p>';
+    }
+    document.getElementById('splitNote').innerHTML = note;
+  }
+  function initSplit() {
+    splitPlot = new AI.Plot(document.getElementById('splitCv'),
+      { dom: [-1.15, 1.15], ran: [-1.15, 1.15], pad: { l: 44, r: 14, t: 14, b: 40 } });
+    SD = gen(SS.kind, 300);
+    var thR = AI.bindRange('sTh', function (v) { return v.toFixed(2); }, function (v) { SS.th = v; drawSplit(); });
+    AI.segmented(document.getElementById('sfSeg'), function (v) {
+      SS.f = parseInt(v, 10);
+      document.getElementById('sfName').textContent = 'feature ' + (SS.f + 1);
+      drawSplit();
+    });
+    AI.segmented(document.getElementById('tdsSeg'), function (v) {
+      SS.kind = v; SD = gen(v, 300); drawSplit();
+      if (TR.tree) rebuildTree();
+      if (EN.trees.length) { EN.sp = split({ X: SD.X, Y: SD.Y }, 0.7); buildEnsemble(); drawEns(); }
+    });
+    AI.on(document.getElementById('sBest'), 'click', function () {
+      var idx = []; for (var i = 0; i < SD.X.length; i++) idx.push(i);
+      var b = bestSplit(SD.X, SD.Y, idx, [0, 1], gini);
+      document.getElementById('sfSeg').querySelectorAll('button')[b.f].click();
+      thR.set(Math.round(b.th * 100) / 100);
+    });
+    AI.onRedraw(drawSplit);
+    drawSplit();
+  }
+
+  /* ================================================== 6.2b full tree */
+  var TR = { dep: 3, min: 4, tree: null, sp: null }, treePlot;
+  function rebuildTree() {
+    TR.sp = split({ X: SD.X, Y: SD.Y }, 0.7);
+    TR.tree = fitTree(TR.sp.trX, TR.sp.trY, TR.dep, TR.min);
+    drawTree();
+  }
+  function drawTree() {
+    treePlot.resize(); treePlot.clear();
+    var t = TR.tree;
+    regionShade(treePlot, function (x, y) {
+      var p = treePred(t, [x, y]);
+      return p >= 0.5 ? C('--accent-soft') : C('--warn-soft');
+    }, 6);
+    treePlot.frame({ xticks: 4, yticks: 4, xlabel: 'feature 1', ylabel: 'feature 2' });
+    treePlot.clip(function () { drawPoints(treePlot, TR.sp.trX, TR.sp.trY, 4); });
+    document.getElementById('mTrA').textContent = (acc(t, TR.sp.trX, TR.sp.trY) * 100).toFixed(0) + '%';
+    document.getElementById('mTeA').textContent = (acc(t, TR.sp.teX, TR.sp.teY) * 100).toFixed(0) + '%';
+    document.getElementById('mLeaf').textContent = countLeaves(t);
+    document.getElementById('mNodes').textContent = countNodes(t);
+
+    function render(node, d, label) {
+      var pad = '&nbsp;'.repeat(d * 3);
+      if (node.leaf) {
+        var cls = node.val >= 0.5 ? 1 : 0;
+        return pad + (label ? '<span class="meta">' + label + '</span> ' : '') +
+          '<span class="leaf' + (cls ? '' : ' c0') + '">→ class ' + cls + '</span> ' +
+          '<span class="meta">(' + node.n + ' samples, ' + (Math.max(node.val, 1 - node.val) * 100).toFixed(0) + '% pure)</span><br>';
+      }
+      var s = pad + (label ? '<span class="meta">' + label + '</span> ' : '') +
+        '<span class="cond">if feature ' + (node.f + 1) + ' ≤ ' + node.th.toFixed(2) + '</span> ' +
+        '<span class="meta">[' + node.n + ']</span><br>';
+      s += render(node.L, d + 1, 'then');
+      s += render(node.R, d + 1, 'else');
+      return s;
+    }
+    document.getElementById('treeText').innerHTML = render(t, 0, '');
+  }
+  function initTree() {
+    treePlot = new AI.Plot(document.getElementById('treeCv'),
+      { dom: [-1.15, 1.15], ran: [-1.15, 1.15], pad: { l: 44, r: 14, t: 14, b: 40 } });
+    AI.bindRange('tDep', function (v) { return v; }, function (v) { TR.dep = v; rebuildTree(); });
+    AI.bindRange('tMin', function (v) { return v; }, function (v) { TR.min = v; rebuildTree(); });
+    AI.onRedraw(drawTree);
+    rebuildTree();
+  }
+
+  /* ================================================== 6.3 ensembles */
+  var EN = { mode: 'forest', n: 1, d: 3, trees: [], sp: null, curve: [] }, ensPlot, ensCurve;
+  function boot(X, Y) {
+    var bx = [], by = [];
+    for (var i = 0; i < X.length; i++) {
+      var j = Math.floor(Math.random() * X.length);
+      bx.push(X[j]); by.push(Y[j]);
+    }
+    return { X: bx, Y: by };
+  }
+  function buildEnsemble() {
+    EN.sp = EN.sp || split({ X: SD.X, Y: SD.Y }, 0.7);
+    var X = EN.sp.trX, Y = EN.sp.trY, i;
+    EN.trees = [];
+    if (EN.mode === 'forest') {
+      /* with only two features, bagging (bootstrap) supplies the diversity;
+         subsampling features down to one would cripple each tree */
+      for (i = 0; i < 80; i++) {
+        var b = boot(X, Y);
+        EN.trees.push(fitTree(b.X, b.Y, EN.d, 3, [0, 1]));
+      }
+    } else {
+      /* gradient boosting on log-odds with squared-error trees on residuals */
+      var F0 = 0, m = 0;
+      for (i = 0; i < Y.length; i++) m += Y[i];
+      m = Math.max(0.01, Math.min(0.99, m / Y.length));
+      F0 = Math.log(m / (1 - m));
+      EN.F0 = F0; EN.lr = 0.35;
+      var Fv = new Array(X.length).fill(F0);
+      for (var k = 0; k < 80; k++) {
+        var res = [];
+        for (i = 0; i < X.length; i++) res.push(Y[i] - AI.sigmoid(Fv[i]));
+        var idx = []; for (i = 0; i < X.length; i++) idx.push(i);
+        var t = buildTree(X, res, idx, 0, EN.d, 3, [0, 1], variance, meanY);
+        EN.trees.push(t);
+        for (i = 0; i < X.length; i++) Fv[i] += EN.lr * treePred(t, X[i]);
+      }
+    }
+    computeCurve();
+  }
+  function ensPredict(x, n) {
+    var i, s = 0;
+    n = n || EN.n;
+    if (EN.mode === 'forest') {
+      for (i = 0; i < n; i++) s += treePred(EN.trees[i], x);
+      return s / n;
+    }
+    var Fv = EN.F0;
+    for (i = 0; i < n; i++) Fv += EN.lr * treePred(EN.trees[i], x);
+    return AI.sigmoid(Fv);
+  }
+  function computeCurve() {
+    EN.curve = [];
+    for (var n = 1; n <= 80; n += (n < 10 ? 1 : 4)) {
+      EN.curve.push([n, acc(null, EN.sp.teX, EN.sp.teY, function (x) { return ensPredict(x, n); })]);
+    }
+  }
+  function drawEns() {
+    ensPlot.resize(); ensPlot.clear();
+    regionShade(ensPlot, function (x, y) {
+      var p = ensPredict([x, y]);
+      return p >= 0.5 ? C('--accent-soft') : C('--warn-soft');
+    }, 7);
+    ensPlot.frame({ xticks: 4, yticks: 4, xlabel: 'feature 1', ylabel: 'feature 2' });
+    ensPlot.clip(function () { drawPoints(ensPlot, EN.sp.trX, EN.sp.trY, 4); });
+    document.getElementById('eTr').textContent =
+      (acc(null, EN.sp.trX, EN.sp.trY, function (x) { return ensPredict(x); }) * 100).toFixed(0) + '%';
+    document.getElementById('eTe').textContent =
+      (acc(null, EN.sp.teX, EN.sp.teY, function (x) { return ensPredict(x); }) * 100).toFixed(0) + '%';
+    var lv = 0;
+    for (var i = 0; i < EN.n; i++) lv += countLeaves(EN.trees[i]);
+    document.getElementById('eLv').textContent = lv;
+
+    ensCurve.resize(); ensCurve.clear();
+    ensCurve.dom = [1, 80]; ensCurve.ran = [0.4, 1];
+    ensCurve.frame({ xticks: 4, yticks: 3, xlabel: 'trees', ylabel: 'test acc.',
+      yfmt: function (y) { return (y * 100).toFixed(0) + '%'; } });
+    ensCurve.clip(function () {
+      ensCurve.line(EN.curve, C('--accent'), 2);
+      var cur = EN.curve.filter(function (p) { return p[0] <= EN.n; });
+      if (cur.length) ensCurve.dot(cur[cur.length - 1][0], cur[cur.length - 1][1], 5, C('--accent'), C('--panel'));
+    });
+  }
+  function initEns() {
+    ensPlot = new AI.Plot(document.getElementById('ensCv'),
+      { dom: [-1.15, 1.15], ran: [-1.15, 1.15], pad: { l: 44, r: 14, t: 14, b: 40 } });
+    ensCurve = new AI.Plot(document.getElementById('ensCurve'),
+      { dom: [1, 80], ran: [0.4, 1], pad: { l: 50, r: 14, t: 12, b: 34 } });
+    buildEnsemble();
+    AI.bindRange('eN', function (v) { return v; }, function (v) { EN.n = v; drawEns(); });
+    AI.bindRange('eD', function (v) { return v; }, function (v) { EN.d = v; buildEnsemble(); drawEns(); });
+    AI.segmented(document.getElementById('ensSeg'), function (v) { EN.mode = v; buildEnsemble(); drawEns(); });
+    AI.on(document.getElementById('ensRe'), 'click', function () {
+      EN.sp = split(gen(SS.kind, 300), 0.7);
+      buildEnsemble(); drawEns();
+    });
+    AI.onRedraw(drawEns);
+    drawEns();
+  }
+
+  /* ================================================== 6.4 head to head */
+  var h2hKind = 'blocks', fPlot, nPlot;
+  function runH2H() {
+    var d = gen(h2hKind, 900), sp = split(d, 0.66);
+    /* forest: bagged trees, both features available to each (only two features exist) */
+    var t0 = performance.now(), trees = [], i;
+    for (i = 0; i < 40; i++) {
+      var b = boot(sp.trX, sp.trY);
+      trees.push(fitTree(b.X, b.Y, 6, 3, [0, 1]));
+    }
+    var fT = performance.now() - t0;
+    function fp(x) { var s = 0; for (var k = 0; k < trees.length; k++) s += treePred(trees[k], x); return s / trees.length; }
+    var fA = acc(null, sp.teX, sp.teY, fp);
+    /* neural net */
+    t0 = performance.now();
+    var net = new AI.MLP([2, 8, 8, 1], 'tanh');
+    for (i = 0; i < 2000; i++) net.step(sp.trX, sp.trY, 0.4, 0.9);
+    var nT = performance.now() - t0;
+    var nA = acc(null, sp.teX, sp.teY, function (x) { return net.predict(x); });
+
+    document.getElementById('fAcc').textContent = (fA * 100).toFixed(1) + '%';
+    document.getElementById('nAcc').textContent = (nA * 100).toFixed(1) + '%';
+    document.getElementById('fTime').textContent = fT.toFixed(0);
+    document.getElementById('nTime').textContent = nT.toFixed(0);
+    document.getElementById('h2hA').classList.toggle('winner', fA >= nA);
+    document.getElementById('h2hB').classList.toggle('winner', nA > fA);
+
+    [[fPlot, fp], [nPlot, function (x) { return net.predict(x); }]].forEach(function (pair) {
+      var p = pair[0], f = pair[1];
+      p.resize(); p.clear();
+      regionShade(p, function (x, y) { return f([x, y]) >= 0.5 ? C('--accent-soft') : C('--warn-soft'); }, 8);
+      p.frame({ xticks: 2, yticks: 2 });
+      p.clip(function () { drawPoints(p, sp.teX, sp.teY, 3.2); });
+    });
+
+    var n = '';
+    var diff = (fA - nA) * 100;
+    if (h2hKind === 'circle') {
+      n = '<p class="small mb0"><b>This is the dataset where the network should do well</b> — the boundary is a smooth diagonal ring, which is exactly what curves are for and exactly what axis-aligned rectangles struggle with. Notice the forest boundary looks like a staircase approximating a circle. Difference: ' +
+        (diff >= 0 ? '+' : '') + diff.toFixed(1) + ' points to the forest.</p>';
+    } else if (diff > 1.5) {
+      n = '<p class="small mb0"><b style="color:var(--accent)">The forest won by ' + diff.toFixed(1) +
+        ' points</b>, in roughly ' + (nT / Math.max(fT, 1)).toFixed(0) + '× less time, with no tuning and no GPU. The structure of this data is axis-aligned, and that is precisely the shape a tree represents naturally.</p>';
+    } else if (diff < -1.5) {
+      n = '<p class="small mb0"><b style="color:var(--violet)">The network won this round by ' + (-diff).toFixed(1) +
+        ' points.</b> Run it again — both are stochastic, and a single run is not evidence. That is itself the lesson: report results over several seeds, or you are reporting noise.</p>';
+    } else {
+      n = '<p class="small mb0"><b>Effectively a draw</b> (' + diff.toFixed(1) + ' points apart) — but look at the training times and at the fact that the forest needed no architecture, no learning rate, no epoch count and no activation choice. <b>Equal accuracy at a fraction of the effort is a win.</b></p>';
+    }
+    document.getElementById('h2hNote').innerHTML = n;
+  }
+  function initH2H() {
+    fPlot = new AI.Plot(document.getElementById('fCv'),
+      { dom: [-1.1, 1.1], ran: [-1.1, 1.1], pad: { l: 26, r: 10, t: 10, b: 22 } });
+    nPlot = new AI.Plot(document.getElementById('nCv'),
+      { dom: [-1.1, 1.1], ran: [-1.1, 1.1], pad: { l: 26, r: 10, t: 10, b: 22 } });
+    AI.on(document.getElementById('h2hRun'), 'click', runH2H);
+    AI.segmented(document.getElementById('h2hSeg'), function (v) { h2hKind = v; });
+  }
+
+  /* ================================================== 6.5 k-means */
+  var KM = { pts: [], k: 3, cent: [], asg: [], it: 0, moved: 0 }, kmPlot, kElbow;
+  function kmData() {
+    KM.pts = [];
+    var centres = [[-0.5, 0.45], [0.55, 0.5], [0.1, -0.55], [-0.65, -0.4]];
+    for (var i = 0; i < 160; i++) {
+      var c = centres[i % 4];
+      KM.pts.push([c[0] + (Math.random() - .5) * .55, c[1] + (Math.random() - .5) * .55]);
+    }
+    kmSeed();
+  }
+  function kmSeed() {
+    KM.cent = [];
+    for (var i = 0; i < KM.k; i++) {
+      var p = KM.pts.length ? KM.pts[Math.floor(Math.random() * KM.pts.length)] : [0, 0];
+      KM.cent.push([p[0] + (Math.random() - .5) * .2, p[1] + (Math.random() - .5) * .2]);
+    }
+    KM.asg = KM.pts.map(function () { return -1; });
+    KM.it = 0; KM.moved = 0;
+    drawKm();
+  }
+  function kmStep() {
+    var moved = 0, i, j;
+    for (i = 0; i < KM.pts.length; i++) {
+      var best = 0, bd = 1e9;
+      for (j = 0; j < KM.cent.length; j++) {
+        var d = Math.hypot(KM.pts[i][0] - KM.cent[j][0], KM.pts[i][1] - KM.cent[j][1]);
+        if (d < bd) { bd = d; best = j; }
+      }
+      if (KM.asg[i] !== best) moved++;
+      KM.asg[i] = best;
+    }
+    for (j = 0; j < KM.cent.length; j++) {
+      var sx = 0, sy = 0, n = 0;
+      for (i = 0; i < KM.pts.length; i++) if (KM.asg[i] === j) { sx += KM.pts[i][0]; sy += KM.pts[i][1]; n++; }
+      if (n) KM.cent[j] = [sx / n, sy / n];
+    }
+    KM.it++; KM.moved = moved;
+    drawKm();
+    return moved;
+  }
+  function inertiaFor(k, iters) {
+    if (!KM.pts.length) return 0;
+    var cent = [], i, j;
+    for (i = 0; i < k; i++) cent.push(KM.pts[Math.floor(Math.random() * KM.pts.length)].slice());
+    for (var t = 0; t < (iters || 18); t++) {
+      var asg = KM.pts.map(function (p) {
+        var b = 0, bd = 1e9;
+        for (j = 0; j < cent.length; j++) {
+          var d = Math.hypot(p[0] - cent[j][0], p[1] - cent[j][1]);
+          if (d < bd) { bd = d; b = j; }
+        }
+        return b;
+      });
+      for (j = 0; j < k; j++) {
+        var sx = 0, sy = 0, n = 0;
+        for (i = 0; i < KM.pts.length; i++) if (asg[i] === j) { sx += KM.pts[i][0]; sy += KM.pts[i][1]; n++; }
+        if (n) cent[j] = [sx / n, sy / n];
+      }
+    }
+    var s = 0;
+    KM.pts.forEach(function (p) {
+      var bd = 1e9;
+      cent.forEach(function (c) { bd = Math.min(bd, (p[0] - c[0]) * (p[0] - c[0]) + (p[1] - c[1]) * (p[1] - c[1])); });
+      s += bd;
+    });
+    return s;
+  }
+  var KCOL = ['--accent', '--warn', '--good', '--violet', '--accent-2', '--bad', '--ink-3'];
+  function drawKm() {
+    kmPlot.resize(); kmPlot.clear();
+    if (KM.cent.length) {
+      regionShade(kmPlot, function (x, y) {
+        var b = 0, bd = 1e9;
+        for (var j = 0; j < KM.cent.length; j++) {
+          var d = Math.hypot(x - KM.cent[j][0], y - KM.cent[j][1]);
+          if (d < bd) { bd = d; b = j; }
+        }
+        return C(KCOL[b % KCOL.length]) + '1f';
+      }, 10);
+    }
+    kmPlot.frame({ xticks: 4, yticks: 4, xlabel: 'measurement 1', ylabel: 'measurement 2' });
+    kmPlot.clip(function (g) {
+      KM.pts.forEach(function (p, i) {
+        kmPlot.dot(p[0], p[1], 4.5, KM.asg[i] < 0 ? C('--ink-3') : C(KCOL[KM.asg[i] % KCOL.length]), C('--panel'));
+      });
+      KM.cent.forEach(function (c, j) {
+        var x = kmPlot.X(c[0]), y = kmPlot.Y(c[1]);
+        g.strokeStyle = C(KCOL[j % KCOL.length]); g.lineWidth = 3.5;
+        g.beginPath(); g.moveTo(x - 8, y); g.lineTo(x + 8, y); g.moveTo(x, y - 8); g.lineTo(x, y + 8); g.stroke();
+        g.strokeStyle = C('--panel'); g.lineWidth = 1;
+        g.beginPath(); g.arc(x, y, 9, 0, 6.2832); g.stroke();
+      });
+    });
+    var inert = 0;
+    KM.pts.forEach(function (p, i) {
+      if (KM.asg[i] < 0) return;
+      var c = KM.cent[KM.asg[i]];
+      inert += (p[0] - c[0]) * (p[0] - c[0]) + (p[1] - c[1]) * (p[1] - c[1]);
+    });
+    document.getElementById('kIt').textContent = KM.it;
+    document.getElementById('kIn').textContent = KM.it ? inert.toFixed(1) : '—';
+    document.getElementById('kMv').textContent = KM.it ? KM.moved : '—';
+
+    kElbow.resize(); kElbow.clear();
+    var vals = [];
+    for (var k = 1; k <= 7; k++) vals.push([k, inertiaFor(k)]);
+    var mx = Math.max.apply(null, vals.map(function (v) { return v[1]; })) || 1;
+    kElbow.dom = [1, 7]; kElbow.ran = [0, mx * 1.08];
+    kElbow.frame({ xticks: 6, yticks: 3, xlabel: 'k', ylabel: 'inertia',
+      xfmt: function (x) { return Math.round(x); }, yfmt: function (y) { return y.toFixed(0); } });
+    kElbow.clip(function () {
+      kElbow.line(vals, C('--accent'), 2);
+      vals.forEach(function (v) { kElbow.dot(v[0], v[1], 3.5, C('--accent')); });
+      kElbow.dot(KM.k, vals[KM.k - 1][1], 6, C('--warn'), C('--panel'));
+    });
+  }
+  function initKm() {
+    kmPlot = new AI.Plot(document.getElementById('kmCv'),
+      { dom: [-1.15, 1.15], ran: [-1.15, 1.15], pad: { l: 44, r: 14, t: 14, b: 40 } });
+    kElbow = new AI.Plot(document.getElementById('kElbow'),
+      { dom: [1, 7], ran: [0, 100], pad: { l: 46, r: 14, t: 12, b: 34 } });
+    var cv = document.getElementById('kmCv');
+    cv.style.cursor = 'crosshair';
+    cv.addEventListener('click', function (e) {
+      var r = cv.getBoundingClientRect();
+      var x = kmPlot.iX(e.clientX - r.left), y = kmPlot.iY(e.clientY - r.top);
+      if (x < -1.15 || x > 1.15 || y < -1.15 || y > 1.15) return;
+      KM.pts.push([x, y]); KM.asg.push(-1); drawKm();
+    });
+    AI.bindRange('kK', function (v) { return v; }, function (v) { KM.k = v; kmSeed(); });
+    AI.on(document.getElementById('kStep'), 'click', kmStep);
+    AI.on(document.getElementById('kSeed'), 'click', kmSeed);
+    AI.on(document.getElementById('kNew'), 'click', kmData);
+    AI.on(document.getElementById('kClear'), 'click', function () { KM.pts = []; KM.asg = []; kmSeed(); });
+    AI.on(document.getElementById('kRun'), 'click', function () {
+      var t = setInterval(function () { if (kmStep() === 0) clearInterval(t); }, 350);
+      setTimeout(function () { clearInterval(t); }, 6000);
+    });
+    AI.onRedraw(drawKm);
+    kmData();
+  }
+
+  /* ================================================== 6.6 anomaly */
+  var AN = { healthy: [], newp: [], th: 3, sev: 3.6, mu: [0, 0], inv: null }, anPlot;
+  function anData() {
+    AN.healthy = [];
+    var i;
+    /* correlated healthy cloud: two measurements that normally rise together */
+    for (i = 0; i < 260; i++) {
+      var a = randn(), b = randn();
+      AN.healthy.push([0.1 + 0.34 * a, -0.05 + 0.2 * (0.8 * a + 0.6 * b)]);
+    }
+    fitAn();
+    anNew();
+  }
+  function randn() {
+    var u = 0, v = 0;
+    while (!u) u = Math.random();
+    while (!v) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+  }
+  function fitAn() {
+    var n = AN.healthy.length, mx = 0, my = 0, i;
+    for (i = 0; i < n; i++) { mx += AN.healthy[i][0]; my += AN.healthy[i][1]; }
+    mx /= n; my /= n;
+    var sxx = 0, syy = 0, sxy = 0;
+    for (i = 0; i < n; i++) {
+      var dx = AN.healthy[i][0] - mx, dy = AN.healthy[i][1] - my;
+      sxx += dx * dx; syy += dy * dy; sxy += dx * dy;
+    }
+    sxx /= n - 1; syy /= n - 1; sxy /= n - 1;
+    var det = sxx * syy - sxy * sxy;
+    AN.mu = [mx, my];
+    AN.inv = [[syy / det, -sxy / det], [-sxy / det, sxx / det]];
+  }
+  function mdist(p) {
+    var dx = p[0] - AN.mu[0], dy = p[1] - AN.mu[1];
+    var q = dx * (AN.inv[0][0] * dx + AN.inv[0][1] * dy) + dy * (AN.inv[1][0] * dx + AN.inv[1][1] * dy);
+    return Math.sqrt(Math.max(0, q));
+  }
+  function anNew() {
+    AN.newp = [];
+    var i;
+    for (i = 0; i < 90; i++) {
+      var a = randn(), b = randn();
+      AN.newp.push({ p: [0.1 + 0.34 * a, -0.05 + 0.2 * (0.8 * a + 0.6 * b)], faulty: false });
+    }
+    for (i = 0; i < 14; i++) {
+      /* faults drift off the correlation ridge by `sev` standard deviations */
+      var ang = Math.random() * 6.2832, s = AN.sev * (0.7 + Math.random() * 0.6);
+      var vx = Math.cos(ang) * s * 0.34, vy = -Math.sin(ang) * s * 0.2 * 1.6;
+      AN.newp.push({ p: [0.1 + vx, -0.05 + vy], faulty: true });
+    }
+    drawAn();
+  }
+  function drawAn() {
+    if (!AN.inv) return;
+    anPlot.resize(); anPlot.clear();
+    anPlot.frame({ xticks: 4, yticks: 4, xlabel: 'vibration (normalised)', ylabel: 'temperature rise' });
+    anPlot.clip(function (g) {
+      /* contours */
+      [1, 2, 3, 4, 5].forEach(function (k) {
+        g.beginPath();
+        for (var t = 0; t <= 90; t++) {
+          var th = t / 90 * 6.2832;
+          /* invert: find point at mahalanobis distance k in direction th */
+          var dx = Math.cos(th), dy = Math.sin(th);
+          var q = dx * (AN.inv[0][0] * dx + AN.inv[0][1] * dy) + dy * (AN.inv[1][0] * dx + AN.inv[1][1] * dy);
+          var s = k / Math.sqrt(q);
+          var px = anPlot.X(AN.mu[0] + dx * s), py = anPlot.Y(AN.mu[1] + dy * s);
+          if (t === 0) g.moveTo(px, py); else g.lineTo(px, py);
+        }
+        g.closePath();
+        var on = Math.abs(k - AN.th) < 0.5;
+        g.strokeStyle = on ? C('--bad') : C('--line');
+        g.lineWidth = on ? 2.6 : 1;
+        g.setLineDash(on ? [] : [4, 4]);
+        g.stroke(); g.setLineDash([]);
+      });
+      AN.healthy.forEach(function (p) { anPlot.dot(p[0], p[1], 2.6, C('--accent') + '66'); });
+      AN.newp.forEach(function (o) {
+        var d = mdist(o.p), flagged = d > AN.th;
+        anPlot.dot(o.p[0], o.p[1], o.faulty ? 6 : 4.5,
+          o.faulty ? C('--bad') : C('--good'), flagged ? C('--ink') : C('--panel'));
+      });
+    });
+    var tp = 0, fp = 0, tn = 0, fn = 0;
+    AN.newp.forEach(function (o) {
+      var flagged = mdist(o.p) > AN.th;
+      if (o.faulty && flagged) tp++;
+      else if (o.faulty) fn++;
+      else if (flagged) fp++;
+      else tn++;
+    });
+    document.getElementById('aTP').textContent = tp;
+    document.getElementById('aFN').textContent = fn;
+    document.getElementById('aFP').textContent = fp;
+    document.getElementById('aTN').textContent = tn;
+    var rec = tp + fn ? tp / (tp + fn) : 0, far = fp / Math.max(1, fp + tn);
+    var n = '<h4>At this threshold</h4>';
+    n += '<p class="small">You catch <b>' + (rec * 100).toFixed(0) + '%</b> of real faults and raise a false alarm on <b>' +
+      (far * 100).toFixed(1) + '%</b> of healthy parts.</p>';
+    if (AN.th < 2.2) n += '<p class="small mb0" style="color:var(--warn)">At a production rate of 2,000 parts a day that is roughly <b>' +
+      Math.round(far * 2000) + ' unnecessary re-inspections per day</b>. Alarm fatigue sets in and operators start ignoring the system — which is worse than not having it.</p>';
+    else if (AN.th > 4.2) n += '<p class="small mb0" style="color:var(--bad)">Almost no false alarms, and <b>' + fn +
+      ' of ' + (tp + fn) + ' real faults walked through</b>. If those faults are safety-relevant, this setting is indefensible however good the false-alarm rate looks.</p>';
+    else n += '<p class="small mb0">A defensible operating point — but notice that nothing in the mathematics chose it. <b>You did</b>, implicitly pricing a missed fault against a false alarm.</p>';
+    document.getElementById('anNote').innerHTML = n;
+  }
+  function initAn() {
+    anPlot = new AI.Plot(document.getElementById('anCv'),
+      { dom: [-1.25, 1.45], ran: [-0.95, 0.85], pad: { l: 48, r: 14, t: 14, b: 42 } });
+    anData();
+    AI.bindRange('aTh', function (v) { return v.toFixed(2) + ' σ'; }, function (v) { AN.th = v; drawAn(); });
+    AI.bindRange('aSev', function (v) { return v.toFixed(1) + ' σ'; }, function (v) { AN.sev = v; anNew(); });
+    AI.onRedraw(drawAn);
+  }
+
+  /* ================================================== 6.7 Q-learning */
+  var GW = {
+    W: 6, H: 6,
+    walls: [[1, 1], [1, 2], [1, 3], [3, 4], [4, 4], [3, 1], [4, 1]],
+    goal: [5, 0], pit: [4, 2], start: [0, 5],
+    Q: null, n: 0, hist: [], last: null, view: 'policy',
+    a: 0.4, g: 0.95, e: 0.2, path: [], init: 0
+  };
+  var ACTS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  var ARROW = ['↑', '→', '↓', '←'];
+  var rlCurve;
+  function isWall(x, y) {
+    if (x < 0 || y < 0 || x >= GW.W || y >= GW.H) return true;
+    return GW.walls.some(function (w) { return w[0] === x && w[1] === y; });
+  }
+  function rlReset() {
+    GW.Q = [];
+    for (var i = 0; i < GW.W * GW.H; i++) GW.Q.push([GW.init, GW.init, GW.init, GW.init]);
+    GW.n = 0; GW.hist = []; GW.last = null; GW.path = [];
+    drawGW();
+  }
+  function episode(greedy) {
+    var x = GW.start[0], y = GW.start[1], total = 0, steps = 0, path = [[x, y]];
+    while (steps < 120) {
+      var s = y * GW.W + x, a;
+      if (!greedy && Math.random() < GW.e) a = Math.floor(Math.random() * 4);
+      else {
+        a = 0;
+        for (var k = 1; k < 4; k++) if (GW.Q[s][k] > GW.Q[s][a]) a = k;
+      }
+      var nx = x + ACTS[a][0], ny = y + ACTS[a][1];
+      if (isWall(nx, ny)) { nx = x; ny = y; }
+      var r = -0.02, done = false;
+      if (nx === GW.goal[0] && ny === GW.goal[1]) { r = 1; done = true; }
+      else if (nx === GW.pit[0] && ny === GW.pit[1]) { r = -1; done = true; }
+      var ns = ny * GW.W + nx;
+      var maxN = Math.max.apply(null, GW.Q[ns]);
+      if (!greedy) GW.Q[s][a] += GW.a * (r + (done ? 0 : GW.g * maxN) - GW.Q[s][a]);
+      total += r; steps++;
+      x = nx; y = ny; path.push([x, y]);
+      if (done) break;
+    }
+    if (!greedy) { GW.n++; GW.hist.push(total); if (GW.hist.length > 400) GW.hist.shift(); }
+    GW.last = { r: total, steps: steps };
+    GW.path = path;
+    drawGW();
+  }
+  function drawGW() {
+    var host = document.getElementById('gw');
+    host.style.gridTemplateColumns = 'repeat(' + GW.W + ', 1fr)';
+    var maxAbs = 0.001, i;
+    for (i = 0; i < GW.Q.length; i++) maxAbs = Math.max(maxAbs, Math.abs(Math.max.apply(null, GW.Q[i])));
+    var h = '';
+    for (var y = 0; y < GW.H; y++) {
+      for (var x = 0; x < GW.W; x++) {
+        var cls = 'gw-cell', txt = '', style = '';
+        if (isWall(x, y)) cls += ' wall';
+        else if (x === GW.goal[0] && y === GW.goal[1]) { cls += ' goal'; txt = '+1'; }
+        else if (x === GW.pit[0] && y === GW.pit[1]) { cls += ' pit'; txt = '−1'; }
+        else {
+          var s = y * GW.W + x, q = GW.Q[s], best = 0;
+          for (i = 1; i < 4; i++) if (q[i] > q[best]) best = i;
+          var v = q[best];
+          var alpha = Math.min(0.85, Math.abs(v) / maxAbs * 0.85);
+          style = 'background:' + (v >= 0 ? C('--accent') : C('--bad')) +
+            Math.round(alpha * 255).toString(16).padStart(2, '0') + ';';
+          if (GW.view === 'policy') txt = GW.n ? '<span class="arrow">' + ARROW[best] + '</span>' : '';
+          else txt = GW.n ? v.toFixed(2) : '';
+        }
+        if (GW.path.length && GW.path[GW.path.length - 1][0] === x && GW.path[GW.path.length - 1][1] === y) cls += ' agent';
+        if (x === GW.start[0] && y === GW.start[1] && !txt) txt = '<span style="opacity:.5;font-size:.6rem">start</span>';
+        h += '<div class="' + cls + '" style="' + style + '">' + txt + '</div>';
+      }
+    }
+    host.innerHTML = h;
+    document.getElementById('rlN').textContent = GW.n;
+    document.getElementById('rlR').textContent = GW.last ? GW.last.r.toFixed(2) : '—';
+    document.getElementById('rlS').textContent = GW.last ? GW.last.steps : '—';
+    var last20 = GW.hist.slice(-20);
+    document.getElementById('rlAvg').textContent = last20.length
+      ? (last20.reduce(function (a, b) { return a + b; }, 0) / last20.length).toFixed(2) : '—';
+
+    rlCurve.resize(); rlCurve.clear();
+    rlCurve.dom = [0, Math.max(50, GW.hist.length)]; rlCurve.ran = [-2.6, 1.2];
+    rlCurve.frame({ xticks: 4, yticks: 4, xlabel: 'episode', ylabel: 'reward' });
+    rlCurve.clip(function () {
+      rlCurve.line([[0, 0], [Math.max(50, GW.hist.length), 0]], C('--line'), 1);
+      var pts = GW.hist.map(function (v, i) { return [i, Math.max(-2.6, v)]; });
+      rlCurve.line(pts, C('--ink-3') + '88', 1);
+      /* moving average of 15 */
+      var ma = [];
+      for (var i = 0; i < GW.hist.length; i++) {
+        var a = Math.max(0, i - 14), s = 0;
+        for (var j = a; j <= i; j++) s += GW.hist[j];
+        ma.push([i, Math.max(-2.6, s / (i - a + 1))]);
+      }
+      rlCurve.line(ma, C('--accent'), 2.4);
+    });
+
+    var n = '';
+    if (!GW.n) n = '<p class="small mb0">Nothing learned yet. Every Q value is zero, so the agent moves at random. Press <b>200 episodes</b>.</p>';
+    else if (last20.length && last20.reduce(function (a, b) { return a + b; }, 0) / last20.length > 0.6)
+      n = '<p class="small mb0"><b style="color:var(--good)">Solved.</b> The arrows now form a route from start to goal that goes around the pit. Note what the agent was never told: where the goal is, where the pit is, that walls exist, or even that this is a grid. It learned all of it from the reward alone — and from dying in the pit a great many times.</p>';
+    else n = '<p class="small mb0">Learning. The reward curve should climb from roughly −1 towards +0.8. Early episodes are dominated by random exploration and pit deaths; a policy emerges as the values propagate <b>backwards</b> from the goal, one cell per episode at first.</p>';
+    document.getElementById('rlNote').innerHTML = n;
+  }
+  function initRl() {
+    rlCurve = new AI.Plot(document.getElementById('rlCurve'),
+      { dom: [0, 50], ran: [-2.6, 1.2], pad: { l: 44, r: 14, t: 12, b: 34 } });
+    rlReset();
+    AI.bindRange('rlA', function (v) { return v.toFixed(2); }, function (v) { GW.a = v; });
+    AI.bindRange('rlG', function (v) { return v.toFixed(3); }, function (v) { GW.g = v; });
+    AI.bindRange('rlE', function (v) { return v.toFixed(2); }, function (v) { GW.e = v; });
+    AI.segmented(document.getElementById('rlView'), function (v) {
+      GW.view = v; document.getElementById('rlViewName').textContent = v; drawGW();
+    });
+    AI.segmented(document.getElementById('rlInit'), function (v) {
+      GW.init = parseFloat(v);
+      document.getElementById('rlInitName').textContent = GW.init === 0 ? 'optimistic' : 'pessimistic';
+      rlReset();
+    });
+    AI.on(document.getElementById('rlEp'), 'click', function () { episode(false); });
+    AI.on(document.getElementById('rl200'), 'click', function () {
+      for (var i = 0; i < 200; i++) episode(false);
+    });
+    AI.on(document.getElementById('rlGreedy'), 'click', function () { episode(true); });
+    AI.on(document.getElementById('rlReset'), 'click', rlReset);
+    AI.onRedraw(drawGW);
+  }
+
+  /* ================================================== 6.8 chooser */
+  var CH = { q1: null, q2: null, q3: null };
+  function chooseOut() {
+    var el = document.getElementById('chooseOut');
+    if (!CH.q1 || !CH.q2 || !CH.q3) {
+      el.className = 'verdict info mt1';
+      el.innerHTML = '<span class="lvl">Answer the three questions</span>The recommendation will name a first choice, a fallback, and what it will cost you.';
+      return;
+    }
+    var first, fall, cost, cls = 'ok';
+    if (CH.q1 === 'env' || CH.q3 === 'act') {
+      first = 'Reinforcement learning — but only if you have a trustworthy simulator';
+      fall = 'Before that: model predictive control, or a supervised model that imitates your best operators. Both are far cheaper and often enough.';
+      cost = 'Months, a simulator you trust, and a reward function you have stress-tested for the failure in section 6.7.';
+      cls = 'mid';
+    } else if (CH.q2 === 'none') {
+      first = CH.q3 === 'grp'
+        ? 'Unsupervised: k-means or DBSCAN for groups, Mahalanobis distance or an isolation forest for outliers'
+        : 'Anomaly detection on your healthy history — or a foundation model used zero-shot';
+      fall = 'If you genuinely need categories, the cheapest next step is to label 200 examples and reassess. That is a week of work and it changes what is possible.';
+      cost = 'Days. This is the most underrated option in industry because it uses data you already have.';
+    } else if (CH.q1 === 'txt' || CH.q3 === 'txtout') {
+      first = 'A hosted LLM with retrieval (module 4.8)';
+      fall = 'For narrow, high-volume text classification with thousands of labels, a small fine-tuned model is cheaper and more consistent than an LLM.';
+      cost = 'Weeks. Most of the effort is document plumbing and evaluation, not modelling.';
+    } else if (CH.q1 === 'img') {
+      first = 'A pre-trained convolutional network, fine-tuned on your images';
+      fall = 'If defects are rare or unlabelled, invert the problem: anomaly detection on good parts (6.6). This is usually the right answer in inspection.';
+      cost = CH.q2 === 'many' ? 'Weeks, plus a GPU. The labelling is the schedule.' : 'With only a handful of labels, expect to fine-tune a pre-trained model and accept a modest result — or go the anomaly-detection route.';
+      if (CH.q2 !== 'many') cls = 'mid';
+    } else if (CH.q1 === 'seq') {
+      first = CH.q3 === 'grp'
+        ? 'Anomaly detection on windowed features, or an autoencoder over segments'
+        : 'Gradient boosting on engineered window features — statistics over rolling windows';
+      fall = 'A 1D convolutional network or a small transformer if the boosted features plateau. Rarely start there.';
+      cost = 'Days to weeks. Feature engineering on time series is undramatic and it wins.';
+    } else {
+      first = 'Gradient boosting (XGBoost / LightGBM / CatBoost)';
+      fall = 'Random forest as an even simpler baseline, and a logistic or linear regression as the honest floor you must beat.';
+      cost = CH.q2 === 'many' ? 'Hours. No GPU. This is the cheapest good answer in machine learning.'
+        : 'With only a handful of labelled rows, no model will help much yet. Spend the effort on collecting labels or on a hand-written rule.';
+      if (CH.q2 !== 'many') cls = 'mid';
+    }
+    el.className = 'verdict ' + cls + ' mt1';
+    el.innerHTML = '<span class="lvl">Start with: ' + first + '</span>' +
+      '<p class="small" style="margin:.5em 0"><b>Fallback / next step:</b> ' + fall + '</p>' +
+      '<p class="small mb0"><b>What it will cost you:</b> ' + cost + '</p>';
+  }
+  function initChoose() {
+    ['cq1', 'cq2', 'cq3'].forEach(function (id, k) {
+      var host = document.getElementById(id);
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        AI.qsa('button', host).forEach(function (b) { b.classList.remove('on'); });
+        e.target.classList.add('on');
+        CH['q' + (k + 1)] = e.target.getAttribute('data-v');
+        chooseOut();
+      });
+    });
+    chooseOut();
+  }
+
+  window.PAGE_INIT = function () {
+    initSplit();
+    initTree();
+    initEns();
+    initH2H();
+    initKm();
+    initAn();
+    initRl();
+    initChoose();
+  };
+})();
+</script>
+</body>
+</html>

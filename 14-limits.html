@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>14 · Limits and open questions — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .cant { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .cantrow {
+    border: 1px solid var(--line); border-left-width: 4px; border-left-color: var(--bad);
+    border-radius: 0 var(--r) var(--r) 0; background: var(--panel); padding: 14px 18px;
+  }
+  .cantrow h3 { font-size: 1.02rem; margin-bottom: .25em; }
+  .cantrow .why {
+    font-size: .84rem; color: var(--ink-2); border-top: 1px solid var(--line-2);
+    padding-top: .55em; margin-top: .55em;
+  }
+  .cantrow .why b { color: var(--ink); }
+  .views { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 950px) { .views { grid-template-columns: 1fr; } }
+  .views .card { border-top: 3px solid var(--accent); }
+  .views .card:nth-child(2) { border-top-color: var(--ink-3); }
+  .views .card:nth-child(3) { border-top-color: var(--warn); }
+  .views h4 { font-size: .8rem; }
+  .views .card ul { padding-left: 1.1em; }
+  .views .card li { font-size: .87rem; }
+  .bigstat { text-align: center; padding: 15px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.warn .n { color: var(--warn); }
+  .flag { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 13px; margin-bottom: 6px;
+    background: var(--panel); cursor: pointer; font-size: .88rem; }
+  .flag:hover { border-color: var(--accent); }
+  .flag.on { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+  .flag .w { font-family: var(--mono); font-size: .76rem; color: var(--ink-3); font-weight: 700; }
+</style>
+</head>
+<body data-page="p14">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 14 · Part III — Applying it</span>
+  <h1>Limits and open questions</h1>
+  <p class="lead">A course that ends on capability leaves people either credulous or cynical. This
+  module is about what these systems genuinely cannot do, why, what nobody knows yet, and how to read
+  the claims you will be sent for the next two years.</p>
+</header>
+
+<main class="wrap">
+
+<!-- ============================================= 14.1 -->
+<section class="chapter" id="cannot">
+  <h2>14.1 · What they cannot do, and why</h2>
+  <p>Not a list of things they are bad at — those change every six months. A list of limitations that
+  follow from <strong>how the systems work</strong>, which is why each one comes with a mechanism from an
+  earlier module rather than an anecdote.</p>
+
+  <div class="cant">
+    <div class="cantrow">
+      <h3>Know what they do not know</h3>
+      <p class="small mb0">A model produces the most plausible continuation. Plausibility and truth are
+      correlated in the training data and they are not the same thing, so an unanswerable question yields
+      a confident, well-formed answer rather than an admission.</p>
+      <p class="why"><b>Mechanism:</b> the training objective (module 4.3). Retrieval, explicit refusal
+      permission and calibration (module 8.4) reduce it substantially. Nothing eliminates it, because
+      there is no internal signal that distinguishes “I recall this” from “this is what such a sentence
+      usually looks like”.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Reliably count, spell or calculate</h3>
+      <p class="small mb0">Multi-step arithmetic, unit conversion, counting characters, tolerance
+      stack-ups. A model may get these right and you cannot rely on it.</p>
+      <p class="why"><b>Mechanism:</b> text arrives as sub-word tokens, so individual characters and
+      digits are not separately visible (module 4.1), and there is no arithmetic unit — the answer is
+      produced by pattern completion. <b>The fix is architectural, not a better prompt:</b> give it a
+      calculator or code execution and require it to use them.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Distinguish your instructions from the data they read</h3>
+      <p class="small mb0">Everything arrives as one stream of text. Delimiters and system prompts help
+      and are not a security boundary.</p>
+      <p class="why"><b>Mechanism:</b> module 9.4. This is the one genuinely unsolved security problem in
+      the field, and the reason agent permissions matter more than agent quality.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Learn from your correction</h3>
+      <p class="small mb0">Explaining a mistake fixes it for the rest of the conversation and not
+      beyond. Tomorrow it will make the same error.</p>
+      <p class="why"><b>Mechanism:</b> the weights are frozen at training time; the context window is
+      working memory, not learning (module 4.7). Persistence has to be built by you — a prompt library,
+      a retrieval store, or fine-tuning. The system does not improve by being used.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Explain why they produced a particular answer</h3>
+      <p class="small mb0">A model asked to justify itself produces a plausible justification. That is
+      not the same as a report of the computation that occurred, and research has found cases where the
+      stated reasoning demonstrably does not match what drove the answer.</p>
+      <p class="why"><b>Mechanism:</b> the explanation is generated text, subject to the same
+      plausibility objective as everything else. This matters directly for anything you must justify to
+      an auditor: <b>a model's stated reasoning is evidence about its style, not about its
+      processing.</b></p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Give you the same answer twice</h3>
+      <p class="small mb0">Sampling, batching and hardware non-determinism mean identical input can
+      produce different output, even at temperature zero.</p>
+      <p class="why"><b>Mechanism:</b> module 4.3. Mitigate with low temperature, pinned versions and
+      full logging of input and output. If your process needs bit-exact reproducibility, a language model
+      is the wrong component for that step.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Sustain a long task without drifting</h3>
+      <p class="small mb0">Performance on tasks requiring dozens of dependent steps remains far below
+      what per-step accuracy suggests — the subject of section 14.3.</p>
+      <p class="why"><b>Mechanism:</b> errors compound, and the system has no reliable way to notice that
+      it has gone wrong several steps ago (module 9.3, the runaway loop). This has improved substantially
+      and is the main practical limit on autonomous agents today.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Know anything that is not in the data</h3>
+      <p class="small mb0">Your unreleased design, last Tuesday's decision, the thing your most
+      experienced colleague has never written down.</p>
+      <p class="why"><b>Mechanism:</b> obvious once stated, and constantly forgotten. It is why retrieval
+      (module 4.8) matters more than model choice for corporate work, and why <b>the organisations that
+      get the most from this are the ones that had already written things down</b>.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">And one that is often claimed as a limit but is not</span>
+    <p class="mb0">“It cannot be creative / it only recombines what it has seen.” This is too confident in
+    both directions. The models demonstrably produce combinations no human wrote, which is useful; and
+    they are optimised for plausibility, which pulls towards the conventional. The practically true
+    statement is narrower: <strong>they are excellent at producing many candidate ideas and poor at
+    judging which is good</strong> — which makes them a strong divergent tool and a weak convergent one,
+    and tells you exactly where to put the human.</p>
+  </div>
+</section>
+
+<!-- ============================================= 14.2 -->
+<section class="chapter" id="reliability">
+  <h2>14.2 · The reliability wall</h2>
+  <p>The most important piece of arithmetic in the module, and the one that explains why autonomous
+  agents are harder than they look. If a step succeeds with probability <em>p</em>, a task of
+  <em>n</em> dependent steps succeeds with probability <em>p<sup>n</sup></em>.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Compounding</h3><span class="tag try">Set per-step reliability to 95% and look at 20 steps</span></div>
+    <div class="split-wide">
+      <div><canvas id="relCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Probability that the whole task completes correctly, against the
+        number of dependent steps, for several per-step reliabilities.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Per-step reliability</span><span class="val" id="pStepOut"></span></div>
+          <input type="range" id="pStep" min="0.5" max="0.999" step="0.001" value="0.95">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Steps in the task</span><span class="val" id="nStepsOut"></span></div>
+          <input type="range" id="nSteps" min="1" max="60" step="1" value="20">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Recovery: chance a step’s error is caught and retried</span><span class="val" id="cRecOut"></span></div>
+          <input type="range" id="cRec" min="0" max="0.95" step="0.01" value="0">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsTask"><span class="n" id="oTask">—</span><span class="l">task success rate</span></div>
+          <div class="bigstat"><span class="n" id="oNeed">—</span><span class="l">per-step reliability needed for 95%</span></div>
+        </div>
+        <div class="card mt1" id="relNote" style="min-height:200px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Why demos mislead</span>
+      <p class="mb0">A five-step demo at 95% per step works 77% of the time — often enough to look
+      impressive on stage. The same system on a thirty-step real task works 21% of the time. Neither
+      number is a lie; they are the same system.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Which is why recovery matters more than accuracy</span>
+      <p class="mb0">Move the recovery slider. Detecting and retrying failures buys more than improving
+      the per-step rate, and it is far easier to engineer: validation, retries, checkpoints, and a human
+      at the points where an error would be expensive.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">And why short tasks are the business case</span>
+      <p class="mb0">The reliable applications in 2026 are the ones with few dependent steps and a human
+      at the end. That is not a limitation to work around — it is where the value currently is, and it is
+      a great deal of value.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 14.3 -->
+<section class="chapter" id="interp">
+  <h2>14.3 · We do not know how they work</h2>
+  <p>Worth stating plainly, because it is easy to assume otherwise. We know exactly what operations a
+  model performs — module 4 walked through every one. We do not know <em>why a particular set of weights
+  produces a particular answer</em>, in the sense that you could explain it, predict it, or certify it.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>What is actually known</h3>
+      <ul class="small mb0">
+        <li>Individual attention heads with identifiable jobs — tracking the previous token, matching
+        brackets, resolving references (module 4.4).</li>
+        <li>Interpretable <strong>features</strong> can be extracted from the internal activations, and
+        amplifying or suppressing one changes behaviour in a way that matches its apparent meaning. This
+        line of work has advanced considerably.</li>
+        <li>Factual associations can be localised, to a degree, and edited.</li>
+        <li>Enough to build useful safety and monitoring tools — and not enough to explain a single
+        answer end to end.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Why it matters to you specifically</h3>
+      <ul class="small mb0">
+        <li><strong>Certification</strong> asks why a system will behave correctly, not just that it did
+        on a test set. For learned components the honest answer today is statistical, not mechanistic —
+        which is exactly why module 11.7 places the surrogate in an informing role rather than a
+        deciding one.</li>
+        <li><strong>Debugging</strong> is empirical. You cannot read the weights to find the fault; you
+        build test cases and observe (module 8).</li>
+        <li><strong>Guarantees</strong> are unavailable. You get measured error rates and bounded
+        consequences instead, which is a legitimate engineering position — you just have to say it out
+        loud rather than implying more.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 14.4 -->
+<section class="chapter" id="disagreement">
+  <h2>14.4 · What the disagreement is actually about</h2>
+  <p>Serious, well-informed people disagree sharply about where this goes, and the disagreement is
+  narrower and more interesting than the public argument suggests. Here are the three positions as their
+  own defenders would put them, rather than as their opponents characterise them. I am not going to tell
+  you which is right, because I do not know and neither does anyone else.</p>
+
+  <div class="views">
+    <div class="card">
+      <h4 style="color:var(--accent)">The scaling case</h4>
+      <h3>It keeps going</h3>
+      <ul>
+        <li>Every predicted wall so far — data, context length, reasoning, multi-step tasks — has been
+        pushed back further than sceptics expected, repeatedly.</li>
+        <li>Capability improvements have followed smooth, forecastable curves across many orders of
+        magnitude. That is unusual and it suggests something general is being learned.</li>
+        <li>When pre-training gains slowed, a new axis appeared: spending compute at answer time.
+        Expect further axes.</li>
+        <li>Most claimed limitations turn out to be about scaffolding — tools, memory, verification —
+        rather than about the models, and scaffolding is ordinary engineering.</li>
+      </ul>
+      <p class="small mb0"><b>What would change their mind:</b> two or three years of substantial
+      compute increases producing little capability gain, across several labs.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--ink-3)">The middle case</h4>
+      <h3>Transformative in a narrow band</h3>
+      <ul>
+        <li>The models become extremely good at tasks with abundant training data and checkable answers
+        — code, translation, structured extraction, routine analysis — and stay unreliable elsewhere.</li>
+        <li>Most economic value comes not from better models but from <strong>integration</strong>: data,
+        workflow, permissions, evaluation. That work is slow, organisational and unglamorous.</li>
+        <li>Verification cost becomes the binding constraint. If a human must check everything, savings
+        cap out regardless of how good the model is.</li>
+        <li>Diffusion takes a decade because organisations, regulations and skills change slowly — as
+        with electrification and computing.</li>
+      </ul>
+      <p class="small mb0"><b>What would change their mind:</b> systems that reliably complete long,
+      unsupervised, consequential work — or, in the other direction, a plateau in the narrow band too.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--warn)">The sceptical case</h4>
+      <h3>Something is missing</h3>
+      <ul>
+        <li>Predicting text is not the same as understanding, and the systems fail in ways that suggest
+        no stable world model: confident errors on simple variations of problems they otherwise solve.</li>
+        <li>Benchmark progress is partly contamination and partly optimisation against the benchmark.
+        Independent, uncontaminated evaluation shows a smaller gap than headlines do.</li>
+        <li>High-quality training data is finite, and synthetic data risks compounding the model's own
+        errors.</li>
+        <li>Reliability has not improved as fast as capability, and reliability is what production
+        requires. Section 14.2 is the reason.</li>
+      </ul>
+      <p class="small mb0"><b>What would change their mind:</b> robust performance on genuinely novel
+      problems, with error rates that fall as fast as scores rise.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">What all three agree on — which is what you should plan against</span>
+    <ul class="mb0">
+      <li>The models available <strong>today</strong> are already useful for a large set of real tasks,
+      most of them involving reading and drafting.</li>
+      <li>Cost per unit of capability is falling fast (module 5.7), so build model-agnostically.</li>
+      <li>Data, evaluation, integration and governance are the bottleneck in almost every organisation,
+      not model quality.</li>
+      <li>Reliability and verification are the hard engineering problems, and they are yours to solve
+      rather than the vendor's.</li>
+    </ul>
+    <p class="small mb0 mt1">Notice that every item on that list is something you can act on without
+    resolving the disagreement — which is the practical point of presenting it.</p>
+  </div>
+</section>
+
+<!-- ============================================= 14.5 -->
+<section class="chapter" id="hype">
+  <h2>14.5 · Reading the claims</h2>
+  <p>You will be sent announcements, vendor decks and articles for the next several years. Tick what a
+  given claim does; the score tells you how much weight to give it.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Claim assessment</h3><span class="tag try">Score the last vendor deck you were sent</span></div>
+    <div class="split">
+      <div id="flagHost"></div>
+      <div>
+        <div class="verdict info" id="hypeVerdict"><span class="lvl">Nothing ticked</span>
+        Work through the list for a specific claim.</div>
+        <div class="card mt1">
+          <h4>The three questions that do most of the work</h4>
+          <ol class="small mb0">
+            <li><strong>Measured on what, and had the system seen it?</strong> (Module 7.4, 8.1.)</li>
+            <li><strong>Compared with what baseline?</strong> A person, or the simplest alternative —
+            not with nothing. (Module 8.5.)</li>
+            <li><strong>Who reproduced it?</strong> A demo video is not a result; a published, repeatable
+            evaluation on a defined set is.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">And be fair in the other direction</span>
+    <p class="mb0">Scepticism is not automatically rigour. “It is just autocomplete” is as unhelpful as
+    “it is nearly human” — both are slogans standing in for a measurement. The same three questions
+    apply to a dismissive claim: measured how, against what, reproduced by whom. <strong>The correct
+    posture is neither belief nor dismissal but a small evaluation set of your own cases</strong>, which
+    takes an afternoon and settles the argument for your specific task.</p>
+  </div>
+</section>
+
+<!-- ============================================= 14.6 -->
+<section class="chapter" id="keepup">
+  <h2>14.6 · Keeping up without drowning</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h4>What to follow</h4>
+      <ul class="small mb0">
+        <li>Primary sources — the model cards, system cards and technical reports from the labs. Dry,
+        and the only place the caveats are.</li>
+        <li>One or two people who actually build things and publish evaluations, rather than commentary.</li>
+        <li>Your own evaluation set. When a new model appears, run it. Twenty minutes tells you more
+        about its value to you than a month of reading.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>What to ignore</h4>
+      <ul class="small mb0">
+        <li>Benchmark leaderboard movements of a few points.</li>
+        <li>Demo videos without a reproducible evaluation.</li>
+        <li>Anything predicting a specific capability at a specific date.</li>
+        <li>Both “this changes everything” and “this is a bubble”, in the same measure.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>A sustainable cadence</h4>
+      <ul class="small mb0">
+        <li><strong>Monthly:</strong> half an hour reading primary sources.</li>
+        <li><strong>Quarterly:</strong> re-run your evaluation set against current models; re-check the
+        cost figures in module 5, which move fast.</li>
+        <li><strong>Annually:</strong> revisit architecture decisions, vendor terms and the governance
+        list in module 10.</li>
+      </ul>
+      <p class="small mb0 mt1">That is genuinely enough. The fundamentals in modules 2 to 4 have not
+      changed since 2017.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The thing worth remembering from all fourteen modules</span>
+    <p class="mb0">A neuron is a weighted sum and a threshold. A network is layers of them, trained by
+    rolling downhill on an error surface. A language model is that machine, at enormous scale, predicting
+    the next token. None of it understands your business, owns your risk, or knows what it does not know.
+    <strong>It is a component — fast, broadly capable and unreliable in characterised ways</strong> — and
+    you now know how to specify it, measure it, constrain it and budget for it. That is the whole job,
+    and it is an engineering job.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Be genuinely evenhanded in 14.4. If the room can tell which position you hold, you have
+      reduced a live technical question to an opinion, and you will be quoted on it.</li>
+      <li>The compounding chart in 14.2 is the single most useful slide for anyone being sold an
+      autonomous agent. Draw it by hand if you have to.</li>
+      <li>Resist the urge to end on a prediction. Ending on “here is what to do regardless of who is
+      right” is both more honest and more useful, and it sets up the capstone.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>Fourteen modules of general material. The last one is about your specific problem.</p>
+  <p><a href="15-capstone.html"><strong>Module 15 · Capstone →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+
+  /* ============================================ 14.2 compounding */
+  var RW = { p: 0.95, n: 20, c: 0 }, relPlot;
+  function taskP(p, n, c) {
+    /* effective per-step success with one recovery attempt caught with prob c */
+    var eff = p + (1 - p) * c * p;
+    return Math.pow(eff, n);
+  }
+  function drawRel() {
+    relPlot.resize(); relPlot.clear();
+    relPlot.dom = [1, 60]; relPlot.ran = [0, 1];
+    relPlot.frame({ xticks: 6, yticks: 5, xlabel: 'dependent steps in the task', ylabel: 'task succeeds',
+      yfmt: function (y) { return (y * 100).toFixed(0) + '%'; } });
+    var LEV = [0.8, 0.9, 0.95, 0.99, 0.999];
+    relPlot.clip(function (g) {
+      LEV.forEach(function (p, i) {
+        var pts = [];
+        for (var n = 1; n <= 60; n++) pts.push([n, taskP(p, n, 0)]);
+        var isCur = Math.abs(p - RW.p) < 0.004;
+        relPlot.line(pts, isCur ? C('--accent') : C('--ink-3'), isCur ? 3 : 1.3);
+        g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'left';
+        g.fillStyle = isCur ? C('--accent') : C('--ink-3');
+        g.fillText((p * 100).toFixed(1) + '%', relPlot.X(61) - 34, relPlot.Y(taskP(p, 60, 0)) - 4);
+      });
+      if (RW.c > 0) {
+        var rp = [];
+        for (var n = 1; n <= 60; n++) rp.push([n, taskP(RW.p, n, RW.c)]);
+        relPlot.line(rp, C('--good'), 2.6, [6, 4]);
+        g.fillStyle = C('--good'); g.textAlign = 'left';
+        g.fillText('with recovery', relPlot.X(24), relPlot.Y(taskP(RW.p, 24, RW.c)) - 10);
+      }
+      relPlot.line([[RW.n, 0], [RW.n, 1]], C('--warn'), 1.4, [4, 4]);
+      relPlot.dot(RW.n, taskP(RW.p, RW.n, RW.c), 6, C('--warn'), C('--panel'));
+    });
+    var t = taskP(RW.p, RW.n, RW.c);
+    var need = Math.pow(0.95, 1 / RW.n);
+    document.getElementById('oTask').textContent = (t * 100).toFixed(1) + '%';
+    document.getElementById('oNeed').textContent = (need * 100).toFixed(2) + '%';
+    document.getElementById('bsTask').className = 'bigstat ' + (t > 0.9 ? 'good' : t > 0.6 ? 'warn' : 'bad');
+    var n2 = '<h4>What this means</h4>';
+    n2 += '<p class="small">A per-step reliability of <b>' + (RW.p * 100).toFixed(1) + '%</b> over <b>' +
+      RW.n + ' dependent steps</b> gives a task success rate of <b>' + (t * 100).toFixed(1) + '%</b>' +
+      (RW.c > 0 ? ' — including recovery' : '') + '.</p>';
+    n2 += '<p class="small">To reach 95% on a ' + RW.n + '-step task you would need <b>' +
+      (need * 100).toFixed(2) + '%</b> per step. ' +
+      (need > 0.995 ? 'That is beyond what any current system delivers on open-ended steps, which is why long autonomous tasks are not yet reliable.' : 'That is achievable on narrow, well-specified steps.') + '</p>';
+    if (RW.c > 0) {
+      n2 += '<p class="small mb0" style="color:var(--good)"><b>Recovery is the lever.</b> Catching and retrying ' +
+        (RW.c * 100).toFixed(0) + '% of step failures takes the task from ' +
+        (taskP(RW.p, RW.n, 0) * 100).toFixed(1) + '% to ' + (t * 100).toFixed(1) +
+        '% — without improving the model at all. Validation, retries, checkpoints and a human at the expensive points. <b>This is ordinary engineering and it is where your effort should go.</b></p>';
+    } else {
+      n2 += '<p class="small mb0">Now raise the recovery slider and watch what happens. Error <i>detection</i> buys far more than error <i>reduction</i>, and you control it.</p>';
+    }
+    document.getElementById('relNote').innerHTML = n2;
+  }
+
+  /* ============================================ 14.5 hype flags */
+  var FLAGS = [
+    ['No test set is described', 3],
+    ['No comparison with a human or a simple baseline', 3],
+    ['The evaluation was run by the party making the claim, and not published', 2],
+    ['Results shown as a demo video or cherry-picked examples', 2],
+    ['Benchmark scores only, with no task-specific evaluation', 2],
+    ['Uses “reasoning”, “understands” or “thinks” as if they were measured', 1],
+    ['A capability is promised at a future date', 2],
+    ['Percentage improvements with no absolute numbers', 2],
+    ['Error rate and failure modes are not mentioned at all', 3],
+    ['Cost per unit of work is not stated', 1],
+    ['“Human-level” or “PhD-level” without saying at what task', 2],
+    ['No mention of what it is bad at', 2]
+  ];
+  var HF = {};
+  function drawFlags() {
+    var host = document.getElementById('flagHost');
+    if (!host.innerHTML) {
+      host.innerHTML = FLAGS.map(function (f, i) {
+        return '<div class="flag" data-i="' + i + '"><span>' + f[0] + '</span><span class="w">+' + f[1] + '</span></div>';
+      }).join('');
+      host.addEventListener('click', function (e) {
+        var row = e.target.closest ? e.target.closest('.flag') : null;
+        if (!row) return;
+        var i = row.getAttribute('data-i');
+        HF[i] = !HF[i];
+        row.classList.toggle('on', !!HF[i]);
+        drawFlags();
+      });
+    }
+    var s = 0, max = 0;
+    FLAGS.forEach(function (f, i) { max += f[1]; if (HF[i]) s += f[1]; });
+    var v = document.getElementById('hypeVerdict');
+    if (!s) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Nothing ticked</span>' +
+        'Either you have not started, or this is an unusually well-evidenced claim. If the latter, keep it — and note who wrote it.';
+    } else if (s <= 4) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Reasonably evidenced — score ' + s + ' of ' + max + '</span>' +
+        'Worth reading properly. Check the two or three gaps you ticked, then run it against your own cases.';
+    } else if (s <= 10) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Treat as marketing — score ' + s + ' of ' + max + '</span>' +
+        'Possibly true, not yet evidence. Ask for the test set and the baseline before it influences a decision or a budget.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">No informational content — score ' + s + ' of ' + max + '</span>' +
+        'This claim tells you what the author wants you to believe and nothing about the system. It is not evidence for or against anything — and if it arrived with a procurement proposal, that is itself information.';
+    }
+  }
+
+  window.PAGE_INIT = function () {
+    relPlot = new AI.Plot(document.getElementById('relCv'),
+      { dom: [1, 60], ran: [0, 1], pad: { l: 52, r: 46, t: 16, b: 44 } });
+    AI.bindRange('pStep', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { RW.p = v; drawRel(); });
+    AI.bindRange('nSteps', function (v) { return v; }, function (v) { RW.n = v; drawRel(); });
+    AI.bindRange('cRec', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { RW.c = v; drawRel(); });
+    AI.onRedraw(drawRel); drawRel();
+    drawFlags();
+  };
+})();
+</script>
+</body>
+</html>

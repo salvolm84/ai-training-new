@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5 · The bill: energy &amp; infrastructure — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 330px; }
+  .cv-sm { width: 100%; height: 220px; }
+  .eqbox {
+    font-family: var(--mono); font-size: 1.05rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 16px; overflow-x: auto; line-height: 1.9; text-align: center;
+  }
+  .eqbox .hi { color: var(--accent); font-weight: 700; }
+  .eqbox small { display: block; font-family: var(--sans); font-size: .8rem; color: var(--ink-3); margin-top: .5em; }
+
+  .equiv { display: grid; gap: 8px; }
+  .equiv div {
+    display: flex; gap: 10px; align-items: baseline; font-size: .92rem;
+    padding: 9px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .equiv b { font-family: var(--mono); color: var(--accent); font-size: 1.02rem; min-width: 96px; text-align: right; }
+
+  .zoom { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+  @media (max-width: 900px) { .zoom { grid-template-columns: 1fr 1fr; } }
+  .zc { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; background: var(--panel); cursor: pointer; }
+  .zc:hover { border-color: var(--accent); }
+  .zc.on { background: var(--accent-soft); border-color: var(--accent); }
+  .zc .t { font-weight: 650; font-size: .95rem; }
+  .zc .p { font-family: var(--mono); font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  .zc .u { font-size: .74rem; color: var(--ink-3); }
+
+  .srcnote { font-size: .8rem; color: var(--ink-3); font-style: italic; margin-top: .4rem; }
+  .asof {
+    display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    background: var(--warn-soft); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+    padding: 2px 9px; border-radius: 20px;
+  }
+</style>
+</head>
+<body data-page="p5">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 5</span>
+  <h1>The bill</h1>
+  <p class="lead">Every idea in the previous four modules is arithmetic, and arithmetic costs
+  electricity. This module puts numbers on it — training, inference, hardware, grid — and gives you a
+  calculator you can point at your own use case.</p>
+  <p><span class="asof">Figures current as of September 2026 — verify before each delivery</span></p>
+</header>
+
+<main class="wrap">
+
+<div class="callout caution">
+  <span class="ctitle">How to read this module</span>
+  <p class="mb0">Two things are true at the same time and both matter. <strong>Absolute energy use is
+  large and growing fast.</strong> And <strong>the cost of a unit of useful work is collapsing</strong> —
+  roughly tenfold per year for a fixed level of quality. Any presentation that gives you only one of
+  those curves is selling you something. Sources are listed at the end; treat every number as
+  order-of-magnitude, because the honest ones all carry wide error bars.</p>
+</div>
+
+<!-- ============================================= 5.1 -->
+<section class="chapter" id="flops">
+  <h2>5.1 · The unit of work</h2>
+  <p>One <strong>FLOP</strong> is one floating-point operation — a single multiply or add, exactly the
+  kind you did by hand in module 2. It is the currency of this entire industry, and there is a
+  remarkably simple rule connecting a model's size to the work of training it.</p>
+
+  <div class="eqbox">
+    Training compute ≈ <span class="hi">6 × N × D</span>
+    <small>N = number of parameters · D = number of training tokens</small>
+  </div>
+
+  <p>Where the 6 comes from: each parameter does roughly 2 operations in the forward pass (one
+  multiply, one add) and roughly 4 in the backward pass, because backpropagation must compute
+  gradients with respect to both the weights and the inputs. So every parameter costs about 6
+  operations for every token it sees. Inference is far cheaper: about <strong>2 × N</strong> per token
+  generated, since there is no backward pass.</p>
+
+  <div class="grid g3">
+    <div class="card"><h4>Llama 3.1 405B</h4><p class="small mb0">405 billion parameters × 15 trillion
+    tokens × 6 ≈ <span class="mono">3.6×10²⁵</span> FLOP. Meta reported <strong>30.8 million
+    H100-hours</strong>; the rule of thumb reproduces that to within about 10%, which for a number
+    this size is remarkable.</p></div>
+    <div class="card"><h4>GPT-4 (2023)</h4><p class="small mb0">Independently estimated at roughly
+    <span class="mono">2×10²⁵</span> FLOP and about <strong>$80 million</strong> of compute. It was the
+    first model publicly identified above 10²⁵; by mid-2025 more than thirty models had passed that
+    mark.</p></div>
+    <div class="card"><h4>Frontier runs, 2026</h4><p class="small mb0">Reported estimates put current
+    leading training runs between <span class="mono">10²⁶</span> and <span class="mono">10²⁷</span> FLOP,
+    with compute costs in the <strong>hundreds of millions</strong>. Growth is now constrained by power
+    and capital, not by chips.</p></div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Engineers like this section because it is the first time the whole field becomes dimensionally
+      analysable. Lean into it: <em>6ND</em> is the only equation they need to remember from the series.</li>
+      <li>Useful scale anchor: 10²⁵ FLOP is about the number of grains of sand on Earth, times ten
+      million. Numbers that size only become tractable through the rest of this module's calculators.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 5.2 -->
+<section class="chapter" id="traincalc">
+  <h2>5.2 · What a training run costs</h2>
+  <p>Set the model you want and the hardware you would rent. Everything downstream is derived from
+  6ND — no hidden assumptions beyond the ones on the sliders.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Training cost calculator</h3><span class="tag try">Start from a preset</span></div>
+    <div class="btnrow">
+      <span class="small muted">Presets</span>
+      <button class="btn sm" data-preset="7,1500">Small in-house · 7B</button>
+      <button class="btn sm" data-preset="70,15000">Open mid-size · 70B</button>
+      <button class="btn sm" data-preset="405,15000">Llama-3.1-405B class</button>
+      <button class="btn sm" data-preset="280,13000">GPT-4 class</button>
+      <button class="btn sm" data-preset="2000,30000">2026 frontier class</button>
+    </div>
+
+    <div class="split-wide">
+      <div>
+        <div class="grid g2" style="gap:14px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Parameters N</span><span class="val" id="pNOut"></span></div>
+            <input type="range" id="pN" min="0.5" max="5000" step="0.5" value="70">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Training tokens D</span><span class="val" id="pDOut"></span></div>
+            <input type="range" id="pD" min="50" max="60000" step="50" value="15000">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>GPU type</span><span class="val" id="gpuName">H100</span></div>
+            <div class="segmented" id="gpuSeg">
+              <button data-v="a100">A100</button>
+              <button data-v="h100" class="on">H100</button>
+              <button data-v="b200">B200</button>
+              <button data-v="gb200">GB200</button>
+            </div>
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Number of GPUs in the cluster</span><span class="val" id="pGOut"></span></div>
+            <input type="range" id="pG" min="8" max="100000" step="8" value="8192">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Achieved utilisation (MFU)</span><span class="val" id="pUOut"></span></div>
+            <input type="range" id="pU" min="0.1" max="0.6" step="0.01" value="0.38">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Datacenter overhead (PUE)</span><span class="val" id="pPOut"></span></div>
+            <input type="range" id="pP" min="1.05" max="1.8" step="0.01" value="1.15">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Electricity price</span><span class="val" id="pEOut"></span></div>
+            <input type="range" id="pE" min="40" max="300" step="5" value="120">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Grid carbon intensity</span><span class="val" id="pCOut"></span></div>
+            <input type="range" id="pC" min="10" max="700" step="10" value="250">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>GPU rental rate</span><span class="val" id="pROut"></span></div>
+            <input type="range" id="pR" min="0.5" max="8" step="0.1" value="2.5">
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="readout">
+          <div class="stat hl"><span class="k">training compute</span><span class="v" id="oF">—</span><span class="u">FLOP</span></div>
+          <div class="stat"><span class="k">GPU-hours</span><span class="v" id="oGH">—</span></div>
+          <div class="stat"><span class="k">wall-clock time</span><span class="v" id="oT">—</span></div>
+          <div class="stat"><span class="k">cluster power draw</span><span class="v" id="oPw">—</span><span class="u">MW, incl. PUE</span></div>
+          <div class="stat hl"><span class="k">energy</span><span class="v" id="oE">—</span><span class="u">MWh</span></div>
+          <div class="stat"><span class="k">electricity bill</span><span class="v" id="oEc">—</span></div>
+          <div class="stat hl"><span class="k">compute cost</span><span class="v" id="oCc">—</span><span class="u">at the rental rate</span></div>
+          <div class="stat"><span class="k">CO₂e</span><span class="v" id="oCo">—</span><span class="u">tonnes</span></div>
+        </div>
+        <h4 class="mt1">That energy is equivalent to</h4>
+        <div class="equiv" id="equivHost"></div>
+      </div>
+    </div>
+    <p class="srcnote">Peak throughput figures are dense BF16 vendor specifications; real runs achieve
+    30–45% of peak (model FLOPs utilisation), which is why that slider exists. The compute cost line
+    uses a rental rate and therefore includes the amortised hardware — it is normally several times the
+    bare electricity bill. For a mixture-of-experts model, enter the <b>active</b> parameters per token,
+    not the total: only the activated experts do arithmetic, which is exactly why the design is
+    attractive. The GPT-4 preset uses an estimated ~280B active parameters for that reason.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Sanity-check the calculator</span>
+      <p class="mb0">Select <strong>Llama-3.1-405B class</strong> with H100 and 38% utilisation. You should
+      get roughly 27–31 million GPU-hours against Meta's reported 30.8 million, and energy of the order of
+      20–25 GWh. When a model of the whole industry can be checked against a published figure in one
+      click, it is worth doing on stage.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">The part nobody puts on the slide</span>
+      <p class="mb0">The final run is a fraction of the true cost. Before it there are failed runs,
+      ablations, hyperparameter searches and data pipeline work — commonly
+      <strong>two to four times</strong> the headline number. Add research salaries and the compute is
+      often no longer the largest line.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 5.3 -->
+<section class="chapter" id="scaling">
+  <h2>5.3 · Scaling laws: why models are the size they are</h2>
+  <p>Given a fixed compute budget, you can spend it on a bigger model or on more data. For years the
+  field over-spent on parameters. In 2022 the “Chinchilla” result showed the compute-optimal ratio is
+  roughly <strong>20 training tokens per parameter</strong> — and that many famous large models had been
+  significantly under-trained for their size.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Spend a compute budget</h3><span class="tag try">Slide the budget</span></div>
+    <div class="split">
+      <div><canvas id="scCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Compute budget</span><span class="val" id="scBOut"></span></div>
+          <input type="range" id="scB" min="21" max="27" step="0.1" value="24">
+        </div>
+        <div class="readout">
+          <div class="stat hl"><span class="k">optimal size</span><span class="v" id="scN">—</span><span class="u">parameters</span></div>
+          <div class="stat hl"><span class="k">optimal data</span><span class="v" id="scD">—</span><span class="u">tokens</span></div>
+          <div class="stat"><span class="k">ratio</span><span class="v">20:1</span><span class="u">tokens per parameter</span></div>
+        </div>
+        <div class="card mt1" id="scNote" style="min-height:170px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Why this matters commercially, not just academically</span>
+    <p class="mb0">Compute-optimal is not <em>deployment</em>-optimal. If a model will serve a billion
+    requests, it is worth deliberately over-training a <strong>smaller</strong> model far past the
+    Chinchilla point: you pay more once, then save on every inference forever. That is why the useful
+    models of the last two years have been getting smaller and better rather than simply bigger — and
+    why a 2026 8-billion-parameter model outperforms a 2020 175-billion-parameter one.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">And the wall nobody has solved</span>
+    <p class="mb0">The rule needs 20 tokens per parameter. A 10-trillion-parameter model would need 200
+    trillion tokens of quality text, which is more high-quality human text than exists in accessible
+    form. That data ceiling — not chip supply — is one of the main reasons the field has pivoted towards
+    spending compute at <em>answer</em> time (reasoning models) instead of at training time.</p>
+  </div>
+</section>
+
+<!-- ============================================= 5.4 -->
+<section class="chapter" id="inference">
+  <h2>5.4 · Inference is the real bill</h2>
+  <p>Training is a single dramatic expense. Inference is a small expense repeated continuously, and at
+  corporate scale it wins. The industry consensus is that inference now accounts for the clear majority
+  of AI compute.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Inference at your scale</h3><span class="tag try">Set it to your headcount</span></div>
+    <div class="split-wide">
+      <div>
+        <div class="grid g2" style="gap:14px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>People using it</span><span class="val" id="iUOut"></span></div>
+            <input type="range" id="iU" min="10" max="30000" step="10" value="3000">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Requests per person per working day</span><span class="val" id="iQOut"></span></div>
+            <input type="range" id="iQ" min="1" max="150" step="1" value="25">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Energy per request</span><span class="val" id="iWOut"></span></div>
+            <input type="range" id="iW" min="0.02" max="10" step="0.02" value="0.3">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Price per request</span><span class="val" id="iPOut"></span></div>
+            <input type="range" id="iP" min="0.0002" max="0.08" step="0.0002" value="0.004">
+          </div>
+        </div>
+        <div class="btnrow">
+          <span class="small muted">Workload type</span>
+          <button class="btn sm" data-inf="0.05,0.0004">Small classifier model</button>
+          <button class="btn sm" data-inf="0.3,0.004">Typical chat request</button>
+          <button class="btn sm" data-inf="3,0.05">Reasoning model, long answer</button>
+          <button class="btn sm" data-inf="6,0.06">Image generation</button>
+        </div>
+        <div class="readout mt1">
+          <div class="stat"><span class="k">requests / year</span><span class="v" id="oQy">—</span></div>
+          <div class="stat hl"><span class="k">energy / year</span><span class="v" id="oEy">—</span><span class="u">MWh</span></div>
+          <div class="stat hl"><span class="k">spend / year</span><span class="v" id="oSy">—</span></div>
+          <div class="stat"><span class="k">CO₂e / year</span><span class="v" id="oCy">—</span><span class="u">tonnes</span></div>
+          <div class="stat"><span class="k">continuous power</span><span class="v" id="oKw">—</span><span class="u">kW average</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="card" id="infNote" style="min-height:180px"></div>
+        <h4 class="mt1">Per-request comparison</h4>
+        <div class="equiv" id="infEquiv"></div>
+      </div>
+    </div>
+    <p class="srcnote">Reference points: Google published a median Gemini text prompt at 0.24 Wh of
+    energy, 0.03 g CO₂e and 0.26 mL of water (measured May 2025, published August 2025). Independent
+    estimates for a typical ChatGPT query cluster around 0.3 Wh. Reasoning models and image generation
+    are one to two orders of magnitude higher, because they generate far more tokens per answer.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">The efficiency curve is steep</span>
+      <p class="mb0">Google reported that the median Gemini prompt used <strong>33 times less
+      energy</strong> in May 2025 than a year earlier, for a better answer. Quantisation, distillation,
+      mixture-of-experts routing, better batching and custom silicon compound quickly. Any per-query
+      figure older than about a year is wrong by an order of magnitude.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">And total demand still rises</span>
+      <p class="mb0">Efficiency per request fell 33× while total AI electricity use grew sharply, because
+      volume grew faster. This is Jevons' paradox: making something cheaper increases total consumption.
+      <strong>Both statements are true and neither cancels the other.</strong></p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">The honest comparison</span>
+      <p class="mb0">At 0.3 Wh, one request is roughly ten seconds of a desktop PC, or a fifth of the
+      energy in one minute of video streaming. The unsettling number is never the single request — it is
+      the aggregate, and the datacenters being built for it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 5.5 -->
+<section class="chapter" id="hardware">
+  <h2>5.5 · The physical machine, zoomed out</h2>
+  <p>Click each level. The step that broke twenty years of datacenter design happens between the third
+  and fourth.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · From die to datacenter</h3><span class="tag try">Click a level</span></div>
+    <div class="zoom" id="zoomHost"></div>
+    <div class="card mt1" id="zoomInfo" style="min-height:190px"></div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Why liquid cooling stopped being optional</span>
+    <p class="mb0">A conventional enterprise rack draws 5–15 kW and is air-cooled. An air-cooled H100
+    rack is around 40 kW. A current-generation GB200 NVL72 rack draws roughly <strong>120 kW in the
+    footprint of a wardrobe</strong>. Above about 30 kW per rack, moving that heat with air stops being
+    physically sensible, so direct liquid cooling becomes the design baseline. This is a plumbing and
+    civil-engineering change, not an IT upgrade — which is why AI capacity is constrained by
+    construction and grid connections rather than by chip availability.</p>
+  </div>
+</section>
+
+<!-- ============================================= 5.6 -->
+<section class="chapter" id="macro">
+  <h2>5.6 · The macro picture</h2>
+  <p>Data centres — all of them, not only AI — consumed around <strong>415 TWh</strong> in 2024, about
+  1.5% of global electricity. The International Energy Agency's base case has that roughly
+  <strong>doubling to about 945 TWh by 2030</strong>, around 3% of world demand, with AI-specific
+  consumption tripling over the period.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Global data centre electricity demand</h3><span class="tag">IEA base case</span></div>
+    <canvas id="macroCv" class="cv"></canvas>
+    <p class="srcnote">IEA, <i>Energy and AI</i> (2025). Grey bars are reference points for scale, not
+    forecasts. Note the honest caveat the IEA itself makes: projections this steep depend on assumptions
+    about efficiency, chip supply and buildout that could plausibly move the 2030 figure by ±40%.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="card"><h4>In perspective</h4><p class="small mb0">945 TWh is roughly three times Italy's
+    entire annual electricity consumption. It is also only about 3% of global demand — smaller than
+    industrial motors, cement or air conditioning. Both framings are used in public debate, usually
+    without the other.</p></div>
+    <div class="card"><h4>The local problem</h4><p class="small mb0">The difficulty is not the global
+    percentage, it is the concentration. A single campus can request 300–1,000 MW at one grid node —
+    comparable to a small city — and grid connection queues, not construction, are now the binding
+    constraint in most markets.</p></div>
+    <div class="card"><h4>Water</h4><p class="small mb0">Evaporative cooling consumes water. Google
+    reported 0.26 mL per median text prompt, which is trivial individually and material at campus scale
+    in a water-stressed region. Closed-loop liquid cooling largely removes the consumption, at higher
+    capital cost and slightly worse energy efficiency.</p></div>
+  </div>
+</section>
+
+<!-- ============================================= 5.7 -->
+<section class="chapter" id="collapse">
+  <h2>5.7 · The other curve</h2>
+  <p>If you present only the energy chart, you will mislead the room. The price of a fixed level of
+  capability has been falling at roughly <strong>an order of magnitude per year</strong> — one of the
+  fastest cost declines recorded for any technology.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Price for a fixed quality bar</h3><span class="tag">Log scale</span></div>
+    <canvas id="priceCv" class="cv"></canvas>
+    <p class="srcnote">Reported API list prices for the cheapest model matching “GPT-4-class” quality at
+    each date; order-of-magnitude, and the definition of the quality bar is necessarily loose. Compiled
+    from public pricing and industry analyses (a16z's “LLMflation” analysis puts the rate at
+    approximately 10× per year for a constant capability level).</p>
+  </div>
+
+  <div class="grid g4 mt2">
+    <div class="card"><h4>Distillation</h4><p class="small mb0">Train a small model to imitate a large
+    one. Much of the quality at a fraction of the size — the main driver of cheap capable models.</p></div>
+    <div class="card"><h4>Quantisation</h4><p class="small mb0">Store weights at 8 or 4 bits instead of
+    16. Two to four times less memory and faster arithmetic, for a small accuracy loss.</p></div>
+    <div class="card"><h4>Mixture of experts</h4><p class="small mb0">Activate only a small fraction of a
+    huge model per token. Capacity of a large model at the running cost of a small one.</p></div>
+    <div class="card"><h4>Better silicon</h4><p class="small mb0">Each GPU generation brings roughly 2–3×
+    more useful throughput per watt for this specific workload, plus purpose-built inference chips.</p></div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">What this means for planning</span>
+    <p class="mb0">Do not architect around today's price. A use case that is marginal at current cost
+    will likely be comfortable within 18 months, and a system built to be model-agnostic — swap the
+    model, keep the retrieval, the evaluation set and the guard-rails — captures that decline for free.
+    Conversely, do not build a business case that <em>depends</em> on the decline continuing: the
+    constraint is shifting from silicon to electricity, and electricity prices do not fall 10× per year.</p>
+  </div>
+</section>
+
+<!-- ============================================= 5.8 -->
+<section class="chapter" id="buy">
+  <h2>5.8 · Buy or build: the decision you will actually face</h2>
+  <p>Pay per token through an API, or run open-weight models on your own hardware. The crossover is a
+  volume question, and the answer is usually less obvious than either vendor claims.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · API versus self-hosted</h3><span class="tag try">Find your break-even</span></div>
+    <div class="split-wide">
+      <div><canvas id="beCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Your volume</span><span class="val" id="bVOut"></span></div>
+          <input type="range" id="bV" min="0" max="4" step="0.05" value="2.4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>API price</span><span class="val" id="bAOut"></span></div>
+          <input type="range" id="bA" min="0.05" max="15" step="0.05" value="4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>GPU capital cost</span><span class="val" id="bCOut"></span></div>
+          <input type="range" id="bC" min="5000" max="60000" step="1000" value="30000">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Throughput per GPU</span><span class="val" id="bTOut"></span></div>
+          <input type="range" id="bT" min="100" max="6000" step="50" value="1500">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Average utilisation</span><span class="val" id="bUOut"></span></div>
+          <input type="range" id="bU" min="0.05" max="0.9" step="0.01" value="0.35">
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">API cost / month</span><span class="v" id="oApi">—</span></div>
+          <div class="stat"><span class="k">self-host / month</span><span class="v" id="oSelf">—</span></div>
+          <div class="stat"><span class="k">GPUs needed</span><span class="v" id="oGpus">—</span></div>
+          <div class="stat hl"><span class="k">break-even</span><span class="v" id="oBe">—</span><span class="u">tokens / month</span></div>
+        </div>
+        <div class="card mt1" id="beNote" style="min-height:120px"></div>
+      </div>
+    </div>
+    <p class="srcnote">Self-hosted cost = capital amortised over 36 months + electricity at €120/MWh with
+    PUE 1.2 + 35% for hosting, networking and operations. It excludes the engineering team, which is
+    usually the real cost and is why small deployments almost never win on price.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="card">
+      <h3>Reasons to self-host that are not about price</h3>
+      <ul class="small mb0">
+        <li><strong>Data residency and confidentiality</strong> — the decisive argument in most regulated or IP-sensitive contexts, and it does not need a cost justification.</li>
+        <li><strong>Version stability.</strong> A hosted model can change under you; a local one cannot. This matters enormously for anything validated.</li>
+        <li><strong>Latency</strong> for real-time or on-premise industrial use.</li>
+        <li><strong>Availability</strong> independent of a vendor's capacity, rate limits or terms.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Reasons the API usually wins anyway</h3>
+      <ul class="small mb0">
+        <li><strong>Utilisation.</strong> Your own GPUs idle overnight and at weekends; you paid for them anyway. At 25% utilisation you are paying four times the theoretical unit cost.</li>
+        <li><strong>The frontier moves.</strong> Hardware bought today serves a model that will be two generations old in eighteen months.</li>
+        <li><strong>Quality gap.</strong> The best open-weight models trail the best hosted ones — the gap has narrowed a lot, but it is not zero.</li>
+        <li><strong>Staffing.</strong> Serving infrastructure at reliable production quality is a specialist team, permanently.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The pattern that actually gets deployed</span>
+    <p class="mb0">Hybrid, and it is not a compromise. Route the high-volume, well-defined, sensitive
+    tasks — classification, extraction, redaction, retrieval embeddings — to a small self-hosted model
+    where volume and confidentiality both favour it. Route the low-volume, hard, open-ended work to the
+    best frontier API available. <strong>Keep retrieval, evaluation and guard-rails outside the model
+    entirely</strong>, so that swapping either side is a configuration change rather than a project.</p>
+  </div>
+</section>
+
+<!-- ============================================= 5.9 -->
+<section class="chapter" id="close">
+  <h2>5.9 · What to take back to your desk</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Five questions worth asking about any AI proposal</h3>
+      <ol class="small mb0">
+        <li><strong>What is the token volume?</strong> Everything — cost, latency, feasibility — follows from it, and most proposals have never estimated it.</li>
+        <li><strong>Is this inference or training?</strong> If someone proposes training a model, ask what retrieval and prompting achieved first.</li>
+        <li><strong>What is the measured baseline?</strong> Accuracy on which held-out data, against what a person currently achieves.</li>
+        <li><strong>What happens when it is wrong?</strong> If the answer involves safety, certification or money leaving the company, the design needs a human in the path.</li>
+        <li><strong>Is it model-agnostic?</strong> If swapping the model is a rewrite, you have locked yourself out of a tenfold annual cost decline.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>What Part I was about</h3>
+      <p class="small">A neuron is a weighted sum and a threshold. A network is layers of them, trained by
+      rolling downhill on an error surface. A language model is that machine, at enormous scale, doing
+      one thing: predicting the next token. And the reason it works now rather than in 1969 is that the
+      arithmetic became affordable.</p>
+      <p class="small mb0">Which means the useful questions in your job are rarely about the mathematics.
+      They are about data you own, errors you can tolerate, decisions that need a human, and the size of
+      the bill. Those are engineering and management questions — and they are what Part II is about.</p>
+    </div>
+  </div>
+
+  <h3 class="mt2">Sources for this module</h3>
+  <ul class="sources">
+    <li>International Energy Agency — <i>Energy and AI</i> (2025): global data centre demand of about 415 TWh in 2024 rising to roughly 945 TWh by 2030. <span class="mono">iea.org/reports/energy-and-ai</span></li>
+    <li>Google Cloud — <i>Measuring the environmental impact of AI inference</i> (August 2025): median Gemini text prompt at 0.24 Wh, 0.03 g CO₂e, 0.26 mL water; 33× energy reduction over twelve months. <span class="mono">cloud.google.com/blog</span></li>
+    <li>Epoch AI — training compute and cost estimates for frontier models (GPT-4 ≈ 2×10²⁵ FLOP; models above the 10²⁵ FLOP threshold; per-query energy analysis). <span class="mono">epoch.ai</span></li>
+    <li>Meta — Llama 3.1 model card: 30.8 million H100-hours for the 405B model, 39.3 million for the family.</li>
+    <li>Hoffmann et al. (DeepMind, 2022) — <i>Training Compute-Optimal Large Language Models</i> (“Chinchilla”): the ≈20 tokens per parameter result.</li>
+    <li>NVIDIA product specifications — A100, H100, B200, GB200 NVL72 throughput and power; GB200 NVL72 rack power of approximately 120 kW.</li>
+    <li>Andreessen Horowitz — <i>LLMflation</i>: inference price for constant capability falling at roughly 10× per year.</li>
+    <li>Kaplan et al. (2020) — <i>Scaling Laws for Neural Language Models</i>: the 6ND compute relationship.</li>
+  </ul>
+  <p class="small muted">Every figure on this page is an estimate with wide uncertainty, and several of
+  the underlying numbers are commercially sensitive and therefore inferred rather than published. Use
+  them for orders of magnitude and decisions, not for a business case, and re-check them before each
+  delivery — the per-query and per-token numbers in particular change by large factors within a year.</p>
+
+  <h3 class="mt2">Where we go next</h3>
+  <p>That completes Part I — what the machine is. Part II is about engineering with it, and it opens by
+  arguing that for most of your data you should not be using a neural network at all.</p>
+  <p><a href="06-classical.html"><strong>Module 6 · Beyond neural networks →</strong></a></p>
+
+  <div class="note">
+    <ul>
+      <li>Closing line that works: “the arithmetic has not changed since 1958. What changed is that we can
+      now afford to do it a trillion times a second — and the interesting questions are all about what we
+      choose to spend that on.”</li>
+      <li>If somebody asks whether AI is an environmental problem, the honest answer has three parts:
+      absolute demand is growing fast and locally concentrated; efficiency per unit of work is improving
+      faster than almost any technology on record; and the net effect depends entirely on how quickly
+      clean generation is added. Resist giving a one-sided answer in either direction.</li>
+      <li>Leave the training calculator open at the end. People come up afterwards and want to type their
+      own numbers into it — that is the moment the series actually lands.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+
+  /* ===================================================== 5.2 training calculator */
+  var GPU = {
+    a100:  { n: 'A100 80GB', tf: 312,  w: 400 },
+    h100:  { n: 'H100 SXM',  tf: 989,  w: 700 },
+    b200:  { n: 'B200',      tf: 2250, w: 1000 },
+    gb200: { n: 'GB200',     tf: 2500, w: 1200 }
+  };
+  var T = { N: 70, D: 15000, gpu: 'h100', G: 8192, U: 0.38, P: 1.15, E: 120, Ci: 250, R: 2.5 };
+
+  function calcTrain() {
+    var N = T.N * 1e9, D = T.D * 1e9;
+    var flops = 6 * N * D;
+    var g = GPU[T.gpu];
+    var gpuHours = flops / (g.tf * 1e12 * T.U * 3600);
+    var days = gpuHours / T.G / 24;
+    var powerMW = T.G * g.w * T.P / 1e6;
+    var mwh = gpuHours * g.w * T.P / 1e6;
+    var eCost = mwh * T.E;
+    var cCost = gpuHours * T.R;
+    var co2 = mwh * T.Ci / 1000;
+
+    document.getElementById('oF').textContent = F.sci(flops, 2);
+    document.getElementById('oGH').textContent = F.c(gpuHours);
+    document.getElementById('oT').textContent = days < 1 ? (days * 24).toFixed(1) + ' h'
+      : (days < 400 ? days.toFixed(days < 10 ? 1 : 0) + ' d' : (days / 365).toFixed(1) + ' yr');
+    document.getElementById('oPw').textContent = powerMW.toFixed(powerMW < 10 ? 2 : 0);
+    document.getElementById('oE').textContent = F.c(mwh);
+    document.getElementById('oEc').textContent = '€' + F.c(eCost);
+    document.getElementById('oCc').textContent = '€' + F.c(cCost);
+    document.getElementById('oCo').textContent = F.c(co2);
+
+    var eq = '';
+    eq += '<div><b>' + F.c(mwh / 2.7) + '</b> Italian households for a year <span class="muted small">(2.7 MWh each)</span></div>';
+    eq += '<div><b>' + F.c(mwh * 1000 / 0.18) + '</b> km driven by an electric car <span class="muted small">(0.18 kWh/km)</span></div>';
+    eq += '<div><b>' + F.c(co2 / 1.0) + '</b> economy return flights Milan–New York <span class="muted small">(≈1 t CO₂e each)</span></div>';
+    eq += '<div><b>' + (mwh / 8760).toFixed(mwh / 8760 < 10 ? 2 : 1) + ' MW</b> of generation running continuously for a year</div>';
+    eq += '<div><b>' + (mwh / 300e6 * 100).toFixed(4) + '%</b> of Italy’s annual electricity consumption <span class="muted small">(≈300 TWh)</span></div>';
+    document.getElementById('equivHost').innerHTML = eq;
+  }
+  function initTrain() {
+    AI.bindRange('pN', function (v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'T' : v + 'B'; }, function (v) { T.N = v; calcTrain(); });
+    AI.bindRange('pD', function (v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'T' : v + 'B'; }, function (v) { T.D = v; calcTrain(); });
+    AI.bindRange('pG', function (v) { return F.c(v); }, function (v) { T.G = v; calcTrain(); });
+    AI.bindRange('pU', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { T.U = v; calcTrain(); });
+    AI.bindRange('pP', function (v) { return v.toFixed(2); }, function (v) { T.P = v; calcTrain(); });
+    AI.bindRange('pE', function (v) { return '€' + v + '/MWh'; }, function (v) { T.E = v; calcTrain(); });
+    AI.bindRange('pC', function (v) { return v + ' kg/MWh'; }, function (v) { T.Ci = v; calcTrain(); });
+    AI.bindRange('pR', function (v) { return '€' + v.toFixed(1) + '/GPU-h'; }, function (v) { T.R = v; calcTrain(); });
+    AI.segmented(document.getElementById('gpuSeg'), function (v) {
+      T.gpu = v; document.getElementById('gpuName').textContent = GPU[v].n; calcTrain();
+    });
+    AI.qsa('[data-preset]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = b.getAttribute('data-preset').split(',');
+        document.getElementById('pN').value = p[0];
+        document.getElementById('pD').value = p[1];
+        document.getElementById('pN').dispatchEvent(new Event('input'));
+        document.getElementById('pD').dispatchEvent(new Event('input'));
+      });
+    });
+    calcTrain();
+  }
+
+  /* ===================================================== 5.3 scaling */
+  var scplot, scB = 24;
+  function drawSc() {
+    var Cb = Math.pow(10, scB);
+    /* N_opt: C = 6 N D, D = 20 N  =>  C = 120 N^2  =>  N = sqrt(C/120) */
+    var N = Math.sqrt(Cb / 120), D = 20 * N;
+    document.getElementById('scN').textContent = F.c(N);
+    document.getElementById('scD').textContent = F.c(D);
+
+    scplot.resize(); scplot.clear();
+    scplot.dom = [21, 27]; scplot.ran = [7, 13.5];
+    scplot.frame({ xticks: 6, yticks: 5,
+      xlabel: 'training compute (FLOP, log scale)', ylabel: 'log₁₀ of count',
+      xfmt: function (x) { return '10' + F.sup(Math.round(x)); },
+      yfmt: function (y) { return '10' + F.sup(Math.round(y)); } });
+    var pn = [], pd = [], i;
+    for (i = 0; i <= 120; i++) {
+      var e = 21 + 6 * i / 120, c = Math.pow(10, e);
+      var n = Math.sqrt(c / 120);
+      pn.push([e, Math.log10(n)]);
+      pd.push([e, Math.log10(20 * n)]);
+    }
+    scplot.clip(function (g) {
+      scplot.line(pd, C('--accent-2'), 2.6);
+      scplot.line(pn, C('--accent'), 2.6);
+      scplot.line([[scB, 7], [scB, 13.5]], C('--ink-3'), 1.4, [4, 4]);
+      scplot.dot(scB, Math.log10(N), 6, C('--accent'), C('--panel'));
+      scplot.dot(scB, Math.log10(D), 6, C('--accent-2'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--accent-2'); g.fillText('optimal training tokens', scplot.X(21.15), scplot.Y(13.0));
+      g.fillStyle = C('--accent'); g.fillText('optimal parameters', scplot.X(21.15), scplot.Y(12.4));
+      /* landmarks */
+      [[23.4, 'GPT-3 class'], [25.3, 'GPT-4 class'], [26.5, '2026 frontier']].forEach(function (m) {
+        g.strokeStyle = C('--line'); g.lineWidth = 1;
+        g.beginPath(); g.moveTo(scplot.X(m[0]), scplot.Y(7)); g.lineTo(scplot.X(m[0]), scplot.Y(7.6)); g.stroke();
+        g.fillStyle = C('--ink-3'); g.font = '10px system-ui,sans-serif'; g.textAlign = 'center';
+        g.fillText(m[1], scplot.X(m[0]), scplot.Y(7.9));
+      });
+    });
+    var note = '<h4>Reading this</h4><p class="small">At a budget of 10' + F.sup(scB.toFixed(1)) +
+      ' FLOP, the compute-optimal choice is about <b>' + F.c(N) + ' parameters</b> trained on <b>' +
+      F.c(D) + ' tokens</b>. Both grow as the square root of the budget, so a 100× larger budget buys a 10× bigger model on 10× more data — not a 100× bigger model.</p>';
+    if (D > 3e13) note += '<p class="small mb0" style="color:var(--warn)"><b>Data ceiling.</b> ' + F.c(D) +
+      ' tokens exceeds the quantity of high-quality text plausibly available. Beyond roughly 10¹⁴ tokens the strategy has to change: synthetic data, multiple passes over the same data, other modalities, or spending the compute at answer time instead.</p>';
+    else note += '<p class="small mb0">Historically most large models sat well below the token line — too big for the data they were given. Correcting that, rather than building anything larger, produced much of the progress in 2023–24.</p>';
+    document.getElementById('scNote').innerHTML = note;
+  }
+  function initSc() {
+    scplot = new AI.Plot(document.getElementById('scCv'),
+      { dom: [21, 27], ran: [7, 13.5], pad: { l: 52, r: 16, t: 16, b: 44 } });
+    AI.bindRange('scB', function (v) { return '10' + F.sup(v.toFixed(1)) + ' FLOP'; }, function (v) { scB = v; drawSc(); });
+    AI.onRedraw(drawSc);
+    drawSc();
+  }
+
+  /* ===================================================== 5.4 inference */
+  var I = { users: 3000, q: 25, wh: 0.3, price: 0.004 };
+  function calcInf() {
+    var qy = I.users * I.q * 250;
+    var mwh = qy * I.wh / 1e6;
+    var spend = qy * I.price;
+    var co2 = mwh * 0.25;
+    var kw = mwh * 1000 / 8760;
+    document.getElementById('oQy').textContent = F.c(qy);
+    document.getElementById('oEy').textContent = mwh < 10 ? mwh.toFixed(2) : F.c(mwh);
+    document.getElementById('oSy').textContent = '€' + F.c(spend);
+    document.getElementById('oCy').textContent = co2 < 10 ? co2.toFixed(2) : F.c(co2);
+    document.getElementById('oKw').textContent = kw.toFixed(kw < 10 ? 2 : 1);
+
+    var n = '<h4>What this tells you</h4>';
+    n += '<p class="small">' + F.c(I.users) + ' people at ' + I.q + ' requests per working day is <b>' +
+      F.c(qy) + ' requests a year</b>, drawing an average of <b>' + kw.toFixed(1) +
+      ' kW</b> continuously and costing <b>€' + F.c(spend) + '</b>.</p>';
+    n += '<p class="small">For comparison, the electricity is equivalent to about <b>' + F.c(mwh / 2.7) +
+      ' households</b>. And note which figure is larger: the ' + (spend > mwh * 120 * 4 ? 'API spend dwarfs the underlying electricity cost — you are paying for hardware, margin and the amortised training run, not for power' : 'numbers are closer than usual for this configuration') + '.</p>';
+    n += '<p class="small mb0">Sanity check on the spend: divide by headcount. That is <b>€' +
+      (spend / I.users).toFixed(0) + ' per person per year</b> — the number to compare against a software licence, not against a power bill.</p>';
+    document.getElementById('infNote').innerHTML = n;
+
+    var eq = '';
+    eq += '<div><b>' + (I.wh * 3600 / 1000).toFixed(2) + ' kJ</b> per request</div>';
+    eq += '<div><b>' + (I.wh * 1200).toFixed(0) + ' s</b> of a 3 W LED bulb</div>';
+    eq += '<div><b>' + (I.wh * 60).toFixed(1) + ' s</b> of a 60 W laptop</div>';
+    eq += '<div><b>' + (I.wh / 2000 * 3600).toFixed(1) + ' s</b> of an electric kettle <span class="muted small">(2 kW)</span></div>';
+    eq += '<div><b>' + (I.wh / 180 * 1000).toFixed(1) + ' m</b> driven in an electric car</div>';
+    document.getElementById('infEquiv').innerHTML = eq;
+  }
+  function initInf() {
+    AI.bindRange('iU', function (v) { return F.c(v); }, function (v) { I.users = v; calcInf(); });
+    AI.bindRange('iQ', function (v) { return v; }, function (v) { I.q = v; calcInf(); });
+    AI.bindRange('iW', function (v) { return v.toFixed(2) + ' Wh'; }, function (v) { I.wh = v; calcInf(); });
+    AI.bindRange('iP', function (v) { return '€' + v.toFixed(4); }, function (v) { I.price = v; calcInf(); });
+    AI.qsa('[data-inf]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = b.getAttribute('data-inf').split(',');
+        document.getElementById('iW').value = p[0];
+        document.getElementById('iP').value = p[1];
+        document.getElementById('iW').dispatchEvent(new Event('input'));
+        document.getElementById('iP').dispatchEvent(new Event('input'));
+      });
+    });
+    calcInf();
+  }
+
+  /* ===================================================== 5.5 hardware zoom */
+  var ZOOM = [
+    ['One GPU', '700', 'watts', 'A single H100: 80 billion transistors, 80 GB of very fast memory, about 989 trillion floating-point operations per second in BF16. It draws 700 W — roughly seven desktop PCs, or a domestic fan heater, from a chip the size of a postage stamp. A current-generation B200 draws around 1,000 W and a GB200 module about 1,200 W including its share of overhead.'],
+    ['One server node', '10', 'kilowatts', 'Eight GPUs, two CPUs, high-speed network cards, power supplies: around 10 kW in a chassis a few units high. The eight GPUs are connected by a dedicated high-bandwidth interconnect, because during training they must exchange gradients constantly — a single node is effectively one large accelerator, not eight independent ones.'],
+    ['One rack', '40–120', 'kilowatts', 'A traditional enterprise rack draws 5–15 kW. An air-cooled H100 rack reaches about 40 kW. A GB200 NVL72 rack puts 72 GPUs in one liquid-cooled cabinet at roughly <b>120 kW</b> — ten to fifteen times a conventional rack, in the same floor space. Above about 30 kW, air cooling stops being practical and direct liquid cooling becomes the baseline.'],
+    ['One AI campus', '100–1,000', 'megawatts', 'Thousands of racks, plus cooling plant, electrical distribution, backup generation and a substation. A large training campus requests power at the scale of <b>a small city</b>, at one point on the grid. The binding constraints are now grid connection queues, transformer lead times and construction — not chip supply. This is why AI buildout has become an energy-industry story.']
+  ];
+  var zSel = 2;
+  function drawZoom() {
+    var h = '';
+    ZOOM.forEach(function (z, i) {
+      h += '<div class="zc' + (i === zSel ? ' on' : '') + '" data-i="' + i + '"><div class="t">' + z[0] +
+        '</div><div class="p">' + z[1] + '</div><div class="u">' + z[2] + '</div></div>';
+    });
+    document.getElementById('zoomHost').innerHTML = h;
+    document.getElementById('zoomInfo').innerHTML = '<h3>' + ZOOM[zSel][0] + ' — ' + ZOOM[zSel][1] +
+      ' ' + ZOOM[zSel][2] + '</h3><p class="mb0">' + ZOOM[zSel][3] + '</p>';
+  }
+  function initZoom() {
+    document.getElementById('zoomHost').addEventListener('click', function (e) {
+      var z = e.target.closest ? e.target.closest('.zc') : null;
+      if (z) { zSel = parseInt(z.getAttribute('data-i'), 10); drawZoom(); }
+    });
+    drawZoom();
+  }
+
+  /* ===================================================== 5.6 macro chart */
+  var macro;
+  var MACRO = [
+    { l: '2015', v: 200, k: 'dc' },
+    { l: '2020', v: 290, k: 'dc' },
+    { l: '2024', v: 415, k: 'dc' },
+    { l: '2030\nbase case', v: 945, k: 'proj' },
+    { l: 'Italy, all\nsectors', v: 300, k: 'ref' },
+    { l: 'Global\naviation', v: 130, k: 'ref' }
+  ];
+  function drawMacro() {
+    macro.resize(); macro.clear();
+    var g = macro.ctx;
+    macro.dom = [0, MACRO.length]; macro.ran = [0, 1050];
+    macro.frame({ xticks: 1, yticks: 6, ylabel: 'TWh per year', xfmt: function () { return ''; } });
+    var bw = macro.pw / MACRO.length * 0.62;
+    MACRO.forEach(function (m, i) {
+      var x = macro.X(i + 0.5), y = macro.Y(m.v), y0 = macro.Y(0);
+      g.fillStyle = m.k === 'dc' ? C('--accent') : (m.k === 'proj' ? C('--accent-2') : C('--ink-3'));
+      g.globalAlpha = m.k === 'ref' ? 0.45 : 1;
+      g.fillRect(x - bw / 2, y, bw, y0 - y);
+      g.globalAlpha = 1;
+      g.fillStyle = C('--ink'); g.font = '700 12px ui-monospace, monospace';
+      g.textAlign = 'center'; g.textBaseline = 'bottom';
+      g.fillText(m.v + ' TWh', x, y - 5);
+      g.fillStyle = C('--ink-3'); g.font = '11px system-ui, sans-serif'; g.textBaseline = 'top';
+      m.l.split('\n').forEach(function (ln, k) { g.fillText(ln, x, y0 + 7 + k * 13); });
+    });
+    g.fillStyle = C('--ink-3'); g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+    g.fillText('blue = all data centres · teal = IEA 2030 projection · grey = reference points', macro.pad.l + 4, macro.pad.t + 6);
+  }
+
+  /* ===================================================== 5.7 price collapse */
+  var priceplot;
+  var PRICE = [
+    [2023.2, 30, 'GPT-4 launch price'],
+    [2023.9, 10, ''],
+    [2024.5, 3, ''],
+    [2025.2, 1.0, ''],
+    [2025.9, 0.35, ''],
+    [2026.6, 0.12, 'best current price for that quality bar']
+  ];
+  function drawPrice() {
+    priceplot.resize(); priceplot.clear();
+    priceplot.dom = [2023, 2027]; priceplot.ran = [-1.1, 1.7];
+    priceplot.frame({ xticks: 4, yticks: 4,
+      xlabel: 'year', ylabel: '€ per million output tokens (log)',
+      xfmt: function (x) { return Math.round(x); },
+      yfmt: function (y) { var v = Math.pow(10, y); return v >= 1 ? '€' + v.toFixed(0) : '€' + v.toFixed(2); } });
+    var pts = PRICE.map(function (p) { return [p[0], Math.log10(p[1])]; });
+    priceplot.clip(function (g) {
+      /* 10x-per-year reference line */
+      priceplot.line([[2023.2, Math.log10(30)], [2026.8, Math.log10(30) - 3.6]], C('--ink-3'), 1.4, [5, 4]);
+      priceplot.line(pts, C('--accent'), 3);
+      PRICE.forEach(function (p) { priceplot.dot(p[0], Math.log10(p[1]), 5.5, C('--accent'), C('--panel')); });
+      g.font = '600 10px system-ui,sans-serif'; g.fillStyle = C('--ink-3'); g.textAlign = 'left';
+      g.fillText('dashed = exactly 10× cheaper per year', priceplot.X(2023.15), priceplot.Y(-0.85));
+      g.textAlign = 'right';
+      g.fillStyle = C('--accent');
+      g.fillText('≈250× cheaper in 3 years', priceplot.X(2026.85), priceplot.Y(0.45));
+    });
+  }
+
+  /* ===================================================== 5.8 break-even */
+  var BE = { vol: 2.4, api: 4, capex: 30000, thr: 1500, util: 0.35 }, beplot;
+  function selfCost(tokensM) {
+    /* tokensM = millions of tokens per month */
+    var perGpuMonth = BE.thr * BE.util * 3600 * 24 * 30 / 1e6;  /* M tokens per GPU per month */
+    var gpus = Math.max(1, Math.ceil(tokensM / perGpuMonth));
+    var capexM = gpus * BE.capex / 36;
+    var energyM = gpus * 0.9 /*kW incl. host+PUE*/ * 24 * 30 / 1000 * 120;
+    var ops = (capexM + energyM) * 0.35;
+    return { c: capexM + energyM + ops, gpus: gpus, perGpuMonth: perGpuMonth };
+  }
+  function drawBe() {
+    var tokensM = Math.pow(10, BE.vol);
+    var s = selfCost(tokensM), apiC = tokensM * BE.api;
+    document.getElementById('oApi').textContent = '€' + F.c(apiC);
+    document.getElementById('oSelf').textContent = '€' + F.c(s.c);
+    document.getElementById('oGpus').textContent = s.gpus;
+    /* break-even: smallest volume where api >= self */
+    var be = null;
+    for (var e = 0; e <= 4.5; e += 0.01) {
+      var v = Math.pow(10, e);
+      if (v * BE.api >= selfCost(v).c) { be = v; break; }
+    }
+    document.getElementById('oBe').textContent = be ? F.c(be * 1e6) : 'never';
+
+    beplot.resize(); beplot.clear();
+    beplot.dom = [0, 4.5]; beplot.ran = [1, 6];
+    beplot.frame({ xticks: 9, yticks: 5,
+      xlabel: 'tokens per month (log)', ylabel: '€ per month (log)',
+      xfmt: function (x) { return F.c(Math.pow(10, x) * 1e6); },
+      yfmt: function (y) { return '€' + F.c(Math.pow(10, y)); } });
+    var a = [], b = [], i;
+    for (i = 0; i <= 180; i++) {
+      var ex = 4.5 * i / 180, v = Math.pow(10, ex);
+      a.push([ex, Math.log10(Math.max(10, v * BE.api))]);
+      b.push([ex, Math.log10(selfCost(v).c)]);
+    }
+    beplot.clip(function (g) {
+      beplot.line(b, C('--warn'), 2.6);
+      beplot.line(a, C('--accent'), 2.6);
+      if (be) beplot.line([[Math.log10(be), 1], [Math.log10(be), 6]], C('--good'), 1.6, [4, 4]);
+      beplot.dot(BE.vol, Math.log10(Math.max(10, tokensM * BE.api)), 5.5, C('--accent'), C('--panel'));
+      beplot.dot(BE.vol, Math.log10(s.c), 5.5, C('--warn'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--accent'); g.fillText('pay-per-token API', beplot.X(0.1), beplot.Y(5.7));
+      g.fillStyle = C('--warn'); g.fillText('self-hosted (stepped: you buy whole GPUs)', beplot.X(0.1), beplot.Y(5.4));
+    });
+
+    var n = '';
+    if (apiC < s.c) n = '<p class="small mb0"><b style="color:var(--accent)">At your volume the API is cheaper</b> — €' +
+      F.c(apiC) + ' against €' + F.c(s.c) + ' per month. Self-hosting becomes cheaper above roughly <b>' +
+      (be ? F.c(be * 1e6) : '—') + ' tokens a month</b>. Below that, you are buying capacity you cannot fill: note the staircase in the orange line — hardware comes in whole GPUs.</p>';
+    else n = '<p class="small mb0"><b style="color:var(--warn)">At your volume self-hosting is cheaper</b> on paper — €' +
+      F.c(s.c) + ' against €' + F.c(apiC) + '. Before acting on that, add the serving team, on-call, model upgrades and the fact that each GPU only pays for itself at ' +
+      (BE.util * 100).toFixed(0) + '% utilisation. Raise utilisation and the case improves fast; that is usually the real lever.</p>';
+    document.getElementById('beNote').innerHTML = n;
+  }
+  function initBe() {
+    beplot = new AI.Plot(document.getElementById('beCv'),
+      { dom: [0, 4.5], ran: [1, 6], pad: { l: 62, r: 16, t: 16, b: 44 } });
+    AI.bindRange('bV', function (v) { return F.c(Math.pow(10, v) * 1e6) + ' tok/mo'; }, function (v) { BE.vol = v; drawBe(); });
+    AI.bindRange('bA', function (v) { return '€' + v.toFixed(2) + '/M tok'; }, function (v) { BE.api = v; drawBe(); });
+    AI.bindRange('bC', function (v) { return '€' + F.c(v); }, function (v) { BE.capex = v; drawBe(); });
+    AI.bindRange('bT', function (v) { return F.c(v) + ' tok/s'; }, function (v) { BE.thr = v; drawBe(); });
+    AI.bindRange('bU', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { BE.util = v; drawBe(); });
+    AI.onRedraw(drawBe);
+    drawBe();
+  }
+
+  window.PAGE_INIT = function () {
+    initTrain();
+    initSc();
+    initInf();
+    initZoom();
+    macro = new AI.Plot(document.getElementById('macroCv'),
+      { dom: [0, 6], ran: [0, 1050], pad: { l: 56, r: 16, t: 16, b: 48 } });
+    priceplot = new AI.Plot(document.getElementById('priceCv'),
+      { dom: [2023, 2027], ran: [-1.1, 1.7], pad: { l: 70, r: 16, t: 16, b: 44 } });
+    AI.onRedraw(drawMacro); AI.onRedraw(drawPrice);
+    drawMacro(); drawPrice();
+    initBe();
+  };
+})();
+</script>
+</body>
+</html>

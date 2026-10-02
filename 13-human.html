@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13 · Human factors and adoption — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .casebox {
+    border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); padding: 20px 22px;
+  }
+  .casebox .scen { font-size: .98rem; margin-bottom: 12px; }
+  .casedata {
+    font-family: var(--mono); font-size: .86rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 12px 14px; white-space: pre-wrap; line-height: 1.8; margin-bottom: 14px;
+  }
+  .rec {
+    border: 1px solid var(--accent); border-left-width: 4px; background: var(--accent-soft);
+    border-radius: 0 var(--r) var(--r) 0; padding: 12px 15px; margin-bottom: 14px;
+  }
+  .rec .who {
+    font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--accent); display: block; margin-bottom: 4px;
+  }
+  .rec .v { font-weight: 700; font-size: 1.02rem; }
+  .rec .cf { font-family: var(--mono); font-size: .82rem; color: var(--ink-3); }
+  .dots { display: flex; gap: 5px; flex-wrap: wrap; }
+  .dots span {
+    width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center;
+    font-size: .7rem; font-weight: 800; border: 1px solid var(--line); background: var(--bg-3); color: var(--ink-3);
+  }
+  .dots span.acc { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .dots span.ovr { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+  .revrow {
+    display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center;
+    padding: 9px 12px; border-radius: 8px; margin-bottom: 5px; border: 1px solid var(--line); font-size: .86rem;
+  }
+  .revrow.ok { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 30%, transparent); }
+  .revrow.bad { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+  .revrow.meh { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+  .revrow .n { font-family: var(--mono); font-weight: 700; text-align: center; }
+  .bigstat { text-align: center; padding: 15px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.warn .n { color: var(--warn); }
+  .loopgrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 900px) { .loopgrid { grid-template-columns: 1fr; } }
+  .loopgrid .card { border-top: 3px solid var(--accent); }
+  .loopgrid .card:nth-child(2) { border-top-color: var(--warn); }
+  .loopgrid .card:nth-child(3) { border-top-color: var(--bad); }
+</style>
+</head>
+<body data-page="p13">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 13 · Part III — Applying it</span>
+  <h1>Human factors and adoption</h1>
+  <p class="lead">Most AI pilots that fail do not fail technically. They fail because of how people
+  used, ignored or over-trusted them. This module is about the part of the system that is made of
+  people — and it starts by demonstrating the problem on you.</p>
+</header>
+
+<main class="wrap">
+
+<!-- ============================================= 13.1 -->
+<section class="chapter" id="bias">
+  <h2>13.1 · The experiment</h2>
+  <p>Ten decisions. In each one you have the data <strong>and</strong> a recommendation from an AI
+  system that has been running for six months with a good track record. Accept or override. Everything
+  you need to judge each case is on the screen.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Accept or override</h3><span class="tag try">Do not read ahead</span></div>
+    <div class="split-wide">
+      <div>
+        <div class="casebox" id="caseBox"></div>
+        <div class="btnrow" id="caseCtrl"></div>
+      </div>
+      <div>
+        <div class="pill" id="caseCount" style="margin-bottom:10px"></div>
+        <h4>Your decisions</h4>
+        <div class="dots" id="caseDots"></div>
+        <div class="card mt1" id="caseSide" style="min-height:250px">
+          <p class="small mb0">The system’s accuracy over the last six months was <b>91%</b>, which is
+          better than the team average. It states a confidence figure with each recommendation.</p>
+          <p class="small muted mb0 mt1">No trick questions. Every case can be decided from the
+          information given.</p>
+        </div>
+      </div>
+    </div>
+    <div id="revealHost" class="hidden mt1"></div>
+  </div>
+</section>
+
+<!-- ============================================= 13.2 -->
+<section class="chapter" id="calibration">
+  <h2>13.2 · Trust calibration</h2>
+  <p>There are two ways to get this wrong and only a narrow band of getting it right. Over-trust and
+  under-trust are both expensive, and organisations usually swing from one to the other rather than
+  landing in between.</p>
+
+  <div class="grid g2">
+    <div class="card" style="border-left:3px solid var(--bad)">
+      <h4 style="color:var(--bad)">Over-trust — automation bias</h4>
+      <p class="small">The documented tendency to accept an automated recommendation without the scrutiny
+      you would apply to a colleague's. It is worse when the system is usually right, when the human is
+      busy, when accountability is diffuse, and when the interface presents a confident single answer
+      rather than options.</p>
+      <p class="small mb0"><b>The cruel part:</b> a system that is right 99% of the time produces
+      <em>more</em> automation bias than one that is right 80% of the time, because there is no recent
+      error to keep you sceptical. <strong>Reliability creates complacency.</strong></p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--warn)">
+      <h4 style="color:var(--warn)">Under-trust — algorithm aversion</h4>
+      <p class="small">People abandon a system after seeing it make one error, even when it is
+      demonstrably better than the alternative. The same people forgive human colleagues the same
+      mistake routinely, and forgive their own more readily still.</p>
+      <p class="small mb0"><b>The practical consequence:</b> a tool that is better on average but
+      occasionally visibly wrong gets switched off, and the measurably worse manual process continues.
+      Expect this, and set expectations about the error <em>rate</em> before go-live rather than after
+      the first incident.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · How much should you rely on it?</h3><span class="tag try">Find the peak, then move the model accuracy</span></div>
+    <div class="split-wide">
+      <div><canvas id="relCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Blue: accuracy of the combined human-plus-machine system. Grey:
+        the human working alone. Orange dashed: reviewing effort. The vertical line is your current
+        setting.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>How often people accept without checking</span><span class="val" id="rRelOut"></span></div>
+          <input type="range" id="rRel" min="0" max="1" step="0.01" value="0.5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Model accuracy</span><span class="val" id="rMOut"></span></div>
+          <input type="range" id="rM" min="0.5" max="0.999" step="0.005" value="0.91">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Human accuracy, working alone</span><span class="val" id="rHOut"></span></div>
+          <input type="range" id="rH" min="0.5" max="0.999" step="0.005" value="0.86">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Chance a reviewer spots a model error</span><span class="val" id="rCOut"></span></div>
+          <input type="range" id="rC" min="0.1" max="1" step="0.02" value="0.6">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsSys"><span class="n" id="oSys">—</span><span class="l">system accuracy</span></div>
+          <div class="bigstat"><span class="n" id="oOpt">—</span><span class="l">best reliance level</span></div>
+        </div>
+        <div class="card mt1" id="relNote" style="min-height:170px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">A simple model, deliberately: each case is either accepted blindly or
+    reviewed; a reviewer catches a model error with the stated probability and then applies their own
+    (imperfect) judgement, and occasionally overrides a correct answer. The shape of the curve is the
+    point, not the exact numbers.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The result worth arguing about</span>
+    <p class="mb0">For most realistic settings the best outcome is at <strong>neither end</strong>. Total
+    reliance throws away the human's ability to catch errors; total review throws away the speed that
+    justified the system and, worse, degrades into rubber-stamping because nobody can review 400 items a
+    day attentively. <strong>The design question is not “do we trust it” but “which cases get reviewed,
+    and by whom”</strong> — and the answer should come from the calibration and cost work in module 8,
+    not from a policy sentence.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.3 -->
+<section class="chapter" id="review">
+  <h2>13.3 · How to review output you cannot fully verify</h2>
+  <p>The honest difficulty: checking a long AI-written document properly can take as long as writing
+  it, which destroys the benefit. These are the strategies that actually work, by task type.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4>Verify the structure, not the prose</h4>
+      <p class="small mb0">For extraction and tabulation, check a <strong>random sample of rows</strong>
+      against the source — five rows takes a minute and gives you a real error rate. Never read the
+      whole table; sample it, and record the number. That number is the beginning of module 8.</p>
+    </div>
+    <div class="card">
+      <h4>Demand quotations</h4>
+      <p class="small mb0">Make every factual claim carry the sentence it came from and a clause
+      reference. You are then checking a citation, not evaluating an argument — an order of magnitude
+      faster, and it catches the failure mode that matters most.</p>
+    </div>
+    <div class="card">
+      <h4>Check the load-bearing claim only</h4>
+      <p class="small mb0">In an analysis, identify the one or two facts the conclusion actually rests
+      on and verify those. The rest is context and a small error there is cheap. This is triage, and it
+      is how experienced reviewers read anything.</p>
+    </div>
+    <div class="card">
+      <h4>Recompute the numbers</h4>
+      <p class="small mb0">Never accept arithmetic from a language model (module 4.9). If a number
+      matters, recompute it in a spreadsheet or make the model use a calculator and show the call.</p>
+    </div>
+    <div class="card">
+      <h4>Ask for the assumptions</h4>
+      <p class="small mb0">“List everything you had to assume” converts hidden guesses into a short,
+      reviewable list. It is the single highest-leverage sentence to add to any drafting prompt.</p>
+    </div>
+    <div class="card">
+      <h4>Review the inputs instead</h4>
+      <p class="small mb0">Sometimes the efficient check is upstream: did it retrieve the right
+      documents? If the sources are right and the prompt forbids outside knowledge, the output is far
+      more likely to be right — and the retrieval is much easier to inspect.</p>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">The anti-pattern</span>
+    <p class="mb0">“A human reviews every output” written into a process document, with no time allocated
+    and no guidance on what to look at. Within three weeks it becomes a click. <strong>An unfunded
+    review step is not a control — it is an alibi</strong>, and it is worse than no review because
+    everyone believes it is happening.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.4 -->
+<section class="chapter" id="loop">
+  <h2>13.4 · Where the human sits</h2>
+  <div class="loopgrid">
+    <div class="card">
+      <h4>Human in the loop</h4>
+      <p class="small">The system proposes; a person decides and acts. Nothing happens without a human
+      action.</p>
+      <p class="small"><b>Use for:</b> anything consequential, irreversible, external, safety-relevant or
+      regulated. Also the right starting point for everything, because it generates the data that tells
+      you whether more autonomy is justified.</p>
+      <p class="small mb0"><b>Cost:</b> you keep the human time, so the benefit is quality and speed of
+      drafting rather than headcount.</p>
+    </div>
+    <div class="card">
+      <h4>Human on the loop</h4>
+      <p class="small">The system acts; a person monitors, samples and can intervene or roll back.</p>
+      <p class="small"><b>Use for:</b> high volume, low individual consequence, reversible actions, with
+      good logging and a real kill switch (module 9.8).</p>
+      <p class="small mb0"><b>Cost:</b> you need genuine monitoring — sampled audits with recorded
+      error rates, not a dashboard nobody opens. Specify the sampling rate and who does it.</p>
+    </div>
+    <div class="card">
+      <h4>Human out of the loop</h4>
+      <p class="small">Fully automatic, reviewed only in aggregate.</p>
+      <p class="small"><b>Use for:</b> narrow, well-measured, low-stakes, high-volume tasks where the
+      error rate is known and the cost of an error is bounded and acceptable.</p>
+      <p class="small mb0"><b>Cost:</b> the burden of proof. You should be able to state the measured
+      error rate, the cost per error, and why that trade is acceptable — in writing.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The staging that works, again</span>
+    <p class="mb0">Start in the loop. Measure how often the human agrees with the system, and
+    <strong>on which kinds of case</strong>. After a few hundred decisions you will find a segment where
+    agreement is near-total — that segment, and only that segment, is a candidate for moving to
+    on-the-loop. This is the same argument as module 9.8, and it is the only route to autonomy that
+    survives a serious review.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.5 -->
+<section class="chapter" id="skills">
+  <h2>13.5 · Deskilling</h2>
+  <p>A real and under-discussed cost. If the system does the task, people stop practising the task —
+  and the expertise you need in order to <em>supervise</em> the system is the same expertise the system
+  is eroding. Aviation has studied this for decades under the name of automation-induced skill decay,
+  and the lessons transfer.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <h4>The specific risk</h4>
+      <p class="small mb0">A junior engineer who has never sized a component by hand cannot tell when
+      the tool's answer is absurd. The tool works 99% of the time, so the gap is invisible — until the
+      1%, which is exactly when judgement is needed.</p>
+    </div>
+    <div class="card">
+      <h4>What helps</h4>
+      <ul class="small mb0">
+        <li>Teach the fundamentals first, tools second — the reason this course starts with a
+        perceptron and not with a prompt.</li>
+        <li>Periodic unaided work: estimate before you ask.</li>
+        <li>Rotate people through the manual process deliberately.</li>
+        <li>Keep and maintain the ability to run the old way.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>What does not help</h4>
+      <p class="small mb0">Banning the tool. People will use it anyway, less visibly and with less
+      training. The objective is competent supervision, not abstinence — and competent supervision has
+      to be built deliberately, because it no longer arrives as a by-product of doing the work.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 13.6 -->
+<section class="chapter" id="pilots">
+  <h2>13.6 · Why pilots fail</h2>
+  <p>Six patterns. In my experience of how these programmes go, technical inadequacy is well down the
+  list.</p>
+
+  <div class="grid g2">
+    <div class="card"><h4 style="color:var(--bad)">1 · It solved a problem nobody had</h4>
+    <p class="small mb0">Built because the technology was interesting, not because someone was
+    complaining. The tell: nobody can name the person whose week gets better. <b>Fix:</b> start from a
+    complaint, not from a capability.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">2 · It saved the wrong minutes</h4>
+    <p class="small mb0">It automated the eight-minute step in a process whose real cost was a
+    three-day approval wait. Genuine improvement, no measurable effect. <b>Fix:</b> map the end-to-end
+    time before choosing where to intervene.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">3 · It sat outside the tools people use</h4>
+    <p class="small mb0">A separate portal requiring a separate login, while the work happens in the PLM
+    system and Outlook. Adoption decays to the enthusiasts within a month. <b>Fix:</b> integrate into the
+    existing workflow, or accept that you built a demo.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">4 · The first visible error killed it</h4>
+    <p class="small mb0">Algorithm aversion from 13.2, usually compounded by having promised
+    near-perfection. <b>Fix:</b> state the expected error rate and the review strategy <em>before</em> go-live,
+    so the first error confirms your description instead of contradicting it.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">5 · Nobody was accountable for the outcome</h4>
+    <p class="small mb0">Built by a central team, handed to a department that did not ask for it and
+    owns no objective it serves. <b>Fix:</b> a named owner in the receiving function, with a target the
+    tool actually moves, from before the first line of code.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">6 · It made someone's job worse</h4>
+    <p class="small mb0">The drafting got faster and the reviewing got longer, and the reviewer was not
+    consulted. Quiet, effective resistance follows. <b>Fix:</b> ask whose work increases, and fix that
+    before launch. If the answer is “the most senior person”, the design is wrong.</p></div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">The diagnostic question</span>
+    <p class="mb0">Before building anything, ask: <strong>“Whose week gets measurably better, by how
+    much, and have they told us they want this?”</strong> If you cannot answer all three parts with a
+    name and a number, you have a technology project rather than an improvement project. That is
+    sometimes legitimate — as learning — but it should be labelled honestly, and it should not be
+    measured as though it were the other thing.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.7 -->
+<section class="chapter" id="measure">
+  <h2>13.7 · Measuring adoption without fooling yourself</h2>
+  <div class="grid g2">
+    <div class="card" style="border-left:3px solid var(--bad)">
+      <h4 style="color:var(--bad)">Vanity metrics</h4>
+      <ul class="small mb0">
+        <li><strong>Licences assigned.</strong> Measures procurement, not use.</li>
+        <li><strong>Total queries.</strong> Rises with curiosity and with frustrated retries alike.</li>
+        <li><strong>Users who tried it once.</strong> Everyone tries a new tool once.</li>
+        <li><strong>Satisfaction scores in the first month.</strong> Measures novelty.</li>
+        <li><strong>Time saved, self-reported.</strong> People are poor at estimating this and are
+        motivated to please you.</li>
+      </ul>
+    </div>
+    <div class="card" style="border-left:3px solid var(--good)">
+      <h4 style="color:var(--good)">Metrics that mean something</h4>
+      <ul class="small mb0">
+        <li><strong>Weekly returning users</strong> as a share of those who tried it. Retention, not reach.</li>
+        <li><strong>Task completion rate</strong> — of the things people started, how many finished usefully.</li>
+        <li><strong>Override rate, and its trend.</strong> High and falling means learning; high and flat
+        means the system is wrong; near zero means nobody is checking (13.1).</li>
+        <li><strong>End-to-end cycle time</strong> for the real process, measured before and after.</li>
+        <li><strong>Quality of the output of the process</strong>, judged the way it was always judged.</li>
+        <li><strong>A qualitative one:</strong> would you be annoyed if we switched it off tomorrow?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The two numbers to report to a steering committee</span>
+    <p class="mb0"><strong>Weekly returning users</strong> and <strong>end-to-end cycle time for the
+    process</strong>. The first tells you whether the tool earned its place in people's habits; the
+    second tells you whether it changed anything the business cares about. Everything else is
+    supporting detail — and a programme that can only report licences and total queries after six months
+    is telling you something it does not intend to.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.8 -->
+<section class="chapter" id="design">
+  <h2>13.8 · Design the workflow, not the model</h2>
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Workflow design check</h3><span class="tag try">For a specific use case</span></div>
+    <div class="split">
+      <div class="checklist" id="wfList"></div>
+      <div>
+        <div class="verdict info" id="wfVerdict"><span class="lvl">Nothing ticked</span>Work down the list.</div>
+        <div class="card mt1" id="wfGaps" style="min-height:230px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Run the experiment in 13.1 live, with the room voting. Do not warn them. The number of people
+      who accepted a recommendation contradicted by data on the same screen is the most useful statistic
+      you will produce all series, and it is about them rather than about the technology.</li>
+      <li>Say clearly that automation bias is not a failure of intelligence or attention. It is a
+      well-documented, universal response to reliable automation, and the answer is system design, not
+      exhortation.</li>
+      <li>The reliance curve in 13.2 is worth drawing on a whiteboard for managers. “Neither always nor
+      never” is a more useful policy position than either extreme, and it is much easier to defend once
+      they have seen the shape.</li>
+      <li>If your audience includes people whose jobs are affected, address it directly and early.
+      Evasion on this point costs you the room, and the honest version — what changes, what does not,
+      what is still undecided — is generally received better than reassurance.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>One module left before the capstone: an honest account of what these systems cannot do, and of
+  where the genuine disagreements lie.</p>
+  <p><a href="14-limits.html"><strong>Module 14 · Limits and open questions →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  /* ============================================ 13.1 automation bias */
+  var CASES = [
+    { s: 'Dimensional inspection of a machined bracket.',
+      d: 'Drawing:   12.00 mm  +0.02 / −0.02\nMeasured:  12.04 mm  (CMM, calibrated)',
+      r: 'ACCEPT — within tolerance', cf: 94, ok: false,
+      why: '12.04 mm is outside the +0.02 upper limit of 12.02 mm. The correct decision is reject. The recommendation contradicts the two numbers printed directly above it.' },
+    { s: 'Torque verification on a rear suspension fastener.',
+      d: 'Specification: 92 Nm ±4 Nm  (ENG-STD-114 §4.2)\nMeasured:      90.5 Nm',
+      r: 'ACCEPT — within specification', cf: 97, ok: true,
+      why: '90.5 Nm sits inside 88–96 Nm. Correct, and the confidence is appropriate.' },
+    { s: 'Composite panel cure cycle review.',
+      d: 'Standard: 125 °C for 90 min at 6 bar; deviation beyond 5 °C invalidates the cycle\nActual:   118 °C for 90 min at 6 bar',
+      r: 'ACCEPT — minor temperature variation, within normal process spread', cf: 88, ok: false,
+      why: '118 °C is 7 °C below the specified 125 °C, and the standard states that a deviation beyond 5 °C invalidates the cure. The phrase “within normal process spread” is plausible-sounding language with no basis in the standard quoted on the same screen.' },
+    { s: 'Supplier delivery performance review.',
+      d: 'On-time delivery, last 8 quarters (%):\n  96, 94, 95, 92, 93, 95, 94, 93\nThreshold for escalation: below 90% in any quarter',
+      r: 'NO ESCALATION — performance consistently above threshold', cf: 91, ok: true,
+      why: 'Every quarter is above 90%. Correct. Note the mild downward drift, which is worth a comment but not an escalation under the stated rule.' },
+    { s: 'Casting surface inspection.',
+      d: 'CAST-STD-051 §6.3: cracks acceptable up to 2.0 mm, except in\nstress-critical zones (Annex B) where any length is rejectable.\n\nFinding: 1.4 mm crack, located in zone B-3 (listed in Annex B)',
+      r: 'ACCEPT — crack length 1.4 mm is below the 2.0 mm limit', cf: 96, ok: false,
+      why: 'The crack is in a stress-critical zone, where the standard makes it rejectable at any length. The recommendation applied the general limit and silently dropped the exception — the most common and most dangerous kind of error, because the reasoning it gives is true as far as it goes.' },
+    { s: 'Warranty claim cost roll-up for the quarterly review.',
+      d: 'Region claims: 412 + 388 + 205 + 117\nAI-stated total: 1,122',
+      r: 'Total claims this quarter: 1,122', cf: 99, ok: true,
+      why: '412 + 388 + 205 + 117 = 1,122. Correct — but did you add it up, or accept it? A 99% confidence figure on an arithmetic claim is not evidence of anything.' },
+    { s: 'Material certificate check.',
+      d: 'Required: Al 7075-T6\nCertificate states: Al 7075-T651',
+      r: 'FLAG FOR ENGINEERING — temper designation differs from the requirement', cf: 72, ok: true,
+      why: 'Correct to flag it. T651 is a stress-relieved variant of T6 and may well be acceptable, but that is an engineering judgement, not a clerical match. Note the lower confidence — appropriately lower.' },
+    { s: 'Test-rig anomaly alert.',
+      d: 'Channel: oil temperature inlet\nBaseline: 88–92 °C\nLast 6 readings: 91, 92, 94, 97, 101, 106 °C\nAlarm threshold: 110 °C',
+      r: 'NO ACTION — all readings below the 110 °C alarm threshold', cf: 93, ok: false,
+      why: 'Technically true and operationally wrong. The readings are rising monotonically and have left the baseline band entirely; at this rate the threshold is two readings away. A threshold check is not a trend check, and the recommendation answered the question it was designed for rather than the one that mattered.' },
+    { s: 'Deviation approval routing.',
+      d: 'QMS-PROC-007 §3: deviations require written approval from the\nresponsible design authority AND the quality manager.\n\nRequest has: written approval from the design authority.',
+      r: 'INCOMPLETE — quality manager approval is still required', cf: 95, ok: true,
+      why: 'Correct. Both approvals are required and only one is present.' },
+    { s: 'Porosity assessment on a cast housing.',
+      d: 'CAST-STD-051 §6.5: porosity shall not exceed 2% by area in any\n10 mm × 10 mm region, by radiographic inspection.\n\nMeasured: 1.6% by area over the whole component, ultrasonic',
+      r: 'ACCEPT — 1.6% is below the 2% limit', cf: 90, ok: false,
+      why: 'Two problems the recommendation ignores. The limit is per 10 mm × 10 mm region, not a whole-component average — a local concentration can exceed 2% while the average is 1.6%. And the standard specifies radiographic inspection, not ultrasonic. The number matched; nothing else did.' }
+  ];
+  var CS = { i: 0, ans: [], done: false };
+  function drawCase() {
+    var box = document.getElementById('caseBox'), ctrl = document.getElementById('caseCtrl');
+    if (CS.done) {
+      box.innerHTML = '<h3>Finished</h3><p class="small mb0">Your results are below.</p>';
+      ctrl.innerHTML = '<button class="btn sm" id="cAgain">Start again</button>';
+      var a = document.getElementById('cAgain');
+      if (a) a.addEventListener('click', resetCases);
+      reveal();
+      drawDots();
+      return;
+    }
+    var c = CASES[CS.i];
+    box.innerHTML = '<div class="scen">' + c.s + '</div>' +
+      '<div class="casedata">' + esc(c.d) + '</div>' +
+      '<div class="rec"><span class="who">AI recommendation</span>' +
+      '<span class="v">' + c.r + '</span><br><span class="cf">stated confidence ' + c.cf + '%</span></div>';
+    ctrl.innerHTML = '<button class="btn primary" id="cAcc" style="background:var(--accent);border-color:var(--accent)">Accept the recommendation</button>' +
+      '<button class="btn primary" id="cOvr" style="background:var(--warn);border-color:var(--warn)">Override it</button>';
+    document.getElementById('cAcc').addEventListener('click', function () { answer(true); });
+    document.getElementById('cOvr').addEventListener('click', function () { answer(false); });
+    document.getElementById('caseCount').textContent = 'Decision ' + (CS.i + 1) + ' of ' + CASES.length;
+    drawDots();
+  }
+  function answer(accepted) {
+    CS.ans[CS.i] = accepted;
+    CS.i++;
+    if (CS.i >= CASES.length) CS.done = true;
+    drawCase();
+  }
+  function drawDots() {
+    document.getElementById('caseDots').innerHTML = CASES.map(function (c, i) {
+      var a = CS.ans[i];
+      return '<span class="' + (a === undefined ? '' : (a ? 'acc' : 'ovr')) + '">' + (i + 1) + '</span>';
+    }).join('');
+  }
+  function resetCases() {
+    CS = { i: 0, ans: [], done: false };
+    document.getElementById('revealHost').classList.add('hidden');
+    document.getElementById('caseSide').innerHTML =
+      '<p class="small mb0">The system’s accuracy over the last six months was <b>91%</b>, which is better than the team average. It states a confidence figure with each recommendation.</p>' +
+      '<p class="small muted mb0 mt1">No trick questions. Every case can be decided from the information given.</p>';
+    drawCase();
+  }
+  function reveal() {
+    var wrongAccepted = 0, rightOverridden = 0, wrongCaught = 0, nWrong = 0;
+    var rows = '';
+    CASES.forEach(function (c, i) {
+      if (!c.ok) nWrong++;
+      var a = CS.ans[i];
+      var cls, verdict;
+      if (!c.ok && a) { cls = 'bad'; verdict = 'You accepted a wrong recommendation'; wrongAccepted++; }
+      else if (!c.ok && !a) { cls = 'ok'; verdict = 'You caught it'; wrongCaught++; }
+      else if (c.ok && !a) { cls = 'meh'; verdict = 'You overrode a correct recommendation'; rightOverridden++; }
+      else { cls = 'ok'; verdict = 'Correctly accepted'; }
+      rows += '<div class="revrow ' + cls + '"><span class="n">' + (i + 1) + '</span>' +
+        '<span><b>' + verdict + '.</b> ' + c.why + '</span>' +
+        '<span class="pill ' + (cls === 'bad' ? 'no' : cls === 'ok' ? 'ok' : '') + '">' +
+        (c.ok ? 'was right' : 'was WRONG') + '</span></div>';
+    });
+    var pct = nWrong ? wrongCaught / nWrong : 0;
+    var h = '<h3>The reveal</h3>';
+    h += '<div class="grid g3" style="gap:10px;margin-bottom:14px">' +
+      '<div class="bigstat ' + (wrongAccepted > 1 ? 'bad' : wrongAccepted ? 'warn' : 'good') + '"><span class="n">' +
+      wrongAccepted + '</span><span class="l">wrong recommendations you accepted</span></div>' +
+      '<div class="bigstat ' + (pct >= 0.75 ? 'good' : 'warn') + '"><span class="n">' +
+      wrongCaught + '/' + nWrong + '</span><span class="l">errors you caught</span></div>' +
+      '<div class="bigstat"><span class="n">' + rightOverridden + '</span><span class="l">correct ones you overrode</span></div>' +
+      '</div>';
+    h += rows;
+    var comment;
+    if (wrongAccepted === 0 && rightOverridden <= 1) {
+      comment = '<b style="color:var(--good)">Excellent — and note how much attention that required.</b> You read every number against every stated limit, for ten cases, knowing you were being tested. Now imagine case 340 on a Friday afternoon, with the system having been right all week. <b>That is the condition automation bias is measured under, and it is the condition your colleagues will actually work in.</b>';
+    } else if (wrongAccepted <= 1) {
+      comment = '<b>One slip in ten, under test conditions.</b> That is a good result and it is also the point: the error rate of an attentive, warned, unhurried reviewer is not zero. Design the process assuming the reviewer misses some — because the real reviewer is none of those three things.';
+    } else {
+      comment = '<b style="color:var(--bad)">' + wrongAccepted + ' wrong recommendations accepted</b> — with the contradicting data on the same screen, in a test you knew was a test. This is the normal result, it is not a comment on you, and it is the most important finding in this module. A confident recommendation reframes the reviewer’s job from <i>deciding</i> to <i>looking for a reason to disagree</i>, which is a much weaker form of attention.';
+    }
+    if (rightOverridden >= 3) {
+      comment += '<br><br>You also overrode ' + rightOverridden + ' correct recommendations. Over-scepticism has a cost too — that is the algorithm-aversion side of section 13.2, and in aggregate it can make the combined system worse than either the human or the machine alone.';
+    }
+    h += '<div class="callout key mt1" style="margin-bottom:0"><span class="ctitle">What that means</span><p class="mb0">' + comment + '</p></div>';
+    h += '<p class="small muted mt1 mb0">Note which errors were hardest: cases 5 and 10, where the recommendation applied a real rule correctly but <b>dropped an exception or a condition</b>. Its reasoning was true as far as it went. Those are the errors that get through review, and no amount of confidence display would have helped.</p>';
+    document.getElementById('revealHost').innerHTML = h;
+    document.getElementById('revealHost').classList.remove('hidden');
+    document.getElementById('caseSide').innerHTML =
+      '<h4>Results</h4><p class="small">Of the ten recommendations, <b>' + nWrong +
+      ' were wrong</b> in ways detectable from the data you were shown.</p>' +
+      '<p class="small mb0">You accepted ' + wrongAccepted + ' of them.</p>';
+  }
+
+  /* ============================================ 13.2 reliance curve */
+  var RL = { r: 0.5, m: 0.91, h: 0.86, c: 0.6, f: 0.06 }, relPlot;
+  function sysAcc(r) {
+    var m = RL.m, h = RL.h, c = RL.c, f = RL.f;
+    /* accepted blindly */
+    var blind = r * m;
+    /* reviewed: correct answers may be wrongly overridden (then human answers, accuracy h);
+       wrong answers are caught with prob c (then human answers, accuracy h) */
+    var rev = (1 - r) * (m * ((1 - f) + f * h) + (1 - m) * c * h);
+    return blind + rev;
+  }
+  function drawRel() {
+    relPlot.resize(); relPlot.clear();
+    var pts = [], eff = [], i, best = 0, bv = -1;
+    for (i = 0; i <= 100; i++) {
+      var r = i / 100, v = sysAcc(r);
+      pts.push([r, v]);
+      eff.push([r, 1 - r]);
+      if (v > bv) { bv = v; best = r; }
+    }
+    var lo = Math.min(0.6, Math.min(RL.h, RL.m) - 0.05);
+    relPlot.dom = [0, 1]; relPlot.ran = [lo, 1];
+    relPlot.frame({ xticks: 5, yticks: 5, xlabel: 'fraction accepted without checking', ylabel: 'accuracy',
+      yfmt: function (y) { return (y * 100).toFixed(0) + '%'; },
+      xfmt: function (x) { return (x * 100).toFixed(0) + '%'; } });
+    relPlot.clip(function (g) {
+      relPlot.line([[0, RL.h], [1, RL.h]], C('--ink-3'), 1.8, [5, 4]);
+      relPlot.line(eff.map(function (p) { return [p[0], lo + p[1] * (1 - lo)]; }), C('--warn'), 1.6, [4, 4]);
+      relPlot.line(pts, C('--accent'), 3);
+      relPlot.line([[RL.r, lo], [RL.r, 1]], C('--ink-3'), 1.4);
+      relPlot.dot(best, bv, 6, C('--good'), C('--panel'));
+      relPlot.dot(RL.r, sysAcc(RL.r), 6, C('--accent'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--ink-3'); g.fillText('human alone', relPlot.X(0.03), relPlot.Y(RL.h) - 8);
+      g.fillStyle = C('--warn'); g.fillText('reviewing effort', relPlot.X(0.52), relPlot.Y(lo + 0.42 * (1 - lo)));
+      g.fillStyle = C('--good'); g.textAlign = 'center';
+      g.fillText('best', relPlot.X(best), relPlot.Y(bv) - 12);
+    });
+    var cur = sysAcc(RL.r);
+    document.getElementById('oSys').textContent = (cur * 100).toFixed(1) + '%';
+    document.getElementById('oOpt').textContent = (best * 100).toFixed(0) + '%';
+    document.getElementById('bsSys').className = 'bigstat ' + (cur >= bv - 0.005 ? 'good' : cur < RL.h ? 'bad' : 'warn');
+    var n = '<h4>At this setting</h4>';
+    n += '<p class="small">System accuracy <b>' + (cur * 100).toFixed(1) + '%</b>, against <b>' +
+      (RL.h * 100).toFixed(1) + '%</b> for a person working alone and <b>' + (RL.m * 100).toFixed(1) +
+      '%</b> for the model working alone.</p>';
+    if (cur < RL.h) n += '<p class="small mb0" style="color:var(--bad)"><b>The combination is worse than the human alone.</b> That is not a hypothetical — it happens when people accept at a high rate a model that is only slightly better than they are, or when over-scepticism replaces correct answers with worse ones. Adding a good tool to a process can make the process worse.</p>';
+    else if (RL.r > best + 0.15) n += '<p class="small mb0" style="color:var(--warn)"><b>Over-relying.</b> Moving from ' +
+      (RL.r * 100).toFixed(0) + '% to ' + (best * 100).toFixed(0) + '% acceptance would gain ' +
+      ((bv - cur) * 100).toFixed(1) + ' points of accuracy. The question is which cases to review — use the model’s own calibrated confidence (module 8.4) to send the uncertain ones to a person.</p>';
+    else if (RL.r < best - 0.15) n += '<p class="small mb0" style="color:var(--warn)"><b>Reviewing more than pays.</b> You are spending ' +
+      ((1 - RL.r) * 100).toFixed(0) + '% of cases on human review for less accuracy than ' +
+      ((1 - best) * 100).toFixed(0) + '% would give. In practice heavy review also degrades: nobody checks 400 items a day attentively, so the nominal review becomes a rubber stamp and the real reliance is higher than the policy says.</p>';
+    else n += '<p class="small mb0" style="color:var(--good)"><b>Near the optimum.</b> Note that it is not at either extreme, and that it moves when any of the four inputs moves — which is why this should be a measured, reviewed setting rather than a sentence in a policy document.</p>';
+    document.getElementById('relNote').innerHTML = n;
+  }
+
+  /* ============================================ 13.8 workflow checklist */
+  var WF = [
+    ['Someone complained first', 'This started from a named person’s problem, not from an available capability.', 3, 'Go and find the complaint. If there isn’t one, label the project as exploration and measure it as exploration.'],
+    ['The end-to-end time is mapped', 'You know where the hours and the waiting actually go in the current process.', 3, 'Map it before choosing where to intervene, or you will automate the eight-minute step in a three-day process.'],
+    ['It lives inside the existing tools', 'People meet it where they already work, with no extra login.', 3, 'Integration is not polish; it is the difference between adoption and a demo.'],
+    ['Whose work increases is known', 'You have identified who now has more to do — usually the reviewer — and addressed it.', 3, 'Ask them. If the extra load lands on the most senior person, redesign.'],
+    ['Review is funded and specific', 'Review time is allocated, and there is guidance on what to look at.', 3, 'An unfunded review step is an alibi (13.3). Specify the sample rate and what gets checked.'],
+    ['The expected error rate is stated', 'People were told, before go-live, how often it will be wrong and what to do then.', 2, 'Say it early. The first visible error should confirm your description, not contradict it.'],
+    ['A named owner in the receiving function', 'Not the central team — someone whose objectives the tool moves.', 2, 'Without this, handover is abandonment.'],
+    ['Baseline measured before launch', 'Cycle time and quality measured the old way, so you can compare.', 3, 'You cannot claim an improvement you did not measure beforehand. This window closes at go-live.'],
+    ['Override rate is tracked', 'You will know how often people disagree with it, and on which kinds of case.', 2, 'Your most valuable signal: it tells you where to improve, and whether anyone is checking at all.'],
+    ['Skill maintenance considered', 'People who supervise it still practise the underlying judgement.', 2, 'Deskilling is slow and invisible (13.5). Decide now what stays hand-done.'],
+    ['A way to report problems', 'One obvious route, and someone who acts on it.', 2, 'Include the boring failures — a wrong answer acted on, a frustrating loop.'],
+    ['An off switch and a fallback', 'The old process can still be run, and somebody knows how.', 2, 'Test it. Dependency on an unproven tool with no fallback is an operational risk, not an innovation.']
+  ];
+  function drawWf() {
+    var host = document.getElementById('wfList');
+    if (!host.innerHTML) {
+      host.innerHTML = WF.map(function (r, i) {
+        return '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b><span class="sub">' + r[1] + '</span></span></label>';
+      }).join('');
+      host.addEventListener('change', drawWf);
+    }
+    var got = 0, total = 0, gaps = [];
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      var i = parseInt(cb.getAttribute('data-i'), 10);
+      total += WF[i][2];
+      if (cb.checked) got += WF[i][2]; else gaps.push(WF[i]);
+    });
+    var pct = got / total, v = document.getElementById('wfVerdict');
+    if (!got) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nothing ticked</span>Work down the list.';
+    } else if (pct >= 0.85) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">This one will probably stick — ' + Math.round(pct * 100) + '%</span>' +
+        'The workflow has been designed, not just the model. That is the difference between the pilots that survive and the ones that are quietly switched off.';
+    } else if (pct >= 0.5) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">At risk — ' + Math.round(pct * 100) + '%</span>' +
+        'The technical side may be fine; the gaps opposite are the ones that kill pilots. Most are a conversation rather than a work package.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Likely to fail on adoption — ' + Math.round(pct * 100) + '%</span>' +
+        'Nothing here is about the model. Every item is about people, process and measurement — and this is where the failure will come from, months after the technology worked.';
+    }
+    var g = '<h4>Fix in this order</h4>';
+    if (!gaps.length) g += '<p class="small mb0" style="color:var(--good)">Nothing outstanding. Re-check after go-live — several of these decay.</p>';
+    else {
+      g += '<ul class="small mb0">';
+      gaps.sort(function (a, b) { return b[2] - a[2]; }).slice(0, 5).forEach(function (r) {
+        g += '<li><b>' + r[0] + ':</b> ' + r[3] + '</li>';
+      });
+      g += '</ul>';
+    }
+    document.getElementById('wfGaps').innerHTML = g;
+  }
+
+  window.PAGE_INIT = function () {
+    resetCases();
+    relPlot = new AI.Plot(document.getElementById('relCv'),
+      { dom: [0, 1], ran: [0.5, 1], pad: { l: 54, r: 16, t: 20, b: 44 } });
+    AI.bindRange('rRel', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { RL.r = v; drawRel(); });
+    AI.bindRange('rM', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { RL.m = v; drawRel(); });
+    AI.bindRange('rH', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { RL.h = v; drawRel(); });
+    AI.bindRange('rC', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { RL.c = v; drawRel(); });
+    AI.onRedraw(drawRel); drawRel();
+    drawWf();
+  };
+})();
+</script>
+</body>
+</html>

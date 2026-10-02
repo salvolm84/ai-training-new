@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>11 · AI in engineering and simulation — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv { width: 100%; height: 300px; }
+  .cv-sq { width: 100%; height: 270px; }
+  .cv-sm { width: 100%; height: 200px; }
+  .maps { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+  @media (max-width: 900px) { .maps { grid-template-columns: 1fr; } }
+  .maps h4 { margin-bottom: 4px; }
+  .bigstat { text-align: center; padding: 15px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.7rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.warn .n { color: var(--warn); }
+  .eqbox {
+    font-family: var(--mono); font-size: 1rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 14px 16px; overflow-x: auto; line-height: 1.9; text-align: center;
+  }
+  .eqbox .hi { color: var(--accent); font-weight: 700; }
+  .eqbox .hi2 { color: var(--warn); font-weight: 700; }
+  .eqbox small { display: block; font-family: var(--sans); font-size: .8rem; color: var(--ink-3); margin-top: .5em; }
+  .patcard { display: grid; grid-template-columns: 46px 1fr; gap: 14px; align-items: start; }
+  .patcard .ic {
+    width: 46px; height: 46px; border-radius: 11px; display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent); font-size: 1.3rem; font-weight: 700;
+  }
+</style>
+</head>
+<body data-page="p11">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 11 · Part III — Applying it</span>
+  <h1>AI in engineering and simulation</h1>
+  <p class="lead">Every previous module was general. This one is about the work your organisation
+  actually does — and about the one application of machine learning that engineers tend to find
+  genuinely exciting rather than merely interesting.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">The pattern, in one sentence</span>
+  <p class="mb0">You have a function that is <strong>expensive to evaluate</strong> — a CFD run, a
+  structural solve, a test on a rig — and you need to evaluate it thousands of times to explore or
+  optimise a design. Machine learning lets you <strong>learn a cheap approximation from a few hundred
+  expensive evaluations</strong>, then explore in the approximation. That is the whole idea, it predates
+  deep learning by decades, and it is where most of the engineering value is.</p>
+</div>
+
+<!-- ============================================= 11.1 -->
+<section class="chapter" id="surrogate">
+  <h2>11.1 · Surrogate models</h2>
+  <p>Suppose a single simulation of a cooling duct takes 45 minutes and returns one number — say
+  efficiency — for one pair of design parameters. A full sweep of a 40×40 grid is 1,600 runs, or 50
+  days of cluster time. A surrogate changes the arithmetic: sample the design space sparsely, fit a
+  model, and then evaluate that model a million times for free.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Fit a surrogate to an expensive solver</h3><span class="tag try">Slide the sample count from 6 to 60</span></div>
+    <div class="maps">
+      <div>
+        <h4>Truth — the “solver”</h4>
+        <canvas id="truthCv" class="cv-sq"></canvas>
+      </div>
+      <div>
+        <h4>Surrogate — learned from the dots</h4>
+        <canvas id="surrCv" class="cv-sq"></canvas>
+      </div>
+      <div>
+        <h4>Absolute error</h4>
+        <canvas id="errCv" class="cv-sq"></canvas>
+      </div>
+    </div>
+    <div class="split-wide mt1">
+      <div class="grid g2" style="gap:14px">
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Solver runs used for training</span><span class="val" id="sNOut"></span></div>
+          <input type="range" id="sN" min="4" max="60" step="1" value="12">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Sampling plan</span><span class="val" id="sPlanName">Latin hypercube</span></div>
+          <div class="segmented" id="sPlanSeg">
+            <button data-v="lhs" class="on">Latin hypercube</button>
+            <button data-v="rand">Random</button>
+            <button data-v="grid">Grid</button>
+          </div>
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Kernel width</span><span class="val" id="sEpsOut"></span></div>
+          <input type="range" id="sEps" min="0.12" max="1.2" step="0.02" value="0.42">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Minutes per solver run</span><span class="val" id="sMinOut"></span></div>
+          <input type="range" id="sMin" min="1" max="600" step="1" value="45">
+        </div>
+      </div>
+      <div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsRmse"><span class="n" id="oRmse">—</span><span class="l">RMS error</span></div>
+          <div class="bigstat" id="bsMax"><span class="n" id="oMax">—</span><span class="l">worst-case error</span></div>
+          <div class="bigstat"><span class="n" id="oCost">—</span><span class="l">solver time spent</span></div>
+          <div class="bigstat good"><span class="n" id="oSaved">—</span><span class="l">vs a 40×40 sweep</span></div>
+        </div>
+        <div class="card mt1" id="sNote" style="min-height:150px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">The surrogate here is radial-basis-function interpolation — closely
+    related to kriging, which is what most commercial optimisation tools use. It fits by solving one
+    linear system, needs no GPU and no training loop. A neural network would work too and is usually
+    unnecessary at these sample counts; that is worth saying out loud.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Try 6 samples</span>
+      <p class="mb0">The surrogate is confidently smooth and wrong in the interesting region. With very
+      few samples you have not built a model of the physics — you have built a model of your ignorance,
+      and it looks just as authoritative.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Try 40 samples</span>
+      <p class="mb0">Mean error drops to around 5% of the output range — and the error map shows where it
+      remains: at the <strong>sharpest peak and the domain edges</strong>. That is the honest, typical
+      outcome. A few dozen runs buys you the shape of the whole design space; it does not buy you a
+      trustworthy value at the most interesting point, which is why section 11.3 spends its runs there.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Then move the kernel width</span>
+      <p class="mb0">Too narrow and the surrogate spikes at each sample and says nothing in between; too
+      wide and it flattens out real features. This is the bias–variance trade-off from module 3.4 wearing
+      different clothes.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 11.2 -->
+<section class="chapter" id="doe">
+  <h2>11.2 · Where to put the samples</h2>
+  <p>With a fixed budget of expensive runs, <em>which</em> runs you choose matters as much as the model
+  you fit. This is design of experiments, and it is the cheapest thing on this page to get right.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Sampling plans compared</h3><span class="tag">Computed live over 20 repeats</span></div>
+    <div class="split">
+      <div><canvas id="doeCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Median surrogate error against number of runs, for each plan,
+        averaged over repeated draws.</p>
+      </div>
+      <div>
+        <div class="card">
+          <h4>Grid</h4>
+          <p class="small mb0">Even coverage, but the number of runs explodes with dimensions: 5 levels
+          in 6 variables is 15,625 runs. It also wastes samples by repeating the same value of each
+          variable many times — with 25 grid points you only ever test 5 distinct values per parameter.</p>
+        </div>
+        <div class="card mt1">
+          <h4>Random</h4>
+          <p class="small mb0">Scales to any number of dimensions and needs no planning. Its weakness is
+          clumping: with few samples you get holes in the space by pure luck, and you will not know
+          where.</p>
+        </div>
+        <div class="card mt1">
+          <h4>Latin hypercube</h4>
+          <p class="small mb0">Every variable is sampled once in each of <em>n</em> equal strata, so the
+          projection onto each parameter is perfectly uniform however few runs you use. Same cost as
+          random, better coverage, one line of code. <strong>Use this by default.</strong></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 11.3 -->
+<section class="chapter" id="optimise">
+  <h2>11.3 · Optimising with a surrogate</h2>
+  <p>The payoff is not a pretty contour plot — it is finding the best design with the fewest expensive
+  runs. The strategy that works is iterative: fit a surrogate, ask it where the optimum is, spend
+  <em>one</em> real solver run there, add the result, refit. Each run makes the surrogate sharper exactly
+  where you care.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Surrogate-guided optimisation</h3><span class="tag try">Step the infill and watch the dots cluster</span></div>
+    <div class="split-wide">
+      <div><canvas id="optCv" class="cv" style="height:340px"></canvas>
+        <p class="small muted mt1 mb0">Grey dots: the initial sampling plan. Orange dots: infill runs,
+        chosen by the surrogate. Cross: true optimum.</p>
+      </div>
+      <div>
+        <div class="btnrow">
+          <button class="btn primary" id="oStep">One infill run</button>
+          <button class="btn" id="oRun10">Ten infill runs</button>
+          <button class="btn sm" id="oReset">Restart</button>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Initial plan size</span><span class="val" id="oInitOut"></span></div>
+          <input type="range" id="oInit" min="4" max="24" step="1" value="8">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Exploration weight</span><span class="val" id="oExpOut"></span></div>
+          <input type="range" id="oExp" min="0" max="1.2" step="0.05" value="0.35">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat"><span class="n" id="oCalls">—</span><span class="l">solver runs used</span></div>
+          <div class="bigstat" id="bsGap"><span class="n" id="oBest">—</span><span class="l">best found / true best</span></div>
+        </div>
+        <div class="card mt1" id="oNote" style="min-height:190px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Exploration weight adds a bonus for sampling far from existing
+    points. At zero the method exploits greedily and can converge on a local optimum; too high and it
+    wanders. Real implementations do this more elegantly with a kriging model's own uncertainty estimate
+    — the principle is identical.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">The number that matters to a project manager</span>
+    <p class="mb0">A 40×40 brute-force sweep is 1,600 solver runs. Surrogate-guided optimisation
+    typically finds the same optimum in <strong>20 to 40</strong>. At 45 minutes a run that is 50 days
+    versus one day — and it is the difference between “we explored three candidate designs” and “we
+    explored the space”.</p>
+  </div>
+</section>
+
+<!-- ============================================= 11.4 -->
+<section class="chapter" id="pinn">
+  <h2>11.4 · Physics-informed models</h2>
+  <p>A pure data-driven fit knows nothing about physics, so with sparse noisy measurements it will
+  happily produce a curve that violates conservation. The fix is elegant: <strong>add the governing
+  equation to the loss function</strong>. The model is then penalised both for disagreeing with the
+  sensors and for being physically impossible.</p>
+
+  <div class="eqbox">
+    Loss = <span class="hi">‖ u(x<sub>i</sub>) − measured<sub>i</sub> ‖²</span>
+    + λ · <span class="hi2">‖ u″(x) − f(x) ‖²</span>
+    + boundary conditions
+    <small>fit the data · <span style="color:var(--warn)">obey the equation</span> · respect the boundaries</small>
+  </div>
+
+  <p>Below: a real example you can drive. A beam-like deflection problem with a known governing
+  equation, five noisy sensors, and a nine-parameter model fitted by least squares. With the physics
+  term switched off the problem is underdetermined: the fit chases the noise at the sensors and drifts
+  between them. Switch it on and the same five measurements recover the true solution to within a
+  fraction of a percent.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · The same data, with and without physics</h3><span class="tag try">Set the physics weight to zero, then raise it</span></div>
+    <div class="split">
+      <div><canvas id="pinnCv" class="cv" style="height:330px"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Physics weight λ</span><span class="val" id="pLamOut"></span></div>
+          <input type="range" id="pLam" min="0" max="3" step="0.02" value="1.4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Sensor noise</span><span class="val" id="pNoiseOut"></span></div>
+          <input type="range" id="pNoise" min="0" max="0.06" step="0.002" value="0.02">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Number of sensors</span><span class="val" id="pSensOut"></span></div>
+          <input type="range" id="pSens" min="3" max="12" step="1" value="5">
+        </div>
+        <div class="btnrow">
+          <button class="btn sm" id="pNew">New noise sample</button>
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsPerr"><span class="n" id="pErr">—</span><span class="l">error vs truth</span></div>
+          <div class="bigstat" id="bsPres"><span class="n" id="pRes">—</span><span class="l">physics residual</span></div>
+        </div>
+        <div class="card mt1" id="pNote" style="min-height:170px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Here the basis is polynomial and the fit is a single linear
+    least-squares solve, so you can see exactly what is happening. A physics-informed <em>neural
+    network</em> replaces the polynomial with a network and the direct solve with gradient descent,
+    using automatic differentiation to get u″. The idea on the slider is the same idea.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Why engineers should care</span>
+      <p class="mb0">Physics constraints act as an enormous amount of free training data. Five sensors
+      plus a differential equation beat fifty sensors without one. In practice this is what makes learned
+      models viable in domains where measurements are expensive — and it means the result
+      <strong>respects conservation instead of merely interpolating</strong>, which is the difference
+      between a model an engineer will use and one they will not.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">And the honest caveats</span>
+      <ul class="mb0">
+        <li>λ is another hyperparameter, and a badly chosen one makes training unstable.</li>
+        <li>For problems a classical solver handles well, a PINN is usually slower and less accurate.
+        Their value is in inverse problems, sparse data, and awkward or unknown boundary conditions.</li>
+        <li>Getting the equation wrong now means being confidently, physically wrong.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 11.5 -->
+<section class="chapter" id="envelope">
+  <h2>11.5 · The envelope problem</h2>
+  <p>This is the single most important warning in the module, and the failure mode that has embarrassed
+  the most engineering teams. A surrogate is an interpolator. Inside the region you sampled it is
+  excellent. Outside it, <strong>it does not become uncertain — it becomes confidently wrong</strong>,
+  and it does not tell you which regime you are in.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Lab · Extrapolation</h3><span class="tag try">Narrow the sampled range</span></div>
+    <div class="split">
+      <div><canvas id="extCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Shaded: the region that was sampled. Outside it the surrogate is
+        an extrapolation, and its output is not a prediction of anything.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Sampled range</span><span class="val" id="eRangeOut"></span></div>
+          <input type="range" id="eRange" min="0.2" max="1" step="0.02" value="0.5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Samples inside that range</span><span class="val" id="eNOut"></span></div>
+          <input type="range" id="eN" min="4" max="24" step="1" value="10">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat good"><span class="n" id="eIn">—</span><span class="l">error inside the envelope</span></div>
+          <div class="bigstat bad"><span class="n" id="eOut">—</span><span class="l">error outside it</span></div>
+        </div>
+        <div class="card mt1" id="eNote" style="min-height:200px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">What to insist on, every time a surrogate is used</span>
+    <ol class="mb0">
+      <li><strong>The validity envelope is documented</strong> — the range of every input variable that
+      was sampled.</li>
+      <li><strong>The model refuses, or flags loudly, outside it.</strong> A distance-to-nearest-sample
+      check is five lines of code and prevents most of these incidents.</li>
+      <li><strong>Any design the surrogate proposes is verified with a real solver run</strong> before it
+      influences a decision. One run. It is the cheapest insurance available.</li>
+      <li><strong>Nothing safety-relevant is signed off on a surrogate result alone.</strong> Use it to
+      explore and to rank; use the solver and the test to decide.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============================================= 11.6 -->
+<section class="chapter" id="patterns">
+  <h2>11.6 · The other patterns worth knowing</h2>
+  <div class="grid g2">
+    <div class="card"><div class="patcard"><div class="ic">◲</div><div>
+      <h3>Vision inspection</h3>
+      <p class="small">A convolutional network on inspection images (module 3.5). The mature, boring,
+      high-return application.</p>
+      <p class="small mb0"><b>The real work:</b> consistent labelling (module 7.2), lighting and fixture
+      repeatability, and the cost trade-off in module 8.2. Where defects are rare or unlabelled, invert
+      it into anomaly detection on good parts (module 6.6).</p>
+    </div></div></div>
+
+    <div class="card"><div class="patcard"><div class="ic">∿</div><div>
+      <h3>Telemetry anomaly detection</h3>
+      <p class="small">Learn what a healthy run looks like from your enormous archive of uneventful data,
+      then flag deviation — on a rig, a vehicle, a machine tool or a whole line.</p>
+      <p class="small mb0"><b>Why it works here:</b> no labelled failures required, and you already own
+      the data. The hard part is defining “healthy” across operating conditions, and the alarm-rate
+      trade-off from module 6.6.</p>
+    </div></div></div>
+
+    <div class="card"><div class="patcard"><div class="ic">◈</div><div>
+      <h3>Generative and topology-driven design</h3>
+      <p class="small">State loads, constraints and objectives; let an algorithm propose geometries —
+      classically by topology optimisation, increasingly with generative models proposing candidates that
+      a solver then evaluates.</p>
+      <p class="small mb0"><b>Realistic framing:</b> it widens the set of candidates a human considers.
+      It does not replace the engineer, and manufacturability constraints are where most of these
+      proposals die.</p>
+    </div></div></div>
+
+    <div class="card"><div class="patcard"><div class="ic">◱</div><div>
+      <h3>Digital twins</h3>
+      <p class="small">A live model of a specific physical asset, updated with its own sensor data — for
+      state estimation, remaining-life prediction and what-if analysis.</p>
+      <p class="small mb0"><b>Honest note:</b> the term covers everything from a dashboard to a
+      full physics model with data assimilation. Ask which one is meant before agreeing to build one, and
+      ask what decision it will change.</p>
+    </div></div></div>
+
+    <div class="card"><div class="patcard"><div class="ic">⌸</div><div>
+      <h3>Meshing, solvers and pre-processing</h3>
+      <p class="small">Learned models that accelerate the unglamorous parts: mesh generation, initial
+      guesses for iterative solvers, turbulence closure, super-resolution of coarse simulation fields.</p>
+      <p class="small mb0"><b>Why this is the quiet winner:</b> a 3× speed-up of an existing validated
+      workflow needs no new sign-off process, and compounds across every project that uses it.</p>
+    </div></div></div>
+
+    <div class="card"><div class="patcard"><div class="ic">▤</div><div>
+      <h3>Engineering knowledge retrieval</h3>
+      <p class="small">The RAG pattern from module 4.8 applied to standards, test reports, deviation
+      records, lessons learned and supplier documentation.</p>
+      <p class="small mb0"><b>Why it is usually the best first project:</b> minimal risk under module
+      10, no labelling, immediate value, and it surfaces your document-governance problems early —
+      which you need to fix anyway.</p>
+    </div></div></div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">If you are choosing one place to start</span>
+    <p class="mb0">Start with <strong>a surrogate for a simulation your team already runs repeatedly</strong>,
+    or <strong>retrieval over your own engineering documents</strong>. Both use data you already have, need
+    no labelling campaign, sit outside the heavy regulatory tiers, and produce a number a project manager
+    can understand: solver-days saved, or hours of searching saved. Vision inspection is higher value and
+    a much bigger project — do it second, with a labelling budget.</p>
+  </div>
+</section>
+
+<!-- ============================================= 11.7 -->
+<section class="chapter" id="vv">
+  <h2>11.7 · Validation, and the conversation with certification</h2>
+  <p>Simulation earned its place in engineering through decades of verification and validation practice.
+  Learned models have to earn it the same way, and the good news is that the framework already exists —
+  you are adding a component to it, not inventing a new discipline.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>How a surrogate fits V&amp;V</h3>
+      <ul class="small mb0">
+        <li><strong>Verification:</strong> does the surrogate reproduce the solver it was trained on,
+        within a stated tolerance, on held-out runs it never saw? This is module 8, and it is
+        straightforward because you can generate as much test data as you can afford.</li>
+        <li><strong>Validation:</strong> does the underlying solver reproduce reality? Unchanged by the
+        surrogate — and note that the surrogate can never be more valid than the solver it imitates.</li>
+        <li><strong>Uncertainty:</strong> report surrogate error as an additional, separate contribution
+        to the total uncertainty budget. Do not fold it into solver error and hope.</li>
+        <li><strong>Envelope:</strong> stated explicitly, and enforced in the tooling (section 11.5).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What makes certification people comfortable</h3>
+      <ul class="small mb0">
+        <li>The learned model <strong>informs</strong> a decision; a validated method <strong>makes</strong>
+        it. Use the surrogate to explore and rank, the solver and the test to confirm.</li>
+        <li>Determinism: a fixed model version, fixed seeds, versioned training data, reproducible
+        outputs. Non-determinism is the thing they object to most, and it is largely avoidable.</li>
+        <li>Traceability: which model version, trained on which runs, produced which number, on which
+        date. Exactly the module 8 rerun procedure.</li>
+        <li>A documented failure mode and detection: what happens when it is wrong, and how you find out.</li>
+      </ul>
+      <p class="small mt1 mb0">Have this conversation at the start of the project, not at sign-off. The
+      answer is rarely no — but it is usually “not in that role, and not without that documentation”.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>This is the module where the room becomes actively enthusiastic rather than politely
+      interested. Leave time for questions; they will be specific and they will be good.</li>
+      <li>The surrogate lab is the demo to run slowly. Set solver time to something they recognise from
+      their own work and let the saved-days figure do the arguing.</li>
+      <li>Section 11.5 is the one to be firm about. Someone in the room has already shipped a decision
+      based on an extrapolated model, and the room will know it.</li>
+      <li>Good closing question to the audience: “name one simulation your team runs more than fifty
+      times a year.” That is the first surrogate project, and it usually pays for the whole programme.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Where we go next</h2>
+  <p>Module 12 is a workshop rather than a lecture: the practical skill of getting useful work out of a
+  language model, which is the capability the largest number of people in your company will actually
+  use.</p>
+  <p><a href="12-prompting.html"><strong>Module 12 · Prompting →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+
+  /* ================================================ linear algebra */
+  function solve(A, b) {
+    var n = b.length, i, j, k;
+    A = A.map(function (r) { return r.slice(); }); b = b.slice();
+    for (i = 0; i < n; i++) {
+      var p = i;
+      for (k = i + 1; k < n; k++) if (Math.abs(A[k][i]) > Math.abs(A[p][i])) p = k;
+      var t = A[i]; A[i] = A[p]; A[p] = t;
+      var tb = b[i]; b[i] = b[p]; b[p] = tb;
+      if (Math.abs(A[i][i]) < 1e-13) { A[i][i] = 1e-13; }
+      for (k = i + 1; k < n; k++) {
+        var f = A[k][i] / A[i][i];
+        for (j = i; j < n; j++) A[k][j] -= f * A[i][j];
+        b[k] -= f * b[i];
+      }
+    }
+    var x = new Array(n).fill(0);
+    for (i = n - 1; i >= 0; i--) {
+      var s = b[i];
+      for (j = i + 1; j < n; j++) s -= A[i][j] * x[j];
+      x[i] = s / A[i][i];
+    }
+    return x;
+  }
+  /* least squares via normal equations, rows weighted */
+  function lstsq(rows, rhs, w, ncol, ridge) {
+    var A = [], b = [], i, j, k;
+    for (i = 0; i < ncol; i++) { A.push(new Array(ncol).fill(0)); b.push(0); }
+    for (k = 0; k < rows.length; k++) {
+      var wk = w[k] * w[k];
+      for (i = 0; i < ncol; i++) {
+        for (j = 0; j < ncol; j++) A[i][j] += wk * rows[k][i] * rows[k][j];
+        b[i] += wk * rows[k][i] * rhs[k];
+      }
+    }
+    for (i = 0; i < ncol; i++) A[i][i] += (ridge || 1e-9);
+    return solve(A, b);
+  }
+
+  /* ================================================ colour maps */
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  var VIR = [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]];
+  function viridis(t) {
+    t = Math.max(0, Math.min(1, t));
+    var s = t * (VIR.length - 1), i = Math.min(VIR.length - 2, Math.floor(s)), f = s - i;
+    var r = Math.round(lerp(VIR[i][0], VIR[i + 1][0], f));
+    var g = Math.round(lerp(VIR[i][1], VIR[i + 1][1], f));
+    var b = Math.round(lerp(VIR[i][2], VIR[i + 1][2], f));
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+  function heat(t) {
+    t = Math.max(0, Math.min(1, t));
+    return 'rgb(' + Math.round(lerp(248, 181, t)) + ',' + Math.round(lerp(250, 42, t)) + ',' + Math.round(lerp(252, 42, t)) + ')';
+  }
+
+  /* ================================================ the "solver" */
+  function solver(x, y) {
+    return 0.75 * Math.exp(-(((x - 0.42) * (x - 0.42) + (y + 0.34) * (y + 0.34)) / 0.16))
+      + 1.0 * Math.exp(-(((x + 0.46) * (x + 0.46) + (y - 0.40) * (y - 0.40)) / 0.22))
+      + 0.35 * Math.exp(-(((x - 0.55) * (x - 0.55) + (y - 0.62) * (y - 0.62)) / 0.30))
+      - 0.18 * x * y + 0.06 * Math.sin(3.4 * x) + 0.4;
+  }
+  var TRUE_OPT = (function () {
+    var best = -1e9, bx = 0, by = 0;
+    for (var i = 0; i <= 220; i++) for (var j = 0; j <= 220; j++) {
+      var x = -1 + 2 * i / 220, y = -1 + 2 * j / 220, v = solver(x, y);
+      if (v > best) { best = v; bx = x; by = y; }
+    }
+    return { v: best, x: bx, y: by };
+  })();
+
+  /* ================================================ RBF surrogate */
+  function fitRBF(pts, vals, eps) {
+    var n = pts.length, A = [], i, j;
+    for (i = 0; i < n; i++) {
+      var row = [];
+      for (j = 0; j < n; j++) {
+        var d2 = (pts[i][0] - pts[j][0]) * (pts[i][0] - pts[j][0]) + (pts[i][1] - pts[j][1]) * (pts[i][1] - pts[j][1]);
+        row.push(Math.exp(-d2 / (eps * eps)));
+      }
+      row[i] += 1e-8;
+      A.push(row);
+    }
+    var w = solve(A, vals.slice());
+    return function (x, y) {
+      var s = 0;
+      for (var k = 0; k < n; k++) {
+        var d2 = (x - pts[k][0]) * (x - pts[k][0]) + (y - pts[k][1]) * (y - pts[k][1]);
+        s += w[k] * Math.exp(-d2 / (eps * eps));
+      }
+      return s;
+    };
+  }
+  function plan(kind, n) {
+    var p = [], i, j;
+    if (kind === 'grid') {
+      var k = Math.max(2, Math.round(Math.sqrt(n)));
+      for (i = 0; i < k; i++) for (j = 0; j < k; j++) {
+        p.push([-0.9 + 1.8 * i / (k - 1), -0.9 + 1.8 * j / (k - 1)]);
+      }
+      return p.slice(0, n);
+    }
+    if (kind === 'rand') {
+      for (i = 0; i < n; i++) p.push([Math.random() * 1.9 - 0.95, Math.random() * 1.9 - 0.95]);
+      return p;
+    }
+    /* latin hypercube */
+    var ax = [], ay = [];
+    for (i = 0; i < n; i++) { ax.push(i); ay.push(i); }
+    for (i = n - 1; i > 0; i--) { j = Math.floor(Math.random() * (i + 1)); var t = ay[i]; ay[i] = ay[j]; ay[j] = t; }
+    for (i = 0; i < n; i++) {
+      p.push([-0.95 + 1.9 * (ax[i] + Math.random()) / n, -0.95 + 1.9 * (ay[i] + Math.random()) / n]);
+    }
+    return p;
+  }
+
+  /* ================================================ 11.1 surrogate lab */
+  var SG = { n: 12, plan: 'lhs', eps: 0.42, min: 45, pts: [], vals: [], f: null };
+  var tPlot, sPlot, ePlot;
+  function sgFit() {
+    SG.pts = plan(SG.plan, SG.n);
+    SG.vals = SG.pts.map(function (p) { return solver(p[0], p[1]); });
+    SG.f = fitRBF(SG.pts, SG.vals, SG.eps);
+  }
+  function fieldRange() {
+    var lo = 1e9, hi = -1e9;
+    for (var i = 0; i <= 40; i++) for (var j = 0; j <= 40; j++) {
+      var v = solver(-1 + 2 * i / 40, -1 + 2 * j / 40);
+      lo = Math.min(lo, v); hi = Math.max(hi, v);
+    }
+    return [lo, hi];
+  }
+  var FR = fieldRange();
+  function drawField(plot, fn, cmap, lo, hi, pts, marks) {
+    plot.resize(); plot.clear();
+    var cell = 6;
+    plot.clip(function (ctx) {
+      for (var px = plot.pad.l; px < plot.pad.l + plot.pw; px += cell) {
+        for (var py = plot.pad.t; py < plot.pad.t + plot.ph; py += cell) {
+          var v = fn(plot.iX(px + cell / 2), plot.iY(py + cell / 2));
+          ctx.fillStyle = cmap((v - lo) / (hi - lo));
+          ctx.fillRect(px, py, cell + 1, cell + 1);
+        }
+      }
+    });
+    plot.frame({ xticks: 4, yticks: 4, xlabel: 'design variable 1', ylabel: 'design variable 2' });
+    if (pts) plot.clip(function () {
+      pts.forEach(function (p) { plot.dot(p[0], p[1], 3.6, '#ffffff', '#111111'); });
+    });
+    if (marks) plot.clip(function (g) {
+      marks.forEach(function (m) {
+        var x = plot.X(m[0]), y = plot.Y(m[1]);
+        g.strokeStyle = m[2] || '#fff'; g.lineWidth = 2.6;
+        g.beginPath(); g.moveTo(x - 7, y - 7); g.lineTo(x + 7, y + 7);
+        g.moveTo(x + 7, y - 7); g.lineTo(x - 7, y + 7); g.stroke();
+      });
+    });
+  }
+  function drawSG() {
+    drawField(tPlot, solver, viridis, FR[0], FR[1], null, [[TRUE_OPT.x, TRUE_OPT.y, '#fff']]);
+    drawField(sPlot, SG.f, viridis, FR[0], FR[1], SG.pts, null);
+    var rmse = 0, mx = 0, cnt = 0;
+    for (var i = 0; i <= 48; i++) for (var j = 0; j <= 48; j++) {
+      var x = -0.98 + 1.96 * i / 48, y = -0.98 + 1.96 * j / 48;
+      var e = Math.abs(SG.f(x, y) - solver(x, y));
+      rmse += e * e; mx = Math.max(mx, e); cnt++;
+    }
+    rmse = Math.sqrt(rmse / cnt);
+    var span = FR[1] - FR[0];
+    drawField(ePlot, function (x, y) { return Math.abs(SG.f(x, y) - solver(x, y)); }, heat, 0, Math.max(0.02, mx), SG.pts, null);
+
+    document.getElementById('oRmse').textContent = (rmse / span * 100).toFixed(1) + '%';
+    document.getElementById('oMax').textContent = (mx / span * 100).toFixed(1) + '%';
+    var hrs = SG.n * SG.min / 60;
+    document.getElementById('oCost').textContent = hrs < 24 ? hrs.toFixed(1) + ' h' : (hrs / 24).toFixed(1) + ' d';
+    var sweep = 1600 * SG.min / 60 / 24;
+    document.getElementById('oSaved').textContent = (sweep - hrs / 24).toFixed(0) + ' d saved';
+    document.getElementById('bsRmse').className = 'bigstat ' + (rmse / span < 0.03 ? 'good' : rmse / span < 0.08 ? 'warn' : 'bad');
+    document.getElementById('bsMax').className = 'bigstat ' + (mx / span < 0.08 ? 'good' : mx / span < 0.2 ? 'warn' : 'bad');
+
+    var n = '<h4>Reading it</h4>';
+    if (rmse / span > 0.12) n += '<p class="small"><b style="color:var(--bad)">Not usable yet.</b> ' + SG.n +
+      ' runs is too few for this landscape. The surrogate has invented smooth structure where it has no information — look at the error map and note that <b>the surrogate itself gives you no warning</b>.</p>';
+    else if (rmse / span > 0.05) n += '<p class="small"><b style="color:var(--warn)">Usable for ranking, not for numbers.</b> Mean error ' +
+      (rmse / span * 100).toFixed(1) + '% of the output range. Good enough to decide which region of the design space is interesting; not good enough to quote a value from.</p>';
+    else n += '<p class="small"><b style="color:var(--good)">Good enough to explore in.</b> Mean error ' +
+      (rmse / span * 100).toFixed(1) + '% of the output range, worst case ' + (mx / span * 100).toFixed(1) +
+      '%. At this level you can search the whole space in the surrogate and spend real solver runs only on the candidates you shortlist.</p>';
+    n += '<p class="small mb0">Note where the error concentrates: at the sharp peak and at the edges. That is a hint about where the next runs should go — which is section 11.3.</p>';
+    document.getElementById('sNote').innerHTML = n;
+  }
+
+  /* ================================================ 11.2 DoE comparison */
+  var doePlot;
+  function doeCurves() {
+    var kinds = ['lhs', 'rand', 'grid'], out = {};
+    var span = FR[1] - FR[0];
+    kinds.forEach(function (k) {
+      out[k] = [];
+      for (var n = 4; n <= 48; n += 4) {
+        var errs = [];
+        for (var rep = 0; rep < (k === 'grid' ? 1 : 12); rep++) {
+          var p = plan(k, n);
+          var v = p.map(function (q) { return solver(q[0], q[1]); });
+          var f = fitRBF(p, v, 0.42);
+          var s = 0, c = 0;
+          for (var i = 0; i <= 20; i++) for (var j = 0; j <= 20; j++) {
+            var x = -0.95 + 1.9 * i / 20, y = -0.95 + 1.9 * j / 20;
+            var e = f(x, y) - solver(x, y);
+            s += e * e; c++;
+          }
+          errs.push(Math.sqrt(s / c) / span);
+        }
+        errs.sort(function (a, b) { return a - b; });
+        out[k].push([n, errs[Math.floor(errs.length / 2)]]);
+      }
+    });
+    return out;
+  }
+  var DOE = null;
+  function drawDoe() {
+    if (!DOE) DOE = doeCurves();
+    doePlot.resize(); doePlot.clear();
+    doePlot.dom = [4, 48]; doePlot.ran = [0, 0.3];
+    doePlot.frame({ xticks: 4, yticks: 3, xlabel: 'solver runs', ylabel: 'median surrogate error',
+      yfmt: function (y) { return (y * 100).toFixed(0) + '%'; } });
+    var cols = { lhs: '--good', rand: '--warn', grid: '--ink-3' };
+    var names = { lhs: 'Latin hypercube', rand: 'Random', grid: 'Grid' };
+    doePlot.clip(function (g) {
+      ['grid', 'rand', 'lhs'].forEach(function (k, idx) {
+        doePlot.line(DOE[k].map(function (p) { return [p[0], Math.min(0.3, p[1])]; }), C(cols[k]), 2.4);
+        g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+        g.fillStyle = C(cols[k]);
+        g.fillText(names[k], doePlot.X(30), doePlot.Y(0.27 - idx * 0.028));
+      });
+    });
+  }
+
+  /* ================================================ 11.3 optimisation */
+  var OP = { init: 8, exp: 0.35, pts: [], vals: [], infill: 0, f: null }, optPlot;
+  function opReset() {
+    OP.pts = plan('lhs', OP.init);
+    OP.vals = OP.pts.map(function (p) { return solver(p[0], p[1]); });
+    OP.infill = 0;
+    opFit(); drawOpt();
+  }
+  function opFit() { OP.f = fitRBF(OP.pts, OP.vals, 0.42); }
+  function minDist(x, y) {
+    var d = 1e9;
+    OP.pts.forEach(function (p) { d = Math.min(d, Math.hypot(x - p[0], y - p[1])); });
+    return d;
+  }
+  function opStep() {
+    /* maximise surrogate + exploration bonus */
+    var best = -1e9, bx = 0, by = 0;
+    for (var i = 0; i <= 90; i++) for (var j = 0; j <= 90; j++) {
+      var x = -0.98 + 1.96 * i / 90, y = -0.98 + 1.96 * j / 90;
+      var s = OP.f(x, y) + OP.exp * minDist(x, y);
+      if (s > best) { best = s; bx = x; by = y; }
+    }
+    OP.pts.push([bx, by]);
+    OP.vals.push(solver(bx, by));
+    OP.infill++;
+    opFit(); drawOpt();
+  }
+  function drawOpt() {
+    drawField(optPlot, OP.f, viridis, FR[0], FR[1], null, [[TRUE_OPT.x, TRUE_OPT.y, '#ffffff']]);
+    optPlot.clip(function () {
+      OP.pts.forEach(function (p, i) {
+        var isInfill = i >= OP.init;
+        optPlot.dot(p[0], p[1], isInfill ? 5 : 3.4, isInfill ? C('--warn') : '#dddddd', '#111111');
+      });
+    });
+    var bi = 0;
+    OP.vals.forEach(function (v, i) { if (v > OP.vals[bi]) bi = i; });
+    var ratio = OP.vals[bi] / TRUE_OPT.v;
+    document.getElementById('oCalls').textContent = OP.pts.length;
+    document.getElementById('oBest').textContent = (ratio * 100).toFixed(1) + '%';
+    document.getElementById('bsGap').className = 'bigstat ' + (ratio > 0.99 ? 'good' : ratio > 0.93 ? 'warn' : 'bad');
+    var n = '<h4>Progress</h4>';
+    n += '<p class="small">' + OP.init + ' initial runs plus <b>' + OP.infill +
+      ' infill runs</b> = ' + OP.pts.length + ' solver evaluations. Best design found is at <b>' +
+      (ratio * 100).toFixed(1) + '%</b> of the true optimum.</p>';
+    if (ratio > 0.995) n += '<p class="small mb0" style="color:var(--good)"><b>Found it.</b> A brute-force 40×40 sweep would have taken 1,600 runs to do this. You used ' +
+      OP.pts.length + ' — a factor of ' + Math.round(1600 / OP.pts.length) + '. Note how the orange dots cluster: once the surrogate knew roughly where the peak was, it spent every subsequent run refining that region.</p>';
+    else if (OP.infill === 0) n += '<p class="small mb0">Press <b>One infill run</b>. Each press asks the surrogate where it believes the best design is, spends one real solver run there, and refits.</p>';
+    else n += '<p class="small mb0">Still climbing. If it has settled on the wrong peak, raise the exploration weight and restart — greedy search on a multi-modal landscape converges confidently on second-best, and this landscape has three peaks.</p>';
+    document.getElementById('oNote').innerHTML = n;
+  }
+
+  /* ================================================ 11.4 physics-informed */
+  var PN = { lam: 1.4, noise: 0.02, sens: 5, data: [] }, pinnPlot;
+  var NB = 9;
+  function uTrue(x) { return x + x * x - 2 * x * x * x; }
+  function fSrc() { return function (x) { return 2 - 12 * x; }; }
+  function basis(x) { var r = [], p = 1; for (var k = 0; k < NB; k++) { r.push(p); p *= x; } return r; }
+  function basisD2(x) {
+    var r = [];
+    for (var k = 0; k < NB; k++) r.push(k >= 2 ? k * (k - 1) * Math.pow(x, k - 2) : 0);
+    return r;
+  }
+  function pnData() {
+    PN.data = [];
+    for (var i = 0; i < PN.sens; i++) {
+      var x = 0.08 + 0.84 * i / Math.max(1, PN.sens - 1);
+      var u = 0, v = 0;
+      while (!u) u = Math.random();
+      while (!v) v = Math.random();
+      var g = Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+      PN.data.push([x, uTrue(x) + g * PN.noise]);
+    }
+  }
+  function pnFit(lam) {
+    var rows = [], rhs = [], w = [], i;
+    PN.data.forEach(function (d) { rows.push(basis(d[0])); rhs.push(d[1]); w.push(1); });
+    rows.push(basis(0)); rhs.push(0); w.push(8);
+    rows.push(basis(1)); rhs.push(0); w.push(8);
+    if (lam > 0) {
+      var f = fSrc();
+      for (i = 0; i <= 20; i++) {
+        var xc = i / 20;
+        rows.push(basisD2(xc)); rhs.push(f(xc)); w.push(lam);
+      }
+    }
+    return lstsq(rows, rhs, w, NB, 1e-8);
+  }
+  function evalB(c, x) { var b = basis(x), s = 0; for (var k = 0; k < NB; k++) s += c[k] * b[k]; return s; }
+  function evalB2(c, x) { var b = basisD2(x), s = 0; for (var k = 0; k < NB; k++) s += c[k] * b[k]; return s; }
+  function drawPinn() {
+    pinnPlot.resize(); pinnPlot.clear();
+    pinnPlot.dom = [-0.02, 1.02]; pinnPlot.ran = [-0.15, 0.45];
+    pinnPlot.frame({ xticks: 5, yticks: 4, xlabel: 'position x', ylabel: 'deflection u(x)' });
+    var cData = pnFit(0), cPhys = pnFit(PN.lam);
+    var tp = [], dp = [], pp = [], i;
+    for (i = 0; i <= 200; i++) {
+      var x = i / 200;
+      tp.push([x, uTrue(x)]);
+      dp.push([x, evalB(cData, x)]);
+      pp.push([x, evalB(cPhys, x)]);
+    }
+    pinnPlot.clip(function (g) {
+      pinnPlot.line([[0, 0], [1, 0]], C('--line'), 1);
+      pinnPlot.line(tp, C('--ink-3'), 2.2, [6, 4]);
+      pinnPlot.line(dp, C('--bad'), 2.2);
+      pinnPlot.line(pp, C('--accent'), 3);
+      PN.data.forEach(function (d) { pinnPlot.dot(d[0], d[1], 6, C('--warn'), C('--panel')); });
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--ink-3'); g.fillText('true solution', pinnPlot.X(0.03), pinnPlot.Y(0.42));
+      g.fillStyle = C('--bad'); g.fillText('data only (λ = 0)', pinnPlot.X(0.03), pinnPlot.Y(0.385));
+      g.fillStyle = C('--accent'); g.fillText('physics-informed', pinnPlot.X(0.03), pinnPlot.Y(0.35));
+      g.fillStyle = C('--warn'); g.fillText('sensors', pinnPlot.X(0.03), pinnPlot.Y(0.315));
+    });
+    var e1 = 0, e0 = 0, res = 0;
+    for (i = 0; i <= 100; i++) {
+      var x2 = i / 100;
+      e1 += Math.pow(evalB(cPhys, x2) - uTrue(x2), 2);
+      e0 += Math.pow(evalB(cData, x2) - uTrue(x2), 2);
+      res += Math.pow(evalB2(cPhys, x2) - fSrc()(x2), 2);
+    }
+    e1 = Math.sqrt(e1 / 101); e0 = Math.sqrt(e0 / 101); res = Math.sqrt(res / 101);
+    document.getElementById('pErr').textContent = e1.toFixed(4);
+    document.getElementById('pRes').textContent = res.toFixed(3);
+    document.getElementById('bsPerr').className = 'bigstat ' + (e1 < 0.01 ? 'good' : e1 < 0.04 ? 'warn' : 'bad');
+    document.getElementById('bsPres').className = 'bigstat ' + (res < 0.3 ? 'good' : res < 2 ? 'warn' : 'bad');
+
+    var n = '<h4>What the physics term bought</h4>';
+    if (PN.lam < 0.05) n += '<p class="small"><b style="color:var(--bad)">Physics off.</b> Nine parameters, ' +
+      PN.sens + ' measurements: the problem is underdetermined, so the fit chases the noise at the sensors and drifts between them. Error against the truth: <b>' +
+      e0.toFixed(4) + '</b> — and nothing in the fit tells you it is wrong. It satisfies the data perfectly well.</p>';
+    else n += '<p class="small">With λ = ' + PN.lam.toFixed(2) + ' the fit obeys the governing equation at 21 collocation points and the boundary conditions, so the same <b>' +
+      PN.sens + ' noisy sensors</b> now recover the true solution. Error <b>' + e1.toFixed(4) +
+      '</b> against <b>' + e0.toFixed(4) + '</b> without physics — a factor of ' + (e0 / Math.max(e1, 1e-9)).toFixed(0) + '.</p>';
+    n += '<p class="small mb0">Try dropping the sensors to 3. The data-only fit collapses completely; the physics-informed one barely notices, because <b>most of its information is coming from the equation, not the measurements</b>.</p>';
+    document.getElementById('pNote').innerHTML = n;
+  }
+
+  /* ================================================ 11.5 extrapolation */
+  var EX = { range: 0.5, n: 10 }, extPlot;
+  function ex1d(x) { return Math.sin(3.1 * x) * 0.6 + 0.35 * x * x * x - 0.2 * x; }
+  function drawExt() {
+    extPlot.resize(); extPlot.clear();
+    extPlot.dom = [-1.6, 1.6]; extPlot.ran = [-1.6, 1.6];
+    var pts = [], vals = [], i;
+    for (i = 0; i < EX.n; i++) {
+      var x = -EX.range + 2 * EX.range * i / Math.max(1, EX.n - 1);
+      pts.push([x, 0]); vals.push(ex1d(x));
+    }
+    var f = fitRBF(pts, vals, Math.max(0.12, EX.range / 2.2));
+    extPlot.frame({ xticks: 4, yticks: 4, xlabel: 'input', ylabel: 'output' });
+    extPlot.clip(function (g) {
+      g.fillStyle = C('--accent-soft');
+      g.fillRect(extPlot.X(-EX.range), extPlot.pad.t, extPlot.X(EX.range) - extPlot.X(-EX.range), extPlot.ph);
+      var tp = [], sp = [];
+      for (i = 0; i <= 300; i++) {
+        var x = -1.6 + 3.2 * i / 300;
+        tp.push([x, ex1d(x)]);
+        sp.push([x, Math.max(-1.6, Math.min(1.6, f(x, 0)))]);
+      }
+      extPlot.line(tp, C('--ink-3'), 2.2, [6, 4]);
+      extPlot.line(sp, C('--accent'), 3);
+      pts.forEach(function (p, k) { extPlot.dot(p[0], vals[k], 5, C('--warn'), C('--panel')); });
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'center';
+      g.fillStyle = C('--accent');
+      g.fillText('sampled envelope', extPlot.X(0), extPlot.Y(1.45));
+      g.textAlign = 'left';
+      g.fillStyle = C('--ink-3'); g.fillText('truth', extPlot.X(-1.55), extPlot.Y(-1.3));
+    });
+    var ein = 0, cin = 0, eout = 0, cout = 0;
+    for (i = 0; i <= 300; i++) {
+      var x = -1.5 + 3 * i / 300;
+      var e = Math.abs(f(x, 0) - ex1d(x));
+      if (Math.abs(x) <= EX.range) { ein += e * e; cin++; } else { eout += e * e; cout++; }
+    }
+    ein = cin ? Math.sqrt(ein / cin) : 0;
+    eout = cout ? Math.sqrt(eout / cout) : 0;
+    document.getElementById('eIn').textContent = ein.toFixed(3);
+    document.getElementById('eOut').textContent = eout.toFixed(2);
+    document.getElementById('eNote').innerHTML =
+      '<h4>The ratio is the point</h4>' +
+      '<p class="small">Inside the sampled range the error is <b>' + ein.toFixed(3) +
+      '</b>. Outside it, <b>' + eout.toFixed(2) + '</b> — roughly <b>' +
+      (eout / Math.max(ein, 1e-6)).toFixed(0) + '× worse</b>.</p>' +
+      '<p class="small">And notice the <em>shape</em> of the failure: the surrogate does not blow up or go noisy. It flattens out smoothly and plausibly towards zero, because that is what a sum of decaying basis functions does far from its centres. <b>It looks like a physical result.</b></p>' +
+      '<p class="small mb0">A reviewer looking only at the curve, without the shaded region drawn on it, would have no way to tell. That is why the envelope has to be documented and enforced in code rather than remembered.</p>';
+  }
+
+  window.PAGE_INIT = function () {
+    tPlot = new AI.Plot(document.getElementById('truthCv'), { dom: [-1, 1], ran: [-1, 1], pad: { l: 38, r: 10, t: 10, b: 34 } });
+    sPlot = new AI.Plot(document.getElementById('surrCv'), { dom: [-1, 1], ran: [-1, 1], pad: { l: 38, r: 10, t: 10, b: 34 } });
+    ePlot = new AI.Plot(document.getElementById('errCv'), { dom: [-1, 1], ran: [-1, 1], pad: { l: 38, r: 10, t: 10, b: 34 } });
+    sgFit();
+    AI.bindRange('sN', function (v) { return v + ' runs'; }, function (v) { SG.n = v; sgFit(); drawSG(); });
+    AI.bindRange('sEps', function (v) { return v.toFixed(2); }, function (v) { SG.eps = v; sgFit(); drawSG(); });
+    AI.bindRange('sMin', function (v) { return v + ' min'; }, function (v) { SG.min = v; drawSG(); });
+    AI.segmented(document.getElementById('sPlanSeg'), function (v) {
+      SG.plan = v;
+      document.getElementById('sPlanName').textContent =
+        v === 'lhs' ? 'Latin hypercube' : v === 'rand' ? 'Random' : 'Grid';
+      sgFit(); drawSG();
+    });
+    AI.onRedraw(drawSG); drawSG();
+
+    doePlot = new AI.Plot(document.getElementById('doeCv'),
+      { dom: [4, 48], ran: [0, 0.3], pad: { l: 58, r: 14, t: 14, b: 42 } });
+    AI.onRedraw(drawDoe); drawDoe();
+
+    optPlot = new AI.Plot(document.getElementById('optCv'),
+      { dom: [-1, 1], ran: [-1, 1], pad: { l: 44, r: 14, t: 14, b: 40 } });
+    AI.bindRange('oInit', function (v) { return v + ' runs'; }, function (v) { OP.init = v; opReset(); });
+    AI.bindRange('oExp', function (v) { return v.toFixed(2); }, function (v) { OP.exp = v; });
+    AI.on(document.getElementById('oStep'), 'click', opStep);
+    AI.on(document.getElementById('oRun10'), 'click', function () { for (var i = 0; i < 10; i++) opStep(); });
+    AI.on(document.getElementById('oReset'), 'click', opReset);
+    AI.onRedraw(drawOpt);
+    opReset();
+
+    pinnPlot = new AI.Plot(document.getElementById('pinnCv'),
+      { dom: [-0.02, 1.02], ran: [-0.15, 0.45], pad: { l: 52, r: 14, t: 14, b: 42 } });
+    pnData();
+    AI.bindRange('pLam', function (v) { return v < 0.05 ? 'off' : v.toFixed(2); }, function (v) { PN.lam = v; drawPinn(); });
+    AI.bindRange('pNoise', function (v) { return v.toFixed(3); }, function (v) { PN.noise = v; pnData(); drawPinn(); });
+    AI.bindRange('pSens', function (v) { return v; }, function (v) { PN.sens = v; pnData(); drawPinn(); });
+    AI.on(document.getElementById('pNew'), 'click', function () { pnData(); drawPinn(); });
+    AI.onRedraw(drawPinn); drawPinn();
+
+    extPlot = new AI.Plot(document.getElementById('extCv'),
+      { dom: [-1.6, 1.6], ran: [-1.6, 1.6], pad: { l: 46, r: 14, t: 14, b: 42 } });
+    AI.bindRange('eRange', function (v) { return '±' + v.toFixed(2); }, function (v) { EX.range = v; drawExt(); });
+    AI.bindRange('eN', function (v) { return v; }, function (v) { EX.n = v; drawExt(); });
+    AI.onRedraw(drawExt); drawExt();
+  };
+})();
+</script>
+</body>
+</html>
