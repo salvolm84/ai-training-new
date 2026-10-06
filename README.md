@@ -23,6 +23,8 @@ since it does not depend on the room's wifi.
 | <kbd>T</kbd> | light / dark theme |
 | <kbd>←</kbd> <kbd>→</kbd> | previous / next module |
 
+The flag switcher in the top bar swaps between English and Italian, staying on the same page and section.
+
 Speaker notes also appear when a page is printed to PDF.
 
 ## Contents
@@ -76,6 +78,7 @@ one-day engineering, two-hour general, and others).
 ```
 index.html                  course hub and delivery tracks
 01-history.html … 21-capstone.html
+it/                         Italian edition: the same 22 pages under the same file names
 assets/
 ├── style.css               shared design system, light and dark
 └── app.js                  shared navigation, plotting and a small MLP implementation
@@ -84,6 +87,19 @@ assets/
 
 The pages share `assets/`, so keep the whole folder together when distributing it. All paths are
 relative, so the site works identically from a web server, from a local folder, or from a USB stick.
+
+## Languages
+
+The English pages sit at the root and the Italian edition in `it/`, one file per page with the same
+name, so `05-cost.html#training` and `it/05-cost.html#training` are the same place in both languages.
+Each page declares its language in `<html lang="…">`; `assets/app.js` reads it, translates the shared
+shell (navigation, byline, footer, tooltips) and points the flag switcher at the counterpart page.
+Italian pages group thousands with a narrow space and keep the decimal point, so the prose matches
+the calculators' live output.
+
+When you change a page, make the same change to its Italian copy — nothing checks that the two
+editions agree. Section ids, element ids and JS logic must stay identical in both; only visible
+text differs.
 
 ## Hosting on GitHub Pages
 

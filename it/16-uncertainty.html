@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>16 · Incertezza — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 330px; }
+  .cv-sm { width: 100%; height: 190px; }
+  .cv-map { width: 100%; height: 290px; }
+  @media (max-width: 600px) {
+    .cv { height: 270px; }
+    .cv-map { height: 240px; }
+    .cv-sm { height: 170px; }
+  }
+  .bigstat { text-align: center; padding: 14px 10px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.45rem; font-weight: 700; display: block; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .bigstat .l { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.warn .n { color: var(--warn); }
+  .bigstat.acc .n { color: var(--accent); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .8rem; color: var(--ink-3); margin-top: .55rem; }
+  .legend span { white-space: nowrap; }
+  .legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .legend i.ln { height: 3px; vertical-align: 2px; border-radius: 2px; }
+  .legend i.dash { height: 0; border-top: 2px dashed var(--ink-3); background: none; vertical-align: 3px; border-radius: 0; }
+  .legend i.dot { width: 9px; height: 9px; border-radius: 50%; }
+  .eqbox { text-align: center; }
+  .maps2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 900px) { .maps2 { grid-template-columns: 1fr; } }
+  .maps2 h4 { margin-bottom: 4px; }
+  .memlist { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .memlist span {
+    font-family: var(--mono); font-size: .8rem; font-weight: 700; padding: 3px 8px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--panel);
+  }
+  .clicktip { font-size: .8rem; color: var(--ink-3); margin-top: .4rem; }
+  .sbar { grid-template-columns: minmax(110px, 170px) 1fr 52px; }
+  @media (max-width: 600px) { .sbar { grid-template-columns: 100px 1fr 46px; font-size: .8rem; } }
+  .twocause { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 700px) { .twocause { grid-template-columns: 1fr; } }
+  canvas.clickable { cursor: crosshair; }
+</style>
+</head>
+<body data-page="p16">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 16 · Parte IV — Portarla in produzione</span>
+  <h1>Incertezza: quanto è sicuro il modello?</h1>
+  <p class="lead">Finora ogni previsione di questo corso è stata un singolo numero. Non accetteresti una
+  misura senza barra d’errore, e non dovresti accettare senza barra d’errore nemmeno l’output di un modello.
+  Questo modulo spiega da dove viene quella barra d’errore, quali metodi ne danno una onesta e come capire
+  quando ti sta mentendo.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">Il punto, in una frase</span>
+  <p class="mb0">Un modello utile dice due cose: <strong>la sua stima migliore</strong> e <strong>quanto
+  fidarsi di quella stima per questo particolare input</strong>. La seconda è più difficile da produrre,
+  manca più spesso ed è di solito proprio ciò da cui dipende la decisione.</p>
+</div>
+
+<!-- ============================================= 16.1 -->
+<section class="chapter" id="kinds">
+  <h2>16.1 · Due modi di non sapere</h2>
+  <p>Fai girare la stessa vettura, con lo stesso assetto e lo stesso pilota, per dieci giri di fila, e il
+  tempo sul giro si sposta comunque di qualche decimo: una raffica nella curva veloce, una traiettoria
+  leggermente diversa, gomme con un giro in più, la pista che si gomma. Quella dispersione è
+  l’<strong>incertezza aleatoria</strong> — la variabilità del fenomeno stesso. Più dati ti dicono quanto è
+  grande. Non la rendono più piccola.</p>
+  <p>Ora chiedi al modello il tempo sul giro con un angolo d’ala che nessuno ha provato. Ti darà un numero,
+  ma quel numero è un’ipotesi, perché lì non ci sono evidenze. Questa è l’<strong>incertezza
+  epistemica</strong> — l’ignoranza del modello. A differenza della prima, si riduce quando raccogli dati
+  nel posto giusto.</p>
+  <p>La distinzione conta perché le due richiedono azioni opposte. L’incertezza epistemica dice
+  <em>prova di più, qui</em> — oppure non usare il modello qui. L’incertezza aleatoria dice che nessuna
+  quantità di prove servirà: rendi più stretto il processo, oppure progetta tenendo conto della dispersione.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Tempo sul giro in funzione dell’angolo dell’ala posteriore</h3><span class="tag try">Scegli “Buco al centro”, sonda a 10°, poi alza il rumore</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="aCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent);opacity:.35"></i>epistemica (i modelli non concordano)</span>
+          <span><i style="background:var(--warn);opacity:.3"></i>+ aleatoria (dispersione tra giri)</span>
+          <span><i class="ln" style="background:var(--accent)"></i>media dell’ensemble</span>
+          <span><i class="dash"></i>verità</span>
+          <span><i class="dot" style="background:var(--ink-2)"></i>giri</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Piano di prova</span><span class="val" id="aPlanName">Buco al centro</span></div>
+          <div class="segmented" id="aPlanSeg">
+            <button data-v="even">Distribuzione uniforme</button>
+            <button data-v="gap" class="on">Buco al centro</button>
+            <button data-v="narrow">Stretto</button>
+          </div>
+        </div>
+        <div class="grid g2" style="gap:12px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Giri percorsi</span><span class="val" id="aNOut"></span></div>
+            <input type="range" id="aN" min="6" max="120" step="1" value="30">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Dispersione tra un giro e l’altro</span><span class="val" id="aNoiseOut"></span></div>
+            <input type="range" id="aNoise" min="0.02" max="0.6" step="0.01" value="0.12">
+          </div>
+        </div>
+        <div class="ctrl mt1">
+          <div class="ctrl-label"><span>Angolo d’ala della sonda</span><span class="val" id="aProbeOut"></span></div>
+          <input type="range" id="aProbe" min="0" max="20" step="0.1" value="10">
+        </div>
+        <div class="grid g3" style="gap:8px">
+          <div class="bigstat acc"><span class="n" id="aEpi">—</span><span class="l">epistemica</span></div>
+          <div class="bigstat warn"><span class="n" id="aAle">—</span><span class="l">aleatoria</span></div>
+          <div class="bigstat"><span class="n" id="aTot">—</span><span class="l">totale</span></div>
+        </div>
+        <div class="btnrow"><button class="btn sm" id="aNew">Fai girare un’altra serie di giri</button></div>
+        <div class="card" id="aNote" style="min-height:170px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Tutti i valori sono ±2σ (circa una banda al 95%), in secondi. Il modello è
+    un ensemble di 25 piccole reti, ciascuna adattata a un ricampionamento bootstrap dei giri; la dispersione
+    tra di esse è la parte epistemica. La parte aleatoria è stimata dall’errore di ciascun giro rispetto ai
+    modelli che non l’hanno visto (residui out-of-bag) e assunta costante al variare dell’angolo d’ala. I dati
+    sono sintetici e con seme fisso; la curva “verità” è mostrata solo perché l’abbiamo inventata noi.</p>
+  </div>
+
+  <div class="twocause mt2">
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Epistemica: la riduci comprando dati</span>
+      <p class="mb0">Vive nei buchi e oltre i bordi di ciò che hai provato. Risponde alla domanda
+      <em>dove va fatta la prossima prova?</em> — che è esattamente la regola di infill del modulo 11.3, ora
+      con una vera motivazione alle spalle. È anche l’incertezza che diventa pericolosa quando un modello
+      viene usato fuori dal suo inviluppo (modulo 11.5).</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Aleatoria: progetta tenendone conto</span>
+      <p class="mb0">Fissa un limite inferiore a quanto bene <em>qualsiasi</em> modello possa prevedere un
+      singolo giro, per quanti dati tu abbia. Ridurla è un problema del processo di prova (stesse gomme,
+      stesso carburante, stesso pilota), non un problema di modellazione. Dove è grande, l’output utile è una
+      distribuzione, non un punto.</p>
+    </div>
+  </div>
+
+  <details class="reveal deeper">
+    <summary>Il confine tra le due è una scelta di modellazione</summary>
+    <div class="body">
+      <p class="small">La temperatura della pista cambia il tempo sul giro. Se non la registri, il suo effetto
+      si presenta come dispersione e sembra aleatorio. Registrala e aggiungila al modello, e la stessa
+      variabilità diventa spiegata — e l’incertezza sul suo effetto diventa epistemica. Molto di ciò che i team
+      chiamano “rumore” è una variabile che nessuno ha registrato.</p>
+      <p class="small mb0">Quindi quando qualcuno dice “è solo rumore”, la domanda utile da fare è: <em>rumore
+      rispetto a quali input?</em> A volte il modo più economico per ridurre una barra d’errore è un sensore,
+      non un modello.</p>
+    </div>
+  </details>
+
+  <div class="note">
+    <ul>
+      <li>Circa 6 minuti. Parti da “Buco al centro” con la sonda a 10°: la banda blu si gonfia nel buco.
+      Poi passa a “Distribuzione uniforme” e guardala collassare. Poi trascina in alto la dispersione: la banda
+      arancione cresce ovunque e nessun piano la sistema.</li>
+      <li>Porta il numero di giri a 120 con il piano a buco. La banda epistemica nel buco si muove appena —
+      più giri nel posto sbagliato non comprano nulla. Di solito con gli ingegneri di prova questo funziona
+      bene.</li>
+      <li>Domanda prevedibile: “quindi in pratica quale delle due è più grande?” Risposta onesta: dentro un
+      inviluppo ben provato, di solito l’aleatoria; ai bordi e nelle configurazioni nuove, l’epistemica, e di
+      molto.</li>
+      <li>Domanda prevedibile: “25 modelli costano tanto?” Qui sono minuscoli. La sezione 16.3 affronta il
+      costo per le reti vere.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 16.2 -->
+<section class="chapter" id="gp">
+  <h2>16.2 · Processi gaussiani: un surrogato che sa dove è già stato</h2>
+  <p>Il modulo 11 ha costruito surrogati che davano un numero ovunque e nessun avvertimento. Un processo
+  gaussiano — la stessa cosa che gli strumenti di ottimizzazione chiamano <strong>kriging</strong> — risolve
+  il problema. Invece di adattare una curva, parte da una distribuzione a priori su funzioni lisce e la
+  condiziona sulle tue simulazioni. Ne escono una media (il surrogato) e una varianza piccola vicino alle
+  simulazioni, che torna a crescere fino al valore a priori lontano da esse.</p>
+  <p>L’ipotesi di regolarità sta nel <strong>kernel</strong>. La scelta abituale dice che due input più vicini
+  di circa una lunghezza di correlazione ℓ si comportano in modo simile:</p>
+
+  <div class="eqbox">
+    k(x, x′) = s² · exp( −(x − x′)² / 2<span class="hi">ℓ</span>² )
+    <br>
+    media μ(x) = k<sub>*</sub>ᵀ (K + <span class="hi2">σₙ</span>² I)⁻¹ y &nbsp;&nbsp;·&nbsp;&nbsp;
+    varianza σ²(x) = k(x, x) − k<sub>*</sub>ᵀ (K + <span class="hi2">σₙ</span>² I)⁻¹ k<sub>*</sub>
+    <small>K: kernel tra le simulazioni · k<sub>*</sub>: kernel tra le simulazioni e il nuovo punto ·
+    una fattorizzazione di Cholesky di una matrice n × n è tutto l’adattamento</small>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Un surrogato CFD con barre d’errore oneste</h3><span class="tag try">Clicca sul grafico dove la banda è più larga per aggiungere una simulazione</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="bCv" class="cv clickable"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent);opacity:.35"></i>banda al 95% sulla curva</span>
+          <span><i style="background:var(--accent);opacity:.14"></i>banda al 95% su una nuova simulazione</span>
+          <span><i class="ln" style="background:var(--accent)"></i>media del GP</span>
+          <span><i class="dash"></i>verità</span>
+          <span><i class="dot" style="background:var(--ink-2)"></i>simulazioni iniziali</span>
+          <span><i class="dot" style="background:var(--warn)"></i>le tue simulazioni</span>
+        </div>
+        <p class="clicktip">Clicca o tocca un punto qualsiasi del grafico per spendere un’altra simulazione CFD a quell’altezza da terra.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Simulazioni CFD iniziali (intervallo provato 28–70 mm)</span><span class="val" id="bNOut"></span></div>
+          <input type="range" id="bN" min="2" max="30" step="1" value="7">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Lunghezza di correlazione ℓ</span><span class="val" id="bEllOut"></span></div>
+          <input type="range" id="bEll" min="1" max="40" step="0.5" value="8">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Rumore ipotizzato σₙ (dispersione vera delle simulazioni: 15 count)</span><span class="val" id="bSnOut"></span></div>
+          <input type="range" id="bSn" min="0.001" max="0.15" step="0.001" value="0.015">
+        </div>
+        <div class="btnrow">
+          <button class="btn sm primary" id="bFit">Stima ℓ e σₙ per massima verosimiglianza</button>
+          <button class="btn sm" id="bReset">Rimuovi le mie simulazioni</button>
+          <label class="check"><input type="checkbox" id="bDraws"> Mostra 3 campioni dalla distribuzione a posteriori</label>
+        </div>
+        <div class="grid g2" style="gap:8px">
+          <div class="bigstat" id="bsCovIn"><span class="n" id="bCovIn">—</span><span class="l">copertura della banda al 95%, intervallo provato</span></div>
+          <div class="bigstat" id="bsCovOut"><span class="n" id="bCovOut">—</span><span class="l">copertura fuori da esso</span></div>
+          <div class="bigstat"><span class="n" id="bWIn">—</span><span class="l">± medio dentro</span></div>
+          <div class="bigstat"><span class="n" id="bWOut">—</span><span class="l">± medio fuori</span></div>
+        </div>
+        <div class="card mt1" id="bNote" style="min-height:150px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Coefficiente di deportanza posteriore in funzione dell’altezza da terra
+    anteriore, da un “solutore” sintetico con uno stallo dell’effetto suolo sotto circa 27 mm. Un count di
+    deportanza vale 0.001. Il GP è calcolato dal vivo: kernel RBF, ampiezza del segnale fissata a 0.3, media
+    costante pari alla media delle simulazioni, fattorizzazione di Cholesky con un piccolo jitter sulla
+    diagonale per sicurezza numerica. La copertura è verificata su 400 simulazioni sintetiche tenute da parte
+    tra 20 e 80 mm, esattamente come una verifica di affidabilità del modulo 8.4.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Cosa fa bene</span>
+      <p class="mb0">La banda è stretta dove hai simulazioni e larga dove non ne hai, che è esattamente
+      l’avvertimento che secondo il modulo 11.5 mancava. Dà anche all’ottimizzatore qualcosa di fondato da
+      inseguire: “campiona dove la media più due sigma è massima” è il bonus di esplorazione dell’11.3, fatto
+      come si deve. L’expected improvement, usato dalla maggior parte degli strumenti commerciali, è un
+      raffinamento della stessa idea.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Cosa sbaglia</span>
+      <p class="mb0">La banda è onesta solo quanto il kernel. Sotto i 28 mm la banda del GP si allarga, ma è
+      centrata su una continuazione liscia, perché nulla gli ha detto che esiste uno stallo. Guarda la
+      copertura fuori dall’intervallo provato: <strong>una banda larga non è la stessa cosa di una banda
+      corretta</strong>. Un’affermazione al 95% è un’affermazione di calibrazione (modulo 8.4), e la verifichi
+      su simulazioni tenute da parte, non guardando il grafico.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 8 minuti; questo è il pezzo forte. Parti con 7 simulazioni, poi clicca una o due volte nella
+      parte più larga della banda. Ogni clic è “una simulazione CFD”; la sala vede la banda stringersi sul
+      punto.</li>
+      <li>Poi rompilo: ℓ = 1.5 (ogni millimetro indipendente — la media collassa tra una simulazione e
+      l’altra), poi ℓ = 35 con σₙ minimo (non riesce ad adattarsi — oppure si adatta con una sicurezza
+      assurda). Poi premi il pulsante di massima verosimiglianza e lascialo riprendersi. È ciò che il software
+      fa per loro in silenzio.</li>
+      <li>Clicca una simulazione a 22 mm. Il GP scopre lo stallo solo perché hai guardato. Sottolinea che
+      nulla nel modello ti avrebbe detto di guardare lì, tranne la larghezza della banda.</li>
+      <li>Domanda prevedibile: “scala?” Il costo è n³ — va bene fino a qualche migliaio di simulazioni, il che
+      copre la maggior parte del lavoro CFD e al banco prova. Oltre ci sono le approssimazioni sparse; oppure
+      usa la sezione 16.3.</li>
+      <li>Domanda prevedibile: “più di un input?” Stessa matematica, una lunghezza di correlazione per input.
+      Le lunghezze di correlazione stimate sono di per sé un’utile lettura di sensibilità.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 16.3 -->
+<section class="chapter" id="ensembles">
+  <h2>16.3 · Ensemble: il metodo pratico per reti e alberi</h2>
+  <p>I processi gaussiani non scalano a milioni di punti di addestramento né alle immagini. Per le reti
+  neurali, il metodo che funziona meglio in pratica è quasi imbarazzante nella sua semplicità:
+  <strong>addestrane diverse e guarda quanto non sono d’accordo</strong>. Cinque reti con pesi iniziali
+  casuali diversi — un “deep ensemble” — restano una delle baseline di incertezza più solide in letteratura.
+  Per gli alberi lo ottieni quasi gratis: una random forest è già un ensemble di alberi addestrati su
+  campioni bootstrap.</p>
+  <p>Dove i membri hanno visto dati, sono costretti a concordare. Dove non li hanno visti, ognuno riempie il
+  buco a modo suo, e la dispersione diventa un segnale di incertezza. Se quel segnale cresca nei posti giusti
+  dipende dalla famiglia di modelli — ed è a questo che serve questo laboratorio.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Degrado gomme in funzione della temperatura della pista</h3><span class="tag try">Confronta reti e alberi fuori da 18–38 °C</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="cCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i class="ln" style="background:var(--accent);opacity:.45"></i>membri</span>
+          <span><i style="background:var(--accent);opacity:.25"></i>media ± 2 × dispersione</span>
+          <span><i class="dash"></i>verità</span>
+          <span><i style="background:var(--good);opacity:.25"></i>intervallo provato</span>
+        </div>
+        <canvas id="cCv2" class="cv-sm mt1"></canvas>
+        <div class="legend">
+          <span><i class="ln" style="background:var(--accent)"></i>2 × dispersione dell’ensemble (cosa ti dice)</span>
+          <span><i class="ln" style="background:var(--bad)"></i>errore reale della media (cosa dovrebbe dirti)</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Famiglia di modelli</span><span class="val" id="cMethodName">Reti neurali</span></div>
+          <div class="segmented" id="cMethodSeg">
+            <button data-v="nn" class="on">Reti neurali</button>
+            <button data-v="tree">Alberi in bagging</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Membri dell’ensemble</span><span class="val" id="cKOut"></span></div>
+          <input type="range" id="cK" min="2" max="15" step="1" value="6">
+        </div>
+        <div class="btnrow">
+          <button class="btn sm" id="cNew">Semi casuali diversi</button>
+          <span class="small muted" id="cStatus"></span>
+        </div>
+        <div class="grid g2" style="gap:8px">
+          <div class="bigstat" id="bsCIn"><span class="n" id="cCovIn">—</span><span class="l">la banda contiene la verità, dentro</span></div>
+          <div class="bigstat" id="bsCOut"><span class="n" id="cCovOut">—</span><span class="l">la banda contiene la verità, fuori</span></div>
+          <div class="bigstat"><span class="n" id="cSpRatio">—</span><span class="l">dispersione fuori ÷ dentro</span></div>
+          <div class="bigstat"><span class="n" id="cErRatio">—</span><span class="l">errore fuori ÷ dentro</span></div>
+        </div>
+        <div class="card mt1" id="cNote" style="min-height:170px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Reti: 1–16–1 tanh, addestrate dal vivo con Adam, ciascun membro su un
+    ricampionamento bootstrap dei 40 punti e da un’inizializzazione diversa con seme fisso (un deep ensemble
+    puro salta il ricampionamento; sui dataset piccoli aiuta). Alberi: alberi di regressione di profondità 4,
+    ciascuno su un ricampionamento bootstrap. Dati sintetici; la curva vera piega verso l’alto sopra i 40 °C
+    (degrado termico), cosa che i dati di addestramento non possono mostrare.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Il disaccordo è un segnale, non una misura</span>
+      <p class="mb0">Niente calibra la dispersione. Due deviazioni standard di disaccordo non sono un
+      intervallo al 95% a meno che tu non lo verifichi su dati tenuti da parte — oppure lo avvolga nella
+      predizione conforme, sezione 16.4. Usala per ordinare gli input da “familiari” a “non familiari”; non
+      citarla grezza come barra d’errore.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Gli alberi si appiattiscono, e concordano</span>
+      <p class="mb0">Fuori dai suoi dati un albero prevede il valore della sua ultima foglia, e ogni albero
+      bootstrap ha più o meno la stessa ultima foglia. La foresta riporta <strong>la sua massima sicurezza
+      dove sbaglia di più</strong>. Per il rischio di estrapolazione, affianca agli ensemble di alberi una
+      verifica esplicita dell’inviluppo.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Quanto costa</span>
+      <p class="mb0">K volte l’addestramento e K volte l’inferenza. Cinque membri di solito bastano; il
+      guadagno passando a dieci è piccolo. Esistono approssimazioni più economiche (Monte Carlo dropout,
+      snapshot ensemble); in genere sono più deboli, e vale la pena usarle solo quando cinque modelli
+      completi non sono sostenibili.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 6 minuti. Lascia che le reti si addestrino davanti alla sala — ci vuole un paio di secondi.
+      Indica il grafico in basso: oltre i 38 °C salgono sia la dispersione blu sia l’errore rosso. Poi passa
+      agli alberi: la linea rossa sale, quella blu resta piatta. Quel contrasto è la slide.</li>
+      <li>Premi “Semi casuali diversi” un paio di volte con le reti. La banda cambia forma. È onesto: con
+      sei membri la stima della dispersione è essa stessa rumorosa.</li>
+      <li>Domanda prevedibile: “le random forest danno una varianza — non è la stessa cosa?” È proprio
+      questa, e ha questa debolezza. Le quantile regression forest sono migliori per la dispersione
+      aleatoria, non per l’estrapolazione.</li>
+      <li>Non sopravvalutare neanche le reti: anche loro, fuori dall’intervallo, coprono la verità solo una
+      parte del tempo. La dispersione cresce; non cresce abbastanza. Da qui la 16.4.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 16.4 -->
+<section class="chapter" id="conformal">
+  <h2>16.4 · Predizione conforme: intervalli con una garanzia</h2>
+  <p>Tutto quello visto finora produce una dispersione. Niente di questo <em>garantisce</em> qualcosa. La
+  predizione conforme sì, sotto un’unica ipotesi, e sono tre righe di codice avvolte attorno al modello che
+  hai già:</p>
+
+  <div class="eqbox">
+    1. tieni da parte un <span class="hi">set di calibrazione</span> su cui il modello non si è mai addestrato, e assegna un punteggio a ogni caso: s<sub>i</sub> = | y<sub>i</sub> − ŷ(x<sub>i</sub>) |
+    <br>
+    2. q̂ = il ⌈(n + 1)(1 − α)⌉-esimo punteggio più piccolo &nbsp;&nbsp;·&nbsp;&nbsp; 3. intervallo = ŷ(x) ± q̂
+    <small>se i nuovi casi sono <span style="color:var(--warn)">scambiabili</span> con i casi di calibrazione,
+    l’intervallo contiene la verità almeno una frazione (1 − α) delle volte — per qualsiasi modello, qualsiasi
+    n, senza ipotesi gaussiane</small>
+  </div>
+
+  <p>Quest’ultima condizione è tutto. Vale quando i casi di domani vengono dallo stesso processo del set di
+  calibrazione. Non dice assolutamente nulla quando non è così.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Temperatura del disco freno, calibrata su un circuito, usata su un altro</h3><span class="tag try">Imposta 95%, poi aumenta lo spostamento</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="dCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent);opacity:.22"></i>intervallo conforme</span>
+          <span><i class="ln" style="background:var(--accent)"></i>modello</span>
+          <span><i class="dot" style="background:var(--ink-3)"></i>casi di test, stesso circuito</span>
+          <span><i class="dot" style="background:var(--warn)"></i>casi di test, circuito più veloce</span>
+        </div>
+        <canvas id="dBins" class="cv-sm mt1"></canvas>
+        <p class="small muted mt1 mb0">Copertura in ciascuna fascia di 20 km/h della velocità di approccio.
+        Linea tratteggiata: l’obiettivo che hai impostato. Le barre oltre i 280 km/h sono fuori dalle velocità
+        che il modello e la calibrazione abbiano mai visto.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Copertura obiettivo 1 − α</span><span class="val" id="dCovOut"></span></div>
+          <input type="range" id="dCov" min="0.8" max="0.99" step="0.01" value="0.9">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Casi di calibrazione</span><span class="val" id="dNOut"></span></div>
+          <input type="range" id="dN" min="10" max="1000" step="10" value="200">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Spostamento: circuito più veloce, velocità massime +</span><span class="val" id="dShiftOut"></span></div>
+          <input type="range" id="dShift" min="0" max="60" step="1" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Punteggio</span><span class="val" id="dScoreName">Errore assoluto</span></div>
+          <div class="segmented" id="dScoreSeg">
+            <button data-v="abs" class="on">Errore assoluto</button>
+            <button data-v="scaled">Scalato da un modello della dispersione</button>
+          </div>
+        </div>
+        <div class="grid g2" style="gap:8px">
+          <div class="bigstat" id="bsDIn"><span class="n" id="dCIn">—</span><span class="l">copertura, stesso circuito</span></div>
+          <div class="bigstat" id="bsDSh"><span class="n" id="dCSh">—</span><span class="l">copertura, circuito più veloce</span></div>
+          <div class="bigstat acc"><span class="n" id="dW">—</span><span class="l">± medio dell’intervallo</span></div>
+          <div class="bigstat"><span class="n" id="dQ">—</span><span class="l">q̂</span></div>
+        </div>
+        <div class="btnrow">
+          <button class="btn sm" id="dRedraw">Estrai un nuovo set di calibrazione</button>
+          <button class="btn sm" id="dRepeat">Ripeti 500 volte</button>
+        </div>
+        <div class="card" id="dNote" style="min-height:150px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Dati sintetici: temperatura di picco del disco anteriore in funzione della
+    velocità di approccio, con una dispersione che cresce con la velocità e un regime di fading sopra i 290
+    km/h. Il modello puntuale è una quadratica adattata a 200 casi di addestramento tra 140 e 280 km/h;
+    andrebbe bene qualsiasi modello. La copertura è misurata su 3&#8239;000 casi di test nuovi per ciascun
+    circuito. Tutto è ricalcolato dal vivo.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Valida in media, non per regione</span>
+      <p class="mb0">Con il punteggio assoluto, le fasce raccontano la storia: a bassa velocità l’intervallo
+      è troppo largo, ad alta velocità troppo stretto, e le due cose si compensano dando esattamente
+      l’obiettivo. La garanzia è <strong>marginale</strong> — su tutti i casi, non per una particolare regione
+      o un particolare caso. Scalare il punteggio con un modello della dispersione (anche rozzo) risolve buona
+      parte del problema. Guarda sempre la copertura per regione, non solo il numero di sintesi.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">La scambiabilità è l’intera ipotesi</span>
+      <p class="mb0">Muovi il cursore dello spostamento: la copertura cala, e <strong>nulla nell’intervallo te
+      lo dice</strong>. Un nuovo circuito, una nuova mescola, il disco di un nuovo fornitore — ciascuno è una
+      nuova distribuzione. La predizione conforme ha bisogno accanto di una verifica dell’inviluppo e di un
+      monitoraggio del drift (modulo 19), e di una ricalibrazione su dati delle nuove condizioni prima che il
+      suo numero significhi qualcosa lì.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 8 minuti. Parti da 90%, punteggio assoluto, nessuno spostamento. Indica “copertura, stesso
+      circuito”: cade sull’obiettivo. Premi “Ripeti 500 volte” per mostrare che non è fortuna — la media sta
+      sull’obiettivo o appena sopra, con una dispersione reale quando il set di calibrazione è piccolo.</li>
+      <li>Poi le fasce. Questa è la slide per gli statistici in sala: corretta in media, sbagliata ovunque.
+      Passa al punteggio scalato e le barre si appiattiscono.</li>
+      <li>Poi lo spostamento, di nuovo con il punteggio assoluto. A 20 km/h si muove appena; a 40 è
+      visibilmente sotto l’obiettivo e a 60 ben sotto. Gli intervalli sembrano identici; la copertura no. Il
+      punteggio scalato degrada più lentamente, perché il suo modello della dispersione si trova a estrapolare
+      nella direzione giusta — fortuna, non una garanzia.</li>
+      <li>Porta i casi di calibrazione a 10: al 90%, q̂ è il punteggio più grande osservato; al 95% diventa
+      infinito. (n + 1)(1 − α) non deve superare n — servono circa 1/α casi prima che un’affermazione a livello
+      1 − α sia anche solo possibile.</li>
+      <li>Domanda prevedibile: “quale modello dovremmo avvolgere?” Qualsiasi. Un modello migliore dà
+      intervalli più stretti; la garanzia di copertura vale anche per uno scadente, ed è proprio questo il
+      punto.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 16.5 -->
+<section class="chapter" id="report">
+  <h2>16.5 · Comunicare l’incertezza: a chi decide, e alla certificazione</h2>
+  <p>Due pubblici, due esigenze diverse. Chi decide vuole sapere se il requisito è soddisfatto e qual è il
+  caso peggiore plausibile. La certificazione vuole ogni sorgente di errore separata, quantificata con un
+  metodo dichiarato, e tracciabile. Entrambi sono serviti dallo stesso strumento che i metrologi usano da
+  decenni: un <strong>budget di incertezza</strong> — elenca ogni contributo, quantificalo, combinali e di’
+  quale domina.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Budget di incertezza per una previsione di deportanza</h3><span class="tag try">Porta l’altezza da terra a 30 mm, poi la tolleranza a 1.5 mm</span><span class="tag warn">Le entità dei contributi sono scelte dall’autore</span></div>
+    <div class="split">
+      <div>
+        <div class="grid g2" style="gap:12px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Ripetibilità della misura</span><span class="val" id="eMeasOut"></span></div>
+            <input type="range" id="eMeas" min="0" max="40" step="1" value="6">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Discretizzazione CFD</span><span class="val" id="eDiscOut"></span></div>
+            <input type="range" id="eDisc" min="0" max="60" step="1" value="10">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Forma del modello CFD</span><span class="val" id="eFormOut"></span></div>
+            <input type="range" id="eForm" min="0" max="80" step="1" value="25">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Errore del surrogato</span><span class="val" id="eSurrOut"></span></div>
+            <input type="range" id="eSurr" min="0" max="60" step="1" value="15">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Tolleranza dell’altezza da terra (1σ)</span><span class="val" id="eTolOut"></span></div>
+            <input type="range" id="eTol" min="0" max="3" step="0.1" value="0.5">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Altezza da terra nominale</span><span class="val" id="eH0Out"></span></div>
+            <input type="range" id="eH0" min="24" max="60" step="0.5" value="40">
+          </div>
+        </div>
+        <div class="ctrl mt1">
+          <div class="ctrl-label"><span>Requisito: deportanza almeno</span><span class="val" id="eReqOut"></span></div>
+          <input type="range" id="eReq" min="3200" max="3950" step="5" value="3730">
+        </div>
+        <label class="check"><input type="checkbox" id="eCorr"> Tratta le quattro sorgenti di errore come completamente correlate (caso peggiore)</label>
+        <h4 class="mt1">Quota della varianza</h4>
+        <div id="eBars"></div>
+      </div>
+      <div>
+        <canvas id="eCv" class="cv-sm"></canvas>
+        <p class="small muted mt1">Distribuzione Monte Carlo della deportanza vera, 20&#8239;000 campioni.
+        Tratteggiato: il requisito.</p>
+        <div class="grid g2" style="gap:8px">
+          <div class="bigstat"><span class="n" id="ePred">—</span><span class="l">prevista, count</span></div>
+          <div class="bigstat acc"><span class="n" id="eU">—</span><span class="l">U estesa (k = 2)</span></div>
+          <div class="bigstat"><span class="n" id="eInt">—</span><span class="l">intervallo al 95% (MC)</span></div>
+          <div class="bigstat" id="bsEP"><span class="n" id="eP">—</span><span class="l">P(soddisfa il requisito)</span></div>
+        </div>
+        <div class="verdict mt1" id="eVerdict"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Tutti i valori sono in count di deportanza (0.001 del coefficiente). Le
+    entità delle quattro sorgenti di errore sono numeri illustrativi scelti per la dimostrazione, non valori
+    misurati. Il contributo dell’altezza da terra è calcolato: la tolleranza viene propagata con il Monte
+    Carlo attraverso il “solutore” della 16.2, quindi la sua entità dipende da dove ti trovi sulla curva. La
+    combinazione è la radice della somma dei quadrati per sorgenti indipendenti, una somma lineare quando
+    sono correlate.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="card">
+      <h3>Come dirlo a chi decide</h3>
+      <ul class="small mb0">
+        <li><strong>Un intervallo con una probabilità, nelle sue unità:</strong> “3840 count, intervallo al
+        95% da 3770 a 3910; circa il 90% di probabilità di soddisfare il requisito di 3800.” Non “il modello
+        è sicuro al 95%”.</li>
+        <li><strong>Apri con il numero rilevante per la decisione</strong> — la probabilità di soddisfare il
+        requisito, o che il nuovo componente sia migliore del vecchio — non con una deviazione standard.</li>
+        <li><strong>Di’ cosa non è incluso.</strong> Un intervallo che lascia fuori l’errore di forma del
+        modello non è un intervallo piccolo; è un intervallo incompleto.</li>
+        <li><strong>Di’ cosa lo ridurrebbe</strong>, e quanto costa. Te lo dice il budget: la barra più
+        grande è dove va il prossimo euro.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Come dirlo alla certificazione</h3>
+      <ul class="small mb0">
+        <li><strong>L’errore del surrogato è una voce a sé</strong>, separata dall’errore del solutore, come
+        diceva il modulo 11.10. Si misura su simulazioni del solutore tenute da parte (copertura, come nella
+        16.2 e nella 16.4), non si deduce.</li>
+        <li><strong>Ogni voce dichiara il suo metodo e le sue evidenze:</strong> studio di convergenza della
+        griglia per la discretizzazione, campagna di correlazione con galleria o pista per la forma del
+        modello, ripetizioni per la ripetibilità, una tolleranza a disegno per gli input.</li>
+        <li><strong>L’inviluppo di validità è dichiarato</strong>, e il budget è rivendicato solo al suo
+        interno.</li>
+        <li><strong>Le correlazioni vanno argomentate, non eliminate per ipotesi.</strong> Quando confronti
+        due progetti sullo stesso solutore, l’errore di forma del modello in gran parte si cancella; quando
+        confronti la CFD con la pista, no.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 5 minuti. A 40 mm il budget è dominato dalla forma del modello. Chiedi alla sala su cosa
+      spenderebbe i soldi: quasi sempre qualcuno dice “più simulazioni CFD”, e le barre dicono invece una
+      campagna di correlazione.</li>
+      <li>Poi porta l’altezza da terra a circa 30 mm: il termine di tolleranza diventa il più grande, perché
+      lì la curva è ripida. Alza la tolleranza a 1.5 mm e l’istogramma sviluppa una lunga coda a sinistra —
+      alcune vetture arrivano allo stallo. Una deviazione standard smette di essere una sintesi corretta;
+      riporta l’intervallo e la probabilità, che sono calcolati dai campioni, non da un’ipotesi gaussiana.</li>
+      <li>Chiarisci esplicitamente che le entità delle quattro sorgenti sono scelte dall’autore. L’aritmetica
+      e la propagazione sono reali.</li>
+      <li>Domanda prevedibile: “qualcuno lo fa davvero per i modelli di ML?” Nei settori regolamentati,
+      sempre più spesso sì — ed è lo stesso budget che produci già per i risultati delle prove. Il modello di
+      ML aggiunge una voce; non cambia il metodo.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 16.6 -->
+<section class="chapter" id="traps">
+  <h2>16.6 · Trappole comuni</h2>
+  <p>Prima la più grande, perché è incorporata in quasi ogni classificatore che ti verrà mostrato: il numero
+  che esce dalla softmax (o dalla sigmoide) si chiama probabilità, e viene abitualmente letto come “quanto è
+  sicuro il modello”. Non lo è. Misura da quale lato della frontiera cade l’input, e quanto lontano. Lontano
+  da qualsiasi dato di addestramento, una rete di solito è <em>più</em> sicura, non meno.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Stato dei cuscinetti da due sensori: confidenza contro disaccordo</h3><span class="tag try">Clicca lontano da entrambi i cluster</span></div>
+    <div class="maps2">
+      <div>
+        <h4>Una rete: la sua “probabilità”</h4>
+        <canvas id="fCv1" class="cv-map clickable"></canvas>
+      </div>
+      <div>
+        <h4>Cinque reti: quanto non sono d’accordo</h4>
+        <canvas id="fCv2" class="cv-map clickable"></canvas>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--accent)"></i>cuscinetti sani</span>
+      <span><i class="dot" style="background:var(--bad)"></i>cuscinetti usurati</span>
+      <span>sinistra: intensità del colore = confidenza (bianco = 50/50)</span>
+      <span>destra: <i style="background:var(--warn)"></i>i membri non concordano</span>
+    </div>
+    <div class="split-wide mt1">
+      <div>
+        <div class="grid g3" style="gap:8px">
+          <div class="bigstat" id="bsF1"><span class="n" id="fP1">—</span><span class="l">la rete 1 dice</span></div>
+          <div class="bigstat" id="bsFsd"><span class="n" id="fSd">—</span><span class="l">dispersione dell’ensemble</span></div>
+          <div class="bigstat" id="bsFd"><span class="n" id="fDist">—</span><span class="l">distanza dal punto di addestramento più vicino</span></div>
+        </div>
+        <div class="small muted mt1">Probabilità di “usurato” secondo ciascun membro, nel punto sonda:</div>
+        <div class="memlist" id="fMembers"></div>
+      </div>
+      <div>
+        <div class="btnrow mt0">
+          <button class="btn sm" id="fNew">Riaddestra con nuovi semi</button>
+          <span class="small muted" id="fStatus"></span>
+        </div>
+        <div class="card" id="fNote" style="min-height:140px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Dati sintetici: 30 cuscinetti sani al centro, 60 usurati che si presentano
+    o con vibrazione alta o con temperatura alta; due feature di sensore normalizzate. Ogni rete è 2–10–10–1 con uscita sigmoide,
+    addestrata dal vivo con la discesa del gradiente partendo da un diverso punto iniziale con seme fisso. La
+    distanza è in unità della dispersione di un cluster.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="card">
+      <h4 style="color:var(--bad)">La confidenza della softmax non è incertezza</h4>
+      <p class="small mb0">Come sopra. Anche quando è ben calibrata in distribuzione (modulo 8.4,
+      temperature scaling), la calibrazione non dice nulla sugli input diversi dai dati di addestramento.
+      Chiedi il disaccordo, la distanza o una verifica separata di fuori distribuzione.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">Valida in media, non per regione</h4>
+      <p class="small mb0">Le fasce della 16.4. Un intervallo al 90% che vale il 99% nelle regioni facili e il
+      70% in quelle difficili è “corretto” e inutile proprio dove conta. Riporta sempre la copertura suddivisa
+      per le condizioni operative che ti interessano.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">L’intervallo sbagliato</h4>
+      <p class="small mb0">Un intervallo di confidenza sul tempo sul giro <em>medio</em> si restringe con √n e
+      tende a zero. Un intervallo di previsione sul <em>prossimo giro</em> non scende mai sotto la
+      dispersione. I report li confondono di continuo, quasi sempre nella direzione più lusinghiera. Chiedi
+      quale dei due stai guardando.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">Input trattati come esatti</h4>
+      <p class="small mb0">Un modello con una barra d’errore perfetta, alimentato con un’altezza da terra nota
+      solo a ±1 mm, ha comunque il problema del ±1 mm. Propaga la tolleranza degli input (16.5) — vicino a un
+      dirupo è il termine più grande.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">Dare per scontata una gaussiana</h4>
+      <p class="small mb0">“±2σ” significa 95% solo per errori simmetrici e ben comportati. Vicino a stalli,
+      limiti e saturazioni la distribuzione è asimmetrica; riporta percentili ricavati dai campioni, non una
+      deviazione standard.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">Ensemble non davvero indipendenti</h4>
+      <p class="small mb0">Cinque copie di un modello, sottoposte a fine-tuning dallo stesso checkpoint sugli
+      stessi dati, saranno d’accordo tra loro e con i loro errori comuni. La diversità — semi diversi,
+      ricampionamenti dei dati, idealmente famiglie di modelli diverse — è ciò che dà significato alla
+      dispersione.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">E per i modelli linguistici</span>
+    <p class="mb0">“Sono abbastanza sicuro che…” è testo generato, non una misura (modulo 8.4). La cosa più
+    vicina a un ensemble per un LLM è fare la stessa domanda più volte e controllare se le risposte
+    concordano; il disaccordo è un utile campanello d’allarme, l’accordo non è una prova. Per tutto ciò che
+    conta, l’incertezza deve venire dal confronto con una fonte, non dal tono del modello.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 5 minuti. Aspetta che le cinque reti finiscano (un secondo o due). La sonda parte in basso a
+      sinistra: vibrazione bassa <em>e</em> temperatura bassa, che è più o meno ciò che legge un sensore
+      scollegato. La rete 1 dice “sano” al 99% o più; i membri si dividono. È tutta la trappola in un clic — e
+      una modalità di guasto reale.</li>
+      <li>Sii onesto sulla mappa di destra: alcune regioni lontane dai dati restano tranquille, perché tutte e
+      cinque le reti hanno esteso per caso la frontiera nello stesso modo. Per questo c’è anche la lettura
+      della distanza. Il disaccordo cattura buona parte del non familiare, non tutto; il controllo
+      dell’inviluppo in cinque righe dell’11.5 cattura il resto.</li>
+      <li>La scheda “intervallo sbagliato” è quella che con più probabilità si ritrova nei loro report. Vale
+      la pena dirla lentamente.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 16.7 -->
+<section class="chapter" id="choose">
+  <h2>16.7 · Quale metodo, e quando</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Metodo</th><th>Cosa ti dà</th><th>Costo</th><th>Adatto per</th><th>Attenzione a</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Processo gaussiano</strong></td><td>Media e varianza ovunque; si allarga lontano dai dati</td><td>n³; va bene fino a qualche migliaio di simulazioni</td><td>Solutori costosi, banchi prova, ottimizzazione del progetto</td><td>Ipotesi del kernel; dirupi e discontinuità; molti input</td></tr>
+        <tr><td><strong>Deep ensemble</strong></td><td>Dispersione tra i membri</td><td>K× addestramento e inferenza</td><td>Reti neurali di qualsiasi dimensione</td><td>Non calibrato; membri troppo simili</td></tr>
+        <tr><td><strong>Alberi in bagging / foresta</strong></td><td>Dispersione tra gli alberi</td><td>Quasi gratis</td><td>Dati tabellari, dentro l’inviluppo</td><td>Estrapolazione piatta e sicura di sé</td></tr>
+        <tr><td><strong>Regressione quantile</strong></td><td>Stima diretta, per esempio, del 5° e del 95° percentile</td><td>Uno o due modelli in più</td><td>Dispersione aleatoria che varia con le condizioni</td><td>Non dice nulla sull’estrapolazione</td></tr>
+        <tr><td><strong>Predizione conforme</strong></td><td>Un intervallo con una garanzia di copertura</td><td>Un set di calibrazione e un ordinamento</td><td>Avvolgere uno qualsiasi dei precedenti per avere un numero citabile</td><td>Solo marginale; si rompe sotto spostamento della distribuzione</td></tr>
+        <tr><td><strong>MC dropout, reti neurali bayesiane</strong></td><td>Dispersione a posteriori approssimata</td><td>Da moderato ad alto</td><td>Quando gli ensemble non sono sostenibili</td><td>Di solito più deboli di un ensemble a 5 membri</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Il minimo da chiedere, ogni volta</span>
+    <ol class="mb0">
+      <li><strong>Ogni previsione è accompagnata da un intervallo</strong>, e il report dice di che tipo
+      (di previsione o di confidenza) e cosa include.</li>
+      <li><strong>La copertura è verificata su dati tenuti da parte</strong>, complessivamente e per regione
+      operativa.</li>
+      <li><strong>L’inviluppo è dichiarato e fatto rispettare</strong>; al di fuori, l’intervallo non viene
+      rivendicato.</li>
+      <li><strong>L’errore del surrogato è una voce separata</strong> nel budget di incertezza.</li>
+      <li><strong>Qualcuno è responsabile della ricalibrazione</strong> quando le condizioni cambiano.</li>
+    </ol>
+  </div>
+
+  <ul class="sources">
+    <li>Rasmussen &amp; Williams, <em>Gaussian Processes for Machine Learning</em>, MIT Press, 2006.</li>
+    <li>Lakshminarayanan, Pritzel &amp; Blundell, “Simple and scalable predictive uncertainty estimation
+    using deep ensembles”, NeurIPS 2017.</li>
+    <li>Angelopoulos &amp; Bates, “A gentle introduction to conformal prediction and distribution-free
+    uncertainty quantification”, 2021.</li>
+    <li>Hein, Andriushchenko &amp; Bitterwolf, “Why ReLU networks yield high-confidence predictions far away
+    from the training data”, CVPR 2019.</li>
+    <li>JCGM 100:2008, <em>Evaluation of measurement data — Guide to the expression of uncertainty in
+    measurement</em> (GUM).</li>
+  </ul>
+
+  <div class="note">
+    <ul>
+      <li>Circa 2 minuti. Non percorrere la tabella riga per riga; indica la riga della predizione conforme e
+      di’ “qualunque cosa usiate, avvolgetela in questo prima di citare un numero”.</li>
+      <li>Se il tempo è poco, l’elenco in cinque punti è il messaggio da portare a casa. Sta in una checklist
+      di revisione.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo adesso</h2>
+  <p>Ora sappiamo quanto è sicuro un modello. La domanda successiva di qualsiasi revisore è <em>perché</em>
+  ha detto quello che ha detto — quali input hanno determinato una previsione, e se il ragionamento
+  reggerebbe all’esame di un ingegnere.</p>
+  <p><a href="17-explainability.html"><strong>Modulo 17 · Spiegare le previsioni di un modello →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  'use strict';
+  var C = AI.cssVar, F = AI.F;
+  function $(id) { return document.getElementById(id); }
+  function setText(id, t) { var e = $(id); if (e) e.textContent = t; }
+  function setHTML(id, t) { var e = $(id); if (e) e.innerHTML = t; }
+  function setCls(id, c) { var e = $(id); if (e) e.className = c; }
+  function raf(fn) { return (window.requestAnimationFrame || function (f) { return setTimeout(f, 16); })(fn); }
+  function caf(h) { if (window.cancelAnimationFrame) window.cancelAnimationFrame(h); clearTimeout(h); }
+  function sched(fn) {
+    if (fn._pending) return;
+    fn._pending = true;
+    raf(function () { fn._pending = false; fn(); });
+  }
+  function linspace(a, b, n) { var r = []; for (var i = 0; i < n; i++) r.push(a + (b - a) * i / (n - 1)); return r; }
+  function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }
+  function zip(xs, ys) { var r = []; for (var i = 0; i < xs.length; i++) r.push([xs[i], ys[i]]); return r; }
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  function pct(x, d) { return (x * 100).toFixed(d == null ? 0 : d) + '%'; }
+
+  /* ================================================ seeded random numbers */
+  function rng(seed) {
+    var a = (seed >>> 0) || 1;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) {
+    var u = 0, v = 0;
+    while (!u) u = r();
+    while (!v) v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307 * v);
+  }
+
+  /* ================================================ colour helpers */
+  function rgbOf(c) {
+    c = (c || '').trim();
+    if (c.charAt(0) === '#') {
+      var h = c.slice(1);
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+    }
+    var m = c.match(/rgba?\(([^)]+)\)/);
+    if (m) { var p = m[1].split(',').map(parseFloat); return [p[0], p[1], p[2]]; }
+    return [128, 128, 128];
+  }
+  function mixRGB(x, y, t) {
+    t = clamp(t, 0, 1);
+    return 'rgb(' + Math.round(x[0] + (y[0] - x[0]) * t) + ',' + Math.round(x[1] + (y[1] - x[1]) * t) + ',' +
+      Math.round(x[2] + (y[2] - x[2]) * t) + ')';
+  }
+  function alpha(c, a) { var x = rgbOf(c); return 'rgba(' + x[0] + ',' + x[1] + ',' + x[2] + ',' + a + ')'; }
+
+  /* ================================================ linear algebra (flat, row-major) */
+  function chol(A, n) {
+    var L = new Float64Array(n * n), i, j, k, s;
+    for (i = 0; i < n; i++) {
+      for (j = 0; j <= i; j++) {
+        s = A[i * n + j];
+        for (k = 0; k < j; k++) s -= L[i * n + k] * L[j * n + k];
+        if (i === j) {
+          if (!(s > 0) || !isFinite(s)) return null;
+          L[i * n + i] = Math.sqrt(s);
+        } else L[i * n + j] = s / L[j * n + j];
+      }
+    }
+    return L;
+  }
+  /* Cholesky with escalating diagonal jitter: never returns NaN */
+  function cholJ(A, n, jit0) {
+    var jit = jit0 || 0, i, L;
+    for (var tries = 0; tries < 14; tries++) {
+      var B = new Float64Array(A);
+      if (jit > 0) for (i = 0; i < n; i++) B[i * n + i] += jit;
+      L = chol(B, n);
+      if (L) return { L: L, jitter: jit };
+      jit = jit > 0 ? jit * 10 : 1e-10;
+    }
+    L = new Float64Array(n * n);
+    for (i = 0; i < n; i++) L[i * n + i] = Math.sqrt(Math.max(A[i * n + i], 1e-12));
+    return { L: L, jitter: NaN };
+  }
+  function fwd(L, n, b) {
+    var y = new Float64Array(n), i, k, s;
+    for (i = 0; i < n; i++) { s = b[i]; for (k = 0; k < i; k++) s -= L[i * n + k] * y[k]; y[i] = s / L[i * n + i]; }
+    return y;
+  }
+  function bwd(L, n, y) {
+    var x = new Float64Array(n), i, k, s;
+    for (i = n - 1; i >= 0; i--) { s = y[i]; for (k = i + 1; k < n; k++) s -= L[k * n + i] * x[k]; x[i] = s / L[i * n + i]; }
+    return x;
+  }
+  /* weighted ridge regression: rows (m × P), weights w (bootstrap counts) */
+  function ridge(rows, y, w, lam, P) {
+    var A = new Float64Array(P * P), b = new Float64Array(P), k, i, j;
+    for (k = 0; k < rows.length; k++) {
+      var wk = w ? w[k] : 1;
+      if (!wk) continue;
+      var f = rows[k];
+      for (i = 0; i < P; i++) {
+        b[i] += wk * f[i] * y[k];
+        for (j = 0; j <= i; j++) A[i * P + j] += wk * f[i] * f[j];
+      }
+    }
+    for (i = 0; i < P; i++) for (j = 0; j < i; j++) A[j * P + i] = A[i * P + j];
+    for (i = 0; i < P; i++) A[i * P + i] += (i === 0 ? 1e-8 : lam);
+    var ch = cholJ(A, P, 0);
+    return bwd(ch.L, P, fwd(ch.L, P, b));
+  }
+
+  /* ================================================ plot helpers */
+  function bandFill(p, xs, lo, hi, col) {
+    var g = p.ctx, i;
+    g.beginPath();
+    for (i = 0; i < xs.length; i++) { var X = p.X(xs[i]), Y = p.Y(hi[i]); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }
+    for (i = xs.length - 1; i >= 0; i--) g.lineTo(p.X(xs[i]), p.Y(lo[i]));
+    g.closePath(); g.fillStyle = col; g.fill();
+  }
+  function shadeX(p, a, b, col) {
+    p.ctx.fillStyle = col;
+    p.ctx.fillRect(p.X(a), p.pad.t, p.X(b) - p.X(a), p.ph);
+  }
+  function txt(p, s, x, y, col, align) {
+    var g = p.ctx;
+    g.font = '600 11px system-ui, sans-serif'; g.textAlign = align || 'left'; g.textBaseline = 'middle';
+    g.fillStyle = col; g.fillText(s, p.X(x), p.Y(y));
+  }
+  function vline(p, x, col, w, dash) { p.line([[x, p.ran[0]], [x, p.ran[1]]], col, w || 1.5, dash); }
+  function hline(p, y, col, w, dash) { p.line([[p.dom[0], y], [p.dom[1], y]], col, w || 1.5, dash); }
+  function clickX(canvas, plot, e) {
+    var r = canvas.getBoundingClientRect();
+    return { x: plot.iX(e.clientX - r.left), y: plot.iY(e.clientY - r.top) };
+  }
+
+  /* =================================================================== 16.1 */
+  function lapTrue(w) { return 83.1 + 0.010 * (w - 11.5) * (w - 11.5) + 0.08 * Math.sin(0.9 * w); }
+  var A = { n: 30, noise: 0.12, plan: 'gap', seed: 1, probe: 10, K: 25, H: 24, res: null };
+  var PLANS = { even: [[1, 19]], gap: [[1, 5], [15, 19]], narrow: [[8, 13]] };
+  var PLAN_NAMES = { even: 'Distribuzione uniforme', gap: 'Buco al centro', narrow: 'Stretto' };
+  var aPlot, AG = 161, AXS = linspace(0, 20, AG);
+
+  function aFeat(a, c, w) {
+    var u = (w - 10) / 10, f = [1, u];
+    for (var q = 0; q < a.length; q++) f.push(Math.tanh(a[q] * (u - c[q])));
+    return f;
+  }
+  function aCompute() {
+    var r = rng(A.seed * 7919 + 3), segs = PLANS[A.plan], tot = 0, d = [], i, j, k, m;
+    segs.forEach(function (s) { tot += s[1] - s[0]; });
+    for (i = 0; i < A.n; i++) {
+      var t = r() * tot, x = segs[0][0];
+      for (k = 0; k < segs.length; k++) {
+        var Ls = segs[k][1] - segs[k][0];
+        if (t <= Ls || k === segs.length - 1) { x = segs[k][0] + Math.min(t, Ls); break; }
+        t -= Ls;
+      }
+      d.push([x, lapTrue(x) + A.noise * gauss(r)]);
+    }
+    var n = d.length, ym = mean(d.map(function (p) { return p[1]; }));
+    var yc = d.map(function (p) { return p[1] - ym; });
+    var P = A.H + 2, curves = [], oobS = new Float64Array(n), oobC = new Float64Array(n);
+    for (m = 0; m < A.K; m++) {
+      var rr = rng(1000 + m * 31 + A.seed * 17), a = [], c = [];
+      for (j = 0; j < A.H; j++) { a.push(gauss(rr) * 2.5); c.push(-1.3 + 2.6 * rr()); }
+      var cnt = new Float64Array(n);
+      for (i = 0; i < n; i++) cnt[Math.floor(rr() * n)]++;
+      var rows = d.map(function (p) { return aFeat(a, c, p[0]); });
+      var w = ridge(rows, yc, cnt, 0.02, P);
+      var cur = new Float64Array(AG);
+      for (i = 0; i < AG; i++) {
+        var f = aFeat(a, c, AXS[i]), s = 0;
+        for (j = 0; j < P; j++) s += w[j] * f[j];
+        cur[i] = s + ym;
+      }
+      curves.push(cur);
+      for (i = 0; i < n; i++) if (!cnt[i]) {
+        var s2 = 0;
+        for (j = 0; j < P; j++) s2 += w[j] * rows[i][j];
+        oobS[i] += s2 + ym; oobC[i]++;
+      }
+    }
+    var mu = new Float64Array(AG), sd = new Float64Array(AG);
+    for (i = 0; i < AG; i++) {
+      var s1 = 0, sq = 0;
+      for (m = 0; m < A.K; m++) s1 += curves[m][i];
+      s1 /= A.K;
+      for (m = 0; m < A.K; m++) sq += (curves[m][i] - s1) * (curves[m][i] - s1);
+      mu[i] = s1; sd[i] = Math.sqrt(sq / (A.K - 1));
+    }
+    var rs = 0, rc = 0;
+    for (i = 0; i < n; i++) if (oobC[i]) { var e = d[i][1] - oobS[i] / oobC[i]; rs += e * e; rc++; }
+    var ale = rc ? Math.sqrt(rs / rc) : A.noise;
+    A.res = { d: d, curves: curves, mu: mu, sd: sd, ale: ale };
+  }
+  function aDraw() {
+    if (!A.res) aCompute();
+    var R = A.res, p = aPlot, i;
+    p.resize(); p.clear();
+    p.dom = [0, 20]; p.ran = [82.2, 85.8];
+    p.frame({ xticks: 5, yticks: 4, xlabel: 'angolo ala posteriore (°)', ylabel: 'tempo sul giro (s)',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(1); } });
+    var hiT = [], loT = [], hiE = [], loE = [];
+    for (i = 0; i < AG; i++) {
+      var tot = 2 * Math.sqrt(R.sd[i] * R.sd[i] + R.ale * R.ale);
+      hiT.push(R.mu[i] + tot); loT.push(R.mu[i] - tot);
+      hiE.push(R.mu[i] + 2 * R.sd[i]); loE.push(R.mu[i] - 2 * R.sd[i]);
+    }
+    p.clip(function () {
+      PLANS[A.plan].forEach(function (s) { shadeX(p, s[0], s[1], alpha(C('--good'), 0.07)); });
+      bandFill(p, AXS, loT, hiT, alpha(C('--warn'), 0.20));
+      bandFill(p, AXS, loE, hiE, alpha(C('--accent'), 0.32));
+      var mc = alpha(C('--accent'), 0.22);
+      R.curves.forEach(function (cur) {
+        var pts = [];
+        for (var k = 0; k < AG; k++) pts.push([AXS[k], clamp(cur[k], 80, 88)]);
+        p.line(pts, mc, 1);
+      });
+      p.line(AXS.map(function (x) { return [x, lapTrue(x)]; }), C('--ink-3'), 1.8, [6, 4]);
+      p.line(zip(AXS, Array.prototype.slice.call(R.mu)), C('--accent'), 2.6);
+      R.d.forEach(function (q) { p.dot(q[0], q[1], 3.4, C('--ink-2'), C('--panel')); });
+      vline(p, A.probe, C('--ink'), 1.2, [3, 3]);
+    });
+    /* readouts at probe */
+    var gi = Math.round(A.probe / 20 * (AG - 1)), sd = R.sd[gi], ale = R.ale;
+    var share = sd * sd / (sd * sd + ale * ale);
+    var near = 1e9;
+    R.d.forEach(function (q) { near = Math.min(near, Math.abs(q[0] - A.probe)); });
+    setText('aEpi', '±' + (2 * sd).toFixed(2));
+    setText('aAle', '±' + (2 * ale).toFixed(2));
+    setText('aTot', '±' + (2 * Math.sqrt(sd * sd + ale * ale)).toFixed(2));
+    var h = '<h4>Con l’ala a ' + A.probe.toFixed(1) + '°</h4>';
+    if (share > 0.6) h += '<p class="small"><b style="color:var(--accent)">Soprattutto epistemica (' + pct(share) +
+      ' della varianza).</b> Il giro più vicino è a ' + near.toFixed(1) + '° e i 25 modelli non concordano su cosa succede qui. ' +
+      'Questa parte della banda <b>si riduce se fai prove qui</b> — prova il piano uniforme.</p>';
+    else if (share < 0.3) h += '<p class="small"><b style="color:var(--warn)">Soprattutto aleatoria (' + pct(1 - share) +
+      ' della varianza).</b> I modelli concordano; ciò che resta è la dispersione tra un giro e l’altro, stimata in ±' + (2 * ale).toFixed(2) +
+      ' s (valore vero ±' + (2 * A.noise).toFixed(2) + ' s, noto qui solo perché i dati sono sintetici). ' +
+      '<b>Più giri non la ridurranno</b> — servono solo a stabilire quanto è grande.</p>';
+    else h += '<p class="small"><b>Un misto:</b> il ' + pct(share) + ' della varianza è disaccordo tra i modelli, il ' + pct(1 - share) +
+      ' è dispersione tra giri. Qualche giro in più vicino a ' + A.probe.toFixed(0) + '° eliminerebbe la prima parte e lascerebbe la seconda.</p>';
+    h += '<p class="small mb0">Alza la dispersione e la banda arancione cresce ovunque. Elimina il buco e la banda blu collassa al centro. ' +
+      'Due manopole diverse, due cause diverse.</p>';
+    setHTML('aNote', h);
+  }
+
+  /* =================================================================== 16.2 */
+  function cfdTrue(h) {
+    return 3.55 + 0.38 * Math.exp(-Math.pow((h - 36) / 10, 2)) - 0.006 * (h - 20) + 0.05 * Math.sin(h / 4.5) -
+      0.55 / (1 + Math.exp((h - 26.5) / 1.3));
+  }
+  var B = { n: 7, ell: 8, sn: 0.015, sf: 0.3, seed: 5, extra: [], draws: false, base: [] };
+  var B_ENV = [28, 70], B_DOM = [18, 82], B_SCAT = 0.015, bPlot, bER = rng(999);
+  var B_TEST = (function () {
+    var r = rng(4242), t = [];
+    for (var i = 0; i < 400; i++) { var h = 20 + 60 * r(); t.push([h, cfdTrue(h) + B_SCAT * gauss(r)]); }
+    return t;
+  })();
+  function bBase() {
+    var r = rng(B.seed * 131 + 7), d = [];
+    for (var i = 0; i < B.n; i++) {
+      var x = B_ENV[0] + (B_ENV[1] - B_ENV[0]) * (i + r()) / B.n;
+      d.push([x, cfdTrue(x) + B_SCAT * gauss(r)]);
+    }
+    B.base = d;
+  }
+  function kern(a, b, ell, sf) { var d = a - b; return sf * sf * Math.exp(-0.5 * d * d / (ell * ell)); }
+  function gpFit(X, Y, ell, sn, sf) {
+    var n = X.length, mu0 = mean(Y), K = new Float64Array(n * n), i, j;
+    for (i = 0; i < n; i++) for (j = 0; j < n; j++) K[i * n + j] = kern(X[i], X[j], ell, sf);
+    for (i = 0; i < n; i++) K[i * n + i] += sn * sn + 1e-8 * sf * sf;   /* noise + jitter */
+    var ch = cholJ(K, n, 1e-10 * sf * sf);
+    var yc = new Float64Array(n);
+    for (i = 0; i < n; i++) yc[i] = Y[i] - mu0;
+    var z = fwd(ch.L, n, yc), al = bwd(ch.L, n, z), q = 0, ld = 0;
+    for (i = 0; i < n; i++) { q += yc[i] * al[i]; ld += Math.log(ch.L[i * n + i]); }
+    return { X: X, n: n, L: ch.L, alpha: al, mu0: mu0, ell: ell, sn: sn, sf: sf,
+      lml: -0.5 * q - ld - 0.5 * n * Math.log(2 * Math.PI) };
+  }
+  function gpPred(gp, xs, wantV) {
+    var n = gp.n, m = [], v = [], V = [], ks = new Float64Array(n);
+    for (var g = 0; g < xs.length; g++) {
+      var s = gp.mu0, i;
+      for (i = 0; i < n; i++) { ks[i] = kern(xs[g], gp.X[i], gp.ell, gp.sf); s += ks[i] * gp.alpha[i]; }
+      var w = fwd(gp.L, n, ks), vv = 0;
+      for (i = 0; i < n; i++) vv += w[i] * w[i];
+      m.push(s); v.push(Math.max(0, gp.sf * gp.sf - vv));
+      if (wantV) V.push(w);
+    }
+    return { m: m, v: v, V: V };
+  }
+  function gpDraws(gp, xs, pr, nd) {
+    var G = xs.length, S = new Float64Array(G * G), i, j, k, n = gp.n;
+    for (i = 0; i < G; i++) for (j = 0; j <= i; j++) {
+      var s = kern(xs[i], xs[j], gp.ell, gp.sf), vi = pr.V[i], vj = pr.V[j];
+      for (k = 0; k < n; k++) s -= vi[k] * vj[k];
+      S[i * G + j] = s; S[j * G + i] = s;
+    }
+    var ch = cholJ(S, G, 1e-8 * gp.sf * gp.sf), out = [];
+    for (var d = 0; d < nd; d++) {
+      var r = rng(77 + d * 13), z = [], f = [];
+      for (i = 0; i < G; i++) z.push(gauss(r));
+      for (i = 0; i < G; i++) { var s2 = pr.m[i]; for (k = 0; k <= i; k++) s2 += ch.L[i * G + k] * z[k]; f.push(s2); }
+      out.push(f);
+    }
+    return out;
+  }
+  function bAll() { return B.base.concat(B.extra); }
+  function bFitML() {
+    var d = bAll(), X = d.map(function (p) { return p[0]; }), Y = d.map(function (p) { return p[1]; });
+    var best = -Infinity, be = B.ell, bs = B.sn;
+    for (var a = 0; a < 40; a++) {
+      var ell = Math.exp(Math.log(1) + (Math.log(40) - Math.log(1)) * a / 39);
+      for (var b = 0; b < 30; b++) {
+        var sn = Math.exp(Math.log(0.002) + (Math.log(0.15) - Math.log(0.002)) * b / 29);
+        var l = gpFit(X, Y, ell, sn, B.sf).lml;
+        if (l > best) { best = l; be = ell; bs = sn; }
+      }
+    }
+    bindB.ell.set(Math.round(be * 2) / 2);
+    bindB.sn.set(Math.round(bs * 1000) / 1000);
+  }
+  var bindB = {};
+  function bDraw() {
+    var d = bAll(), X = d.map(function (p) { return p[0]; }), Y = d.map(function (p) { return p[1]; });
+    var gp = gpFit(X, Y, B.ell, B.sn, B.sf);
+    var xs = linspace(B_DOM[0], B_DOM[1], 129), pr = gpPred(gp, xs, B.draws), p = bPlot, i;
+    var hiF = [], loF = [], hiY = [], loY = [];
+    for (i = 0; i < xs.length; i++) {
+      var sf = Math.sqrt(pr.v[i]), sy = Math.sqrt(pr.v[i] + B.sn * B.sn);
+      hiF.push(pr.m[i] + 1.96 * sf); loF.push(pr.m[i] - 1.96 * sf);
+      hiY.push(pr.m[i] + 1.96 * sy); loY.push(pr.m[i] - 1.96 * sy);
+    }
+    p.resize(); p.clear();
+    p.dom = B_DOM.slice(); p.ran = [2.7, 4.3];
+    p.frame({ xticks: 8, yticks: 4, xlabel: 'altezza da terra anteriore (mm)', ylabel: 'coeff. deportanza post.',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(1); } });
+    var dr = B.draws ? gpDraws(gp, xs, pr, 3) : [];
+    p.clip(function () {
+      shadeX(p, B_ENV[0], B_ENV[1], alpha(C('--good'), 0.07));
+      bandFill(p, xs, loY, hiY, alpha(C('--accent'), 0.13));
+      bandFill(p, xs, loF, hiF, alpha(C('--accent'), 0.28));
+      p.line(xs.map(function (x) { return [x, cfdTrue(x)]; }), C('--ink-3'), 1.8, [6, 4]);
+      var dc = [C('--violet'), C('--good'), C('--warn')];
+      dr.forEach(function (f, k) { p.line(zip(xs, f), alpha(dc[k], 0.85), 1.3); });
+      p.line(zip(xs, pr.m), C('--accent'), 2.6);
+      B.base.forEach(function (q) { p.dot(q[0], q[1], 4.2, C('--ink-2'), C('--panel')); });
+      B.extra.forEach(function (q) { p.dot(q[0], q[1], 5, C('--warn'), C('--panel')); });
+      txt(p, 'intervallo provato', (B_ENV[0] + B_ENV[1]) / 2, 4.22, C('--good'), 'center');
+      txt(p, 'stallo', 21, 2.85, C('--ink-3'), 'center');
+    });
+    /* held-out coverage */
+    var tx = B_TEST.map(function (q) { return q[0]; }), tp = gpPred(gp, tx, false);
+    var ci = 0, ni = 0, co = 0, no = 0;
+    for (i = 0; i < B_TEST.length; i++) {
+      var s = Math.sqrt(tp.v[i] + B.sn * B.sn), ok = Math.abs(B_TEST[i][1] - tp.m[i]) <= 1.96 * s;
+      if (tx[i] >= B_ENV[0] && tx[i] <= B_ENV[1]) { ni++; if (ok) ci++; } else { no++; if (ok) co++; }
+    }
+    var cin = ci / ni, cout = co / no;
+    var wi = 0, wic = 0, wo = 0, woc = 0;
+    for (i = 0; i < xs.length; i++) {
+      var hw = 1.96 * Math.sqrt(pr.v[i] + B.sn * B.sn) * 1000;
+      if (xs[i] >= B_ENV[0] && xs[i] <= B_ENV[1]) { wi += hw; wic++; } else { wo += hw; woc++; }
+    }
+    setText('bCovIn', pct(cin));
+    setText('bCovOut', pct(cout));
+    setCls('bsCovIn', 'bigstat ' + (Math.abs(cin - 0.95) < 0.04 ? 'good' : Math.abs(cin - 0.95) < 0.12 ? 'warn' : 'bad'));
+    setCls('bsCovOut', 'bigstat ' + (Math.abs(cout - 0.95) < 0.04 ? 'good' : Math.abs(cout - 0.95) < 0.12 ? 'warn' : 'bad'));
+    setText('bWIn', '±' + F.n(wi / wic, 0));
+    setText('bWOut', '±' + F.n(wo / woc, 0));
+    var h = '<h4>Come leggerlo</h4><p class="small">' + d.length + ' simulazioni. Log-verosimiglianza marginale <b>' + gp.lml.toFixed(1) +
+      '</b> — il numero che il pulsante di stima massimizza; più è alto, più i dati sono plausibili con queste impostazioni.</p>';
+    if (B.ell < 3) h += '<p class="small mb0"><b style="color:var(--bad)">Lunghezza di correlazione troppo corta.</b> Il GP crede che simulazioni distanti pochi millimetri non abbiano relazione, quindi tra una simulazione e l’altra ricade sulla media e la banda si gonfia. Onesto, ma inutile.</p>';
+    else if (B.ell > 20 && B.sn < 0.03) h += '<p class="small mb0"><b style="color:var(--bad)">Lunghezza di correlazione troppo lunga per questa curva.</b> Il GP è costretto a essere molto liscio e gli si dice che le simulazioni sono quasi esatte, quindi tra una e l’altra sbaglia con sicurezza. Guarda il dato di copertura — è il fallimento di calibrazione del modulo 8.4.</p>';
+    else if (B.sn > 0.06) h += '<p class="small mb0"><b style="color:var(--warn)">Rumore ipotizzato troppo grande.</b> Il GP tratta come dispersione una struttura reale: bande larghe, picco appiattito. La copertura sembra buona perché le bande sono larghe — controlla anche i valori ±.</p>';
+    else if (cout < 0.85) h += '<p class="small mb0">Dentro l’intervallo provato la copertura è ' + pct(cin) + '. Fuori, ' + pct(cout) +
+      ': sotto i 28 mm la banda è larga ma <b>centrata sulla curva sbagliata</b>, perché lo stallo non è mai stato campionato. Clicca una simulazione a circa 22 mm e guarda il GP trovarlo.</p>';
+    else h += '<p class="small mb0">La copertura è vicina al 95% dichiarato, dentro e fuori dall’intervallo provato. Ora la banda si può citare — dentro l’inviluppo su cui l’hai verificata.</p>';
+    setHTML('bNote', h);
+  }
+
+  /* =================================================================== 16.3 */
+  function degTrue(T) {
+    var x = T - 20, hot = Math.max(0, T - 40);
+    return 0.06 + 0.0035 * x + 0.00008 * x * x + 0.00025 * hot * hot;
+  }
+  var CE = { method: 'nn', K: 6, seed: 3, data: [], members: [], step: 0, total: 1500, timer: 0, ym: 0, ys: 1 };
+  var C_ENV = [18, 38], C_DOM = [5, 55], CG = 126, CXS = linspace(5, 55, CG), cPlot, cPlot2;
+  function cU(T) { return (T - 30) / 25; }
+  (function () {
+    var r = rng(2024);
+    for (var i = 0; i < 40; i++) {
+      var T = C_ENV[0] + (C_ENV[1] - C_ENV[0]) * r();
+      CE.data.push([T, degTrue(T) + 0.008 * gauss(r)]);
+    }
+    var ys = CE.data.map(function (p) { return p[1]; });
+    CE.ym = mean(ys);
+    CE.ys = Math.sqrt(mean(ys.map(function (y) { return (y - CE.ym) * (y - CE.ym); })));
+  })();
+  var NH = 16;
+  function nnNew(r) {
+    var P = new Float64Array(3 * NH + 1);
+    for (var j = 0; j < NH; j++) {
+      P[j] = gauss(r) * 2.5;
+      P[NH + j] = gauss(r) * 1.0;
+      P[2 * NH + j] = gauss(r) / Math.sqrt(NH);
+    }
+    return { P: P, m: new Float64Array(3 * NH + 1), v: new Float64Array(3 * NH + 1), t: 0 };
+  }
+  function nnF(P, u) {
+    var s = P[3 * NH];
+    for (var j = 0; j < NH; j++) s += P[2 * NH + j] * Math.tanh(P[j] * u + P[NH + j]);
+    return s;
+  }
+  function nnTrain(net, U, Y, steps, lr) {
+    var P = net.P, n = U.length, Wt = net.w, G = new Float64Array(P.length), h = new Float64Array(NH), j, k, s;
+    for (s = 0; s < steps; s++) {
+      for (j = 0; j < G.length; j++) G[j] = 0;
+      for (k = 0; k < n; k++) {
+        var out = P[3 * NH];
+        for (j = 0; j < NH; j++) { h[j] = Math.tanh(P[j] * U[k] + P[NH + j]); out += P[2 * NH + j] * h[j]; }
+        if (!Wt[k]) continue;
+        var g = 2 * (out - Y[k]) * Wt[k] / n;
+        G[3 * NH] += g;
+        for (j = 0; j < NH; j++) {
+          G[2 * NH + j] += g * h[j];
+          var dh = g * P[2 * NH + j] * (1 - h[j] * h[j]);
+          G[j] += dh * U[k]; G[NH + j] += dh;
+        }
+      }
+      for (j = 0; j < 3 * NH; j++) G[j] += 1e-4 * P[j];
+      net.t++;
+      var b1 = 0.9, b2 = 0.999, c1 = 1 - Math.pow(b1, net.t), c2 = 1 - Math.pow(b2, net.t);
+      for (j = 0; j < P.length; j++) {
+        net.m[j] = b1 * net.m[j] + (1 - b1) * G[j];
+        net.v[j] = b2 * net.v[j] + (1 - b2) * G[j] * G[j];
+        P[j] -= lr * (net.m[j] / c1) / (Math.sqrt(net.v[j] / c2) + 1e-8);
+      }
+    }
+  }
+  function treeFit(pts, depth, minLeaf) {
+    var n = pts.length, i, sum = 0;
+    for (i = 0; i < n; i++) sum += pts[i][1];
+    if (depth === 0 || n < 2 * minLeaf) return { v: sum / n };
+    var best = Infinity, bi = -1, ls = 0, lq = 0, tq = 0;
+    for (i = 0; i < n; i++) tq += pts[i][1] * pts[i][1];
+    for (i = 1; i < n; i++) {
+      ls += pts[i - 1][1]; lq += pts[i - 1][1] * pts[i - 1][1];
+      if (i < minLeaf || n - i < minLeaf || pts[i][0] === pts[i - 1][0]) continue;
+      var rs = sum - ls, rq = tq - lq;
+      var sse = (lq - ls * ls / i) + (rq - rs * rs / (n - i));
+      if (sse < best) { best = sse; bi = i; }
+    }
+    if (bi < 0) return { v: sum / n };
+    return { t: (pts[bi - 1][0] + pts[bi][0]) / 2,
+      l: treeFit(pts.slice(0, bi), depth - 1, minLeaf), r: treeFit(pts.slice(bi), depth - 1, minLeaf) };
+  }
+  function treeP(nd, x) { while (nd.t !== undefined) nd = x < nd.t ? nd.l : nd.r; return nd.v; }
+  var CU = CE.data.map(function (p) { return cU(p[0]); });
+  var CY = CE.data.map(function (p) { return (p[1] - CE.ym) / CE.ys; });
+  function cRestart() {
+    caf(CE.timer);
+    CE.members = [];
+    for (var m = 0; m < CE.K; m++) {
+      var r = rng(CE.seed * 1009 + m * 7919 + 1);
+      var cnt = new Float64Array(CU.length), bs = [], i, k;
+      for (i = 0; i < CU.length; i++) { k = Math.floor(r() * CU.length); cnt[k]++; bs.push([CU[k], CY[k]]); }
+      if (CE.method === 'nn') { var nt = nnNew(r); nt.w = cnt; CE.members.push(nt); }
+      else {
+        bs.sort(function (a, b) { return a[0] - b[0]; });
+        CE.members.push({ tree: treeFit(bs, 4, 2) });
+      }
+    }
+    CE.step = 0;
+    if (CE.method === 'nn') cLoop(); else { setText('cStatus', ''); cDraw(); }
+  }
+  function cLoop() {
+    var per = 60;
+    CE.members.forEach(function (net) { nnTrain(net, CU, CY, per, 0.01); });
+    CE.step += per;
+    setText('cStatus', CE.step < CE.total ? 'addestramento… passo ' + CE.step + ' / ' + CE.total : 'addestrate, ' + CE.total + ' passi');
+    cDraw();
+    if (CE.step < CE.total) CE.timer = raf(cLoop);
+  }
+  function cPredict(mem, T) {
+    var u = cU(T), z = CE.method === 'nn' ? nnF(mem.P, u) : treeP(mem.tree, u);
+    return z * CE.ys + CE.ym;
+  }
+  function cDraw() {
+    var K = CE.members.length, curves = [], i, m;
+    if (!K) return;
+    for (m = 0; m < K; m++) curves.push(CXS.map(function (T) { return cPredict(CE.members[m], T); }));
+    var mu = [], sd = [], er = [];
+    for (i = 0; i < CG; i++) {
+      var s = 0, q = 0;
+      for (m = 0; m < K; m++) s += curves[m][i];
+      s /= K;
+      for (m = 0; m < K; m++) q += (curves[m][i] - s) * (curves[m][i] - s);
+      mu.push(s); sd.push(Math.sqrt(q / Math.max(1, K - 1))); er.push(Math.abs(s - degTrue(CXS[i])));
+    }
+    var p = cPlot;
+    p.resize(); p.clear();
+    p.dom = C_DOM.slice(); p.ran = [-0.05, 0.4];
+    p.frame({ xticks: 5, yticks: 3, xlabel: 'temperatura della pista (°C)', ylabel: 'degrado (s / giro)',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(2); } });
+    p.clip(function () {
+      shadeX(p, C_ENV[0], C_ENV[1], alpha(C('--good'), 0.08));
+      bandFill(p, CXS, mu.map(function (v, k) { return v - 2 * sd[k]; }), mu.map(function (v, k) { return v + 2 * sd[k]; }),
+        alpha(C('--accent'), 0.22));
+      var mc = alpha(C('--accent'), 0.45);
+      curves.forEach(function (cv) { p.line(zip(CXS, cv.map(function (v) { return clamp(v, -1, 2); })), mc, 1.1); });
+      p.line(CXS.map(function (T) { return [T, degTrue(T)]; }), C('--ink-3'), 1.8, [6, 4]);
+      p.line(zip(CXS, mu.map(function (v) { return clamp(v, -1, 2); })), C('--accent'), 2.6);
+      CE.data.forEach(function (q) { p.dot(q[0], q[1], 3.2, C('--ink-2'), C('--panel')); });
+      txt(p, 'intervallo provato', 28, 0.37, C('--good'), 'center');
+    });
+    /* lower plot */
+    var p2 = cPlot2, top = 0;
+    for (i = 0; i < CG; i++) top = Math.max(top, 2 * sd[i], er[i]);
+    top = Math.min(0.3, Math.max(0.01, top * 1.1));
+    p2.resize(); p2.clear();
+    p2.dom = C_DOM.slice(); p2.ran = [0, top];
+    p2.frame({ xticks: 5, yticks: 2, xlabel: 'temperatura della pista (°C)', ylabel: 's / giro',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(2); } });
+    p2.clip(function () {
+      shadeX(p2, C_ENV[0], C_ENV[1], alpha(C('--good'), 0.08));
+      p2.line(zip(CXS, sd.map(function (v) { return Math.min(2 * v, top * 2); })), C('--accent'), 2.4);
+      p2.line(zip(CXS, er.map(function (v) { return Math.min(v, top * 2); })), C('--bad'), 2.4);
+    });
+    /* stats */
+    var ci = 0, ni = 0, co = 0, no = 0, si = 0, so = 0, ei = 0, eo = 0;
+    for (i = 0; i < CG; i++) {
+      var inside = CXS[i] >= C_ENV[0] && CXS[i] <= C_ENV[1], ok = er[i] <= 2 * sd[i];
+      if (inside) { ni++; ci += ok ? 1 : 0; si += sd[i]; ei += er[i]; }
+      else { no++; co += ok ? 1 : 0; so += sd[i]; eo += er[i]; }
+    }
+    var cin = ci / ni, cout = co / no, spr = (so / no) / Math.max(1e-9, si / ni), err = (eo / no) / Math.max(1e-9, ei / ni);
+    setText('cCovIn', pct(cin)); setText('cCovOut', pct(cout));
+    setText('cSpRatio', spr.toFixed(1) + '×'); setText('cErRatio', err.toFixed(1) + '×');
+    setCls('bsCIn', 'bigstat ' + (cin > 0.85 ? 'good' : cin > 0.6 ? 'warn' : 'bad'));
+    setCls('bsCOut', 'bigstat ' + (cout > 0.85 ? 'good' : cout > 0.6 ? 'warn' : 'bad'));
+    var h = '<h4>' + (CE.method === 'nn' ? K + ' reti' : K + ' alberi in bagging') + '</h4>';
+    if (CE.method === 'nn' && CE.step < CE.total) h += '<p class="small mb0">Addestramento in diretta. Guarda i membri convergere sull’intervallo provato pur restando liberi di differire al di fuori.</p>';
+    else if (CE.method === 'nn') h += '<p class="small">Fuori dall’intervallo provato la dispersione cresce di <b>' + spr.toFixed(1) +
+      '×</b>, e l’errore reale cresce di <b>' + err.toFixed(1) + '×</b>. Il segnale punta nella direzione giusta. ' +
+      (cout < 0.7 ? 'Ma la banda contiene la verità solo nel ' + pct(cout) + ' delle temperature là fuori: <b>la dispersione cresce, ma non abbastanza</b>.' :
+        'Qui la banda contiene per caso la verità nella maggior parte delle temperature fuori dall’intervallo — prova altri semi prima di fidarti.') + '</p>' +
+      '<p class="small mb0">Ora passa agli alberi in bagging.</p>';
+    else h += '<p class="small">Fuori dall’intervallo provato ogni albero prevede la sua ultima foglia, quindi sono tutti d’accordo: la dispersione cambia di <b>' + spr.toFixed(1) +
+      '×</b> mentre l’errore reale cresce di <b>' + err.toFixed(1) + '×</b>. La banda contiene la verità nel ' + pct(cout) +
+      ' delle temperature fuori dall’intervallo.</p><p class="small mb0"><b style="color:var(--bad)">La foresta è al massimo della sicurezza esattamente dove sbaglia di più.</b> Dentro l’intervallo va bene.</p>';
+    setHTML('cNote', h);
+  }
+
+  /* =================================================================== 16.4 */
+  function brakeTrue(v) { var x = v - 100, f = Math.max(0, v - 290); return 380 + 2.1 * x + 0.004 * x * x + 0.08 * f * f; }
+  function brakeSd(v) { return 10 + 0.2 * (v - 100); }
+  var D = { cov: 0.9, ncal: 200, shift: 0, score: 'abs', calSeed: 12, rep: null };
+  var D_ENV = [140, 280], dPlot, dBinsPlot;
+  function dU(v) { return (v - 210) / 70; }
+  function dRow(v) { var u = dU(v); return [1, u, u * u]; }
+  var DM = (function () {
+    var r = rng(313), tr = [];
+    for (var i = 0; i < 200; i++) { var v = D_ENV[0] + 140 * r(); tr.push([v, brakeTrue(v) + brakeSd(v) * gauss(r)]); }
+    var w = ridge(tr.map(function (p) { return dRow(p[0]); }), tr.map(function (p) { return p[1]; }), null, 1e-9, 3);
+    var pred = function (v) { var f = dRow(v); return w[0] * f[0] + w[1] * f[1] + w[2] * f[2]; };
+    /* crude spread model: straight line through |residual| against speed */
+    var ab = tr.map(function (p) { return Math.abs(p[1] - pred(p[0])); });
+    var sw = ridge(tr.map(function (p) { return [1, dU(p[0])]; }), ab, null, 1e-9, 2);
+    var spread = function (v) { return Math.max(3, sw[0] + sw[1] * dU(v)); };
+    /* fixed test draws: same circuit, and base uniforms + noise for the shifted circuit */
+    var r2 = rng(555), test = [], zs = [];
+    for (i = 0; i < 3000; i++) { var vt = D_ENV[0] + 140 * r2(); test.push([vt, brakeTrue(vt) + brakeSd(vt) * gauss(r2)]); }
+    for (i = 0; i < 3000; i++) zs.push([r2(), gauss(r2)]);
+    var r3 = rng(777), probe = [];
+    for (i = 0; i < 4000; i++) { var vp = 140 + 200 * r3(); probe.push([vp, brakeTrue(vp) + brakeSd(vp) * gauss(r3)]); }
+    return { tr: tr, pred: pred, spread: spread, test: test, zs: zs, probe: probe };
+  })();
+  function dCal(seed, n) {
+    var r = rng(seed * 2654435761 + 11), c = [];
+    for (var i = 0; i < n; i++) { var v = D_ENV[0] + 140 * r(); c.push([v, brakeTrue(v) + brakeSd(v) * gauss(r)]); }
+    return c;
+  }
+  function dScale(v) { return D.score === 'abs' ? 1 : DM.spread(v); }
+  function dQhat(cal, cov) {
+    var s = cal.map(function (p) { return Math.abs(p[1] - DM.pred(p[0])) / dScale(p[0]); });
+    s.sort(function (a, b) { return a - b; });
+    var n = s.length, k = Math.ceil((n + 1) * cov);
+    return k > n ? Infinity : s[k - 1];
+  }
+  function dCover(set, q) {
+    var c = 0;
+    for (var i = 0; i < set.length; i++) if (Math.abs(set[i][1] - DM.pred(set[i][0])) <= q * dScale(set[i][0])) c++;
+    return c / set.length;
+  }
+  function dShifted() {
+    return DM.zs.map(function (z) { var v = D_ENV[0] + D.shift + 140 * z[0]; return [v, brakeTrue(v) + brakeSd(v) * z[1]]; });
+  }
+  function dDraw() {
+    var cal = dCal(D.calSeed, D.ncal), q = dQhat(cal, D.cov), sh = dShifted(), i;
+    var cin = dCover(DM.test, q), csh = dCover(sh, q);
+    var p = dPlot;
+    p.resize(); p.clear();
+    p.dom = [120, 345]; p.ran = [350, 1350];
+    p.frame({ xticks: 5, yticks: 4, xlabel: 'velocità di approccio (km/h)', ylabel: 'temp. picco disco (°C)',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(0); } });
+    var xs = linspace(120, 345, 120), fin = isFinite(q);
+    p.clip(function () {
+      shadeX(p, D_ENV[0], D_ENV[1], alpha(C('--good'), 0.07));
+      if (D.shift > 0) shadeX(p, D_ENV[1], D_ENV[1] + D.shift, alpha(C('--warn'), 0.08));
+      if (fin) bandFill(p, xs, xs.map(function (v) { return DM.pred(v) - q * dScale(v); }),
+        xs.map(function (v) { return DM.pred(v) + q * dScale(v); }), alpha(C('--accent'), 0.2));
+      var gc = alpha(C('--ink-3'), 0.55), wc = alpha(C('--warn'), 0.75);
+      for (i = 0; i < 220; i++) p.dot(DM.test[i][0], DM.test[i][1], 2.1, gc);
+      if (D.shift > 0) for (i = 0; i < 220; i++) p.dot(sh[i][0], sh[i][1], 2.3, wc);
+      p.line(xs.map(function (v) { return [v, brakeTrue(v)]; }), C('--ink-3'), 1.5, [6, 4]);
+      p.line(xs.map(function (v) { return [v, DM.pred(v)]; }), C('--accent'), 2.6);
+      txt(p, 'intervallo calibrato', 210, 1300, C('--good'), 'center');
+      if (!fin) txt(p, 'q̂ infinito: troppo pochi casi di calibrazione per questa copertura', 232, 420, C('--bad'), 'center');
+    });
+    /* per-bin coverage on the probe set */
+    var bins = [], b;
+    for (b = 0; b < 10; b++) bins.push({ lo: 140 + 20 * b, hi: 160 + 20 * b, c: 0, n: 0 });
+    DM.probe.forEach(function (pt) {
+      var bi = Math.min(9, Math.floor((pt[0] - 140) / 20));
+      bins[bi].n++;
+      if (Math.abs(pt[1] - DM.pred(pt[0])) <= q * dScale(pt[0])) bins[bi].c++;
+    });
+    var p2 = dBinsPlot;
+    p2.resize(); p2.clear();
+    p2.dom = [140, 340]; p2.ran = [0.4, 1];
+    p2.frame({ xticks: 5, yticks: 3, xlabel: 'fascia di velocità di approccio (km/h)', ylabel: 'copertura',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return (v * 100).toFixed(0) + '%'; } });
+    p2.clip(function (g) {
+      bins.forEach(function (bn) {
+        var cv = bn.n ? bn.c / bn.n : 0, out = bn.lo >= D_ENV[1];
+        var col = out ? C('--warn') : Math.abs(cv - D.cov) < 0.03 ? C('--good') : C('--accent');
+        g.fillStyle = alpha(col, out ? 0.55 : 0.75);
+        var x0 = p2.X(bn.lo) + 3, x1 = p2.X(bn.hi) - 3, y0 = p2.Y(Math.max(0.4, cv));
+        g.fillRect(x0, y0, x1 - x0, p2.Y(0.4) - y0);
+      });
+      hline(p2, D.cov, C('--ink'), 1.6, [5, 4]);
+      vline(p2, D_ENV[1], C('--ink-3'), 1, [2, 3]);
+    });
+    /* readouts */
+    function grade(c) { return Math.abs(c - D.cov) <= 0.015 || (c > D.cov && c - D.cov < 0.03) ? 'good' : c < D.cov - 0.06 ? 'bad' : 'warn'; }
+    setText('dCIn', pct(cin, 1)); setText('dCSh', D.shift > 0 ? pct(csh, 1) : '—');
+    setCls('bsDIn', 'bigstat ' + grade(cin)); setCls('bsDSh', 'bigstat ' + (D.shift > 0 ? grade(csh) : ''));
+    var wsum = 0;
+    for (i = 0; i < DM.test.length; i++) wsum += q * dScale(DM.test[i][0]);
+    setText('dW', fin ? '±' + (wsum / DM.test.length).toFixed(0) + ' °C' : '∞');
+    setText('dQ', fin ? (D.score === 'abs' ? q.toFixed(0) + ' °C' : q.toFixed(2) + ' × σ̂') : '∞');
+    var lowBin = bins[0].n ? bins[0].c / bins[0].n : 0, hiBin = bins[6].n ? bins[6].c / bins[6].n : 0;
+    var h = '<h4>Come leggerlo</h4>';
+    if (!fin) h += '<p class="small"><b style="color:var(--bad)">Nessun intervallo finito.</b> Con ' + D.ncal + ' casi di calibrazione, (n + 1)(1 − α) = ' +
+      ((D.ncal + 1) * D.cov).toFixed(1) + ' supera n. Servono circa 1/α casi prima che un’affermazione al ' + pct(D.cov) + ' sia anche solo possibile.</p>';
+    else h += '<p class="small">Obiettivo ' + pct(D.cov) + '; sullo stesso circuito l’intervallo copre il <b>' + pct(cin, 1) + '</b> di 3\u202f000 casi nuovi. ' +
+      (D.score === 'abs' ? 'Per fascia di velocità copre il ' + pct(lowBin) + ' nella fascia più lenta e il ' + pct(hiBin) + ' nella fascia calibrata più veloce: <b>giusto in media, sbagliato in entrambi i punti</b>. Prova il punteggio scalato.' :
+        'Con il punteggio scalato l’intervallo si allarga dove la dispersione è maggiore, e le fasce sono molto più vicine all’obiettivo.') + '</p>';
+    if (D.shift > 0 && fin) h += '<p class="small mb0"><b style="color:' + (csh < D.cov - 0.05 ? 'var(--bad)' : 'var(--warn)') +
+      '">Sul circuito più veloce: ' + pct(csh, 1) + '.</b> L’intervallo sembra autorevole esattamente come prima. Nulla in esso dice che la garanzia non c’è più.</p>';
+    else h += '<p class="small mb0">Ora aumenta lo spostamento e guarda il secondo dato di copertura.</p>';
+    setHTML('dNote', h);
+    if (D.rep) setHTML('dNote', $('dNote').innerHTML + D.rep);
+  }
+  function dRepeat() {
+    var cs = [], k;
+    for (k = 0; k < 500; k++) {
+      var q = dQhat(dCal(1000 + k, D.ncal), D.cov);
+      cs.push(isFinite(q) ? dCover(DM.test, q) : 1);
+    }
+    cs.sort(function (a, b) { return a - b; });
+    D.rep = '<p class="small mt1 mb0" style="border-top:1px solid var(--line-2);padding-top:.6em"><b>500 estrazioni di calibrazione da ' + D.ncal +
+      ':</b> copertura media ' + pct(mean(cs), 1) + ' (obiettivo ' + pct(D.cov) + '); il 90% delle estrazioni tra ' + pct(cs[25], 1) + ' e ' +
+      pct(cs[474], 1) + '. La garanzia riguarda la media sulle estrazioni; un singolo set di calibrazione può finire un po’ sotto.</p>';
+    dDraw();
+  }
+
+  /* =================================================================== 16.5 */
+  var E = { meas: 6, disc: 10, form: 25, surr: 15, tol: 0.5, h0: 40, req: 3730, corr: false };
+  var EN = 20000, EZ = (function () {
+    var r = rng(2468), z = [];
+    for (var k = 0; k < 5; k++) { var a = new Float64Array(EN); for (var i = 0; i < EN; i++) a[i] = gauss(r); z.push(a); }
+    return z;
+  })();
+  var ePlot;
+  function eDraw() {
+    var base = cfdTrue(E.h0) * 1000, tot = new Float64Array(EN), inp = new Float64Array(EN), i;
+    var srcs = [E.meas, E.disc, E.form, E.surr];
+    for (i = 0; i < EN; i++) {
+      inp[i] = cfdTrue(E.h0 + E.tol * EZ[0][i]) * 1000 - base;
+      var e = 0;
+      if (E.corr) e = (E.meas + E.disc + E.form + E.surr) * EZ[1][i];
+      else e = E.meas * EZ[1][i] + E.disc * EZ[2][i] + E.form * EZ[3][i] + E.surr * EZ[4][i];
+      tot[i] = base + inp[i] + e;
+    }
+    var im = 0, iv = 0;
+    for (i = 0; i < EN; i++) im += inp[i];
+    im /= EN;
+    for (i = 0; i < EN; i++) iv += (inp[i] - im) * (inp[i] - im);
+    var isd = Math.sqrt(iv / (EN - 1));
+    var srcAll = srcs.concat([isd]);
+    var uc = E.corr ? Math.sqrt(Math.pow(E.meas + E.disc + E.form + E.surr, 2) + isd * isd)
+      : Math.sqrt(srcAll.reduce(function (s, v) { return s + v * v; }, 0));
+    var sorted = Array.prototype.slice.call(tot).sort(function (a, b) { return a - b; });
+    var lo = sorted[Math.floor(0.025 * EN)], hi = sorted[Math.floor(0.975 * EN)], pm = 0, meets = 0;
+    for (i = 0; i < EN; i++) { pm += tot[i]; if (tot[i] >= E.req) meets++; }
+    pm /= EN;
+    var P = meets / EN;
+    setText('ePred', F.n(base, 0));
+    setText('eU', '±' + F.n(2 * uc, 0));
+    setText('eInt', F.n(lo, 0) + '–' + F.n(hi, 0));
+    setText('eP', pct(P, P > 0.99 || P < 0.01 ? 1 : 0));
+    setCls('bsEP', 'bigstat ' + (P >= 0.95 ? 'good' : P >= 0.7 ? 'warn' : 'bad'));
+    /* variance share bars */
+    var names = ['Misura', 'Discretizzazione CFD', 'Forma del modello CFD', 'Surrogato', 'Tolleranza altezza da terra'];
+    var cols = ['--ink-3', '--accent-2', '--accent', '--violet', '--warn'];
+    var vars = srcAll.map(function (v) { return v * v; }), vt = vars.reduce(function (a, b) { return a + b; }, 0) || 1;
+    var bh = '', top = 0;
+    vars.forEach(function (v, k) { if (v > vars[top]) top = k; });
+    vars.forEach(function (v, k) {
+      bh += '<div class="sbar"><span>' + names[k] + (k === 4 ? ' <span class="muted">(' + F.n(isd, 0) + ', calcolato)</span>' : '') + '</span>' +
+        '<div class="tr"><div class="fi" style="width:' + (v / vt * 100).toFixed(1) + '%;background:var(' + cols[k] + ')"></div></div>' +
+        '<span class="vv">' + (v / vt * 100).toFixed(0) + '%</span></div>';
+    });
+    setHTML('eBars', bh);
+    /* histogram */
+    var p = ePlot, a = sorted[Math.floor(0.001 * EN)], b = sorted[Math.floor(0.999 * EN)];
+    a = Math.min(a, E.req) - 20; b = Math.max(b, E.req) + 20;
+    var NB = 56, hist = new Array(NB).fill(0), bw = (b - a) / NB, mx = 0;
+    for (i = 0; i < EN; i++) { var k = Math.floor((tot[i] - a) / bw); if (k >= 0 && k < NB) hist[k]++; }
+    hist.forEach(function (c) { mx = Math.max(mx, c); });
+    p.resize(); p.clear();
+    p.dom = [a, b]; p.ran = [0, mx * 1.12];
+    p.frame({ xticks: 4, yticks: 2, xlabel: 'deportanza vera (count)', xfmt: function (v) { return v.toFixed(0); },
+      yfmt: function () { return ''; } });
+    p.clip(function (g) {
+      for (var j = 0; j < NB; j++) {
+        var x0 = a + j * bw, ok = x0 + bw / 2 >= E.req;
+        g.fillStyle = alpha(ok ? C('--good') : C('--bad'), 0.6);
+        var X0 = p.X(x0), X1 = p.X(x0 + bw), Y0 = p.Y(hist[j]);
+        g.fillRect(X0, Y0, Math.max(1, X1 - X0 - 1), p.Y(0) - Y0);
+      }
+      vline(p, E.req, C('--ink'), 1.8, [5, 4]);
+      txt(p, 'requisito', E.req, mx * 1.06, C('--ink'), E.req > (a + b) / 2 ? 'right' : 'left');
+    });
+    /* verdict */
+    var lvl = P >= 0.95 ? 'ok' : P >= 0.7 ? 'mid' : 'hi';
+    var head = P >= 0.95 ? 'Soddisfa il requisito, incertezza inclusa' : P >= 0.7 ? 'Probabilmente lo soddisfa — non dimostrato' : 'Non si può affermare che soddisfi il requisito';
+    var m3 = 0, m2 = 0;
+    for (i = 0; i < EN; i++) { var dv = tot[i] - pm; m2 += dv * dv; m3 += dv * dv * dv; }
+    var skew = (m3 / EN) / Math.pow(m2 / EN, 1.5);
+    setCls('eVerdict', 'verdict mt1 ' + lvl);
+    setHTML('eVerdict', '<span class="lvl">' + head + '</span><span class="small">Da riportare come: <b>' + F.n(base, 0) + ' count, intervallo al 95% da ' +
+      F.n(lo, 0) + ' a ' + F.n(hi, 0) + '; probabilità del ' + pct(P) + ' di soddisfare ' + F.n(E.req, 0) + '.</b> Contributo maggiore: ' +
+      names[top] + ' (' + (vars[top] / vt * 100).toFixed(0) + '% della varianza) — è lì che vanno i prossimi soldi.' +
+      (Math.abs(skew) > 0.4 ? ' <b>La distribuzione è asimmetrica</b> (asimmetria ' + skew.toFixed(1) + '): qui un valore ± sarebbe fuorviante; cita l’intervallo e la probabilità.' : '') +
+      '</span>');
+  }
+
+  /* =================================================================== 16.6 */
+  var FS = { nets: [], step: 0, total: 700, seed: 1, probe: [-1.8, -1.6], timer: 0 };
+  var FX = [], FY = [], FDOM = [-3.2, 3.2], FRAN = [-2.4, 2.4], fPlot1, fPlot2, FSPREAD = 0.3;
+  (function () {
+    var r = rng(808);
+    var cl = [[0, 0, 0], [1.1, 0, 1], [-0.8, 0.8, 1]];
+    cl.forEach(function (c) {
+      for (var i = 0; i < 30; i++) { FX.push([c[0] + FSPREAD * gauss(r), c[1] + FSPREAD * gauss(r)]); FY.push(c[2]); }
+    });
+  })();
+  function fSeededNet(seed) {
+    var net = new AI.MLP([2, 10, 10, 1], 'tanh'), r = rng(seed);
+    for (var l = 0; l < net.W.length; l++) {
+      var nin = net.s[l], nout = net.s[l + 1], sc = Math.sqrt(2 / (nin + nout)) * 1.6;
+      for (var j = 0; j < nout; j++) {
+        for (var i = 0; i < nin; i++) net.W[l][j][i] = (r() * 2 - 1) * sc;
+        net.B[l][j] = (r() * 2 - 1) * 0.3;
+      }
+    }
+    return net;
+  }
+  function fRestart() {
+    caf(FS.timer);
+    FS.nets = [];
+    for (var k = 0; k < 5; k++) FS.nets.push(fSeededNet(FS.seed * 4099 + k * 271 + 5));
+    FS.step = 0;
+    fLoop();
+  }
+  function fLoop() {
+    var per = 35;
+    FS.nets.forEach(function (net) { for (var s = 0; s < per; s++) net.step(FX, FY, 0.4, 0.9); });
+    FS.step += per;
+    setText('fStatus', FS.step < FS.total ? 'addestramento… ' + FS.step + ' / ' + FS.total : 'addestrate, ' + FS.total + ' passi ciascuna');
+    fDraw();
+    if (FS.step < FS.total) FS.timer = raf(fLoop);
+  }
+  function fDrawMap(p, which) {
+    p.resize(); p.clear();
+    p.dom = FDOM.slice(); p.ran = FRAN.slice();
+    var panel = rgbOf(C('--panel')), acc = rgbOf(C('--accent')), bad = rgbOf(C('--bad')), warn = rgbOf(C('--warn'));
+    var cell = 7;
+    p.clip(function (g) {
+      for (var px = p.pad.l; px < p.pad.l + p.pw; px += cell) {
+        for (var py = p.pad.t; py < p.pad.t + p.ph; py += cell) {
+          var x = [p.iX(px + cell / 2), p.iY(py + cell / 2)];
+          if (which === 1) {
+            var pr = FS.nets[0].predict(x);
+            g.fillStyle = mixRGB(panel, pr > 0.5 ? bad : acc, Math.abs(pr - 0.5) * 2 * 0.85);
+          } else {
+            var s = 0, q = 0, ps = [];
+            for (var k = 0; k < FS.nets.length; k++) { var v = FS.nets[k].predict(x); ps.push(v); s += v; }
+            s /= ps.length;
+            for (k = 0; k < ps.length; k++) q += (ps[k] - s) * (ps[k] - s);
+            var sd = Math.sqrt(q / (ps.length - 1));
+            g.fillStyle = mixRGB(panel, warn, Math.min(1, sd / 0.4) * 0.9);
+          }
+          g.fillRect(px, py, cell + 1, cell + 1);
+        }
+      }
+    });
+    p.frame({ xticks: 4, yticks: 4, xlabel: 'vibrazione (normalizzata)', ylabel: 'temp. cuscinetto (norm.)',
+      xfmt: function (v) { return v.toFixed(1); }, yfmt: function (v) { return v.toFixed(1); } });
+    p.clip(function (g) {
+      for (var i = 0; i < FX.length; i++) p.dot(FX[i][0], FX[i][1], 3.2, FY[i] ? C('--bad') : C('--accent'), C('--panel'));
+      var X = p.X(FS.probe[0]), Y = p.Y(FS.probe[1]);
+      g.strokeStyle = C('--ink'); g.lineWidth = 2;
+      g.beginPath(); g.arc(X, Y, 8, 0, 6.2832); g.stroke();
+      g.beginPath(); g.moveTo(X - 13, Y); g.lineTo(X - 4, Y); g.moveTo(X + 4, Y); g.lineTo(X + 13, Y);
+      g.moveTo(X, Y - 13); g.lineTo(X, Y - 4); g.moveTo(X, Y + 4); g.lineTo(X, Y + 13); g.stroke();
+    });
+  }
+  function fDraw() {
+    if (!FS.nets.length) return;
+    fDrawMap(fPlot1, 1); fDrawMap(fPlot2, 2);
+    var ps = FS.nets.map(function (n) { return n.predict(FS.probe); }), m = mean(ps), q = 0;
+    ps.forEach(function (v) { q += (v - m) * (v - m); });
+    var sd = Math.sqrt(q / (ps.length - 1)), p1 = ps[0], near = 1e9;
+    FX.forEach(function (x) { near = Math.min(near, Math.hypot(x[0] - FS.probe[0], x[1] - FS.probe[1])); });
+    var dist = near / FSPREAD, conf = Math.max(p1, 1 - p1);
+    setText('fP1', (conf * 100).toFixed(1) + '% ' + (p1 > 0.5 ? 'usurato' : 'sano'));
+    setText('fSd', '±' + sd.toFixed(2));
+    setText('fDist', dist.toFixed(1) + 'σ');
+    setCls('bsF1', 'bigstat ' + (conf > 0.95 ? (dist > 3 ? 'bad' : 'good') : 'warn'));
+    setCls('bsFsd', 'bigstat ' + (sd > 0.2 ? 'warn' : ''));
+    setCls('bsFd', 'bigstat ' + (dist > 3 ? 'bad' : dist > 1.5 ? 'warn' : 'good'));
+    setHTML('fMembers', ps.map(function (v) {
+      return '<span style="color:' + (v > 0.5 ? 'var(--bad)' : 'var(--accent)') + '">' + (v * 100).toFixed(0) + '%</span>';
+    }).join(''));
+    var h = '<h4>Nel punto sonda</h4>';
+    if (FS.step < FS.total) h += '<p class="small mb0">Addestramento di cinque reti… la mappa di sinistra si definirà in una frontiera netta e sicura.</p>';
+    else if (dist > 3 && conf > 0.95 && sd > 0.15) h += '<p class="small mb0"><b style="color:var(--bad)">Ecco la trappola.</b> La sonda è a ' + dist.toFixed(1) +
+      ' larghezze di cluster da qualsiasi cuscinetto che il modello abbia visto, e la rete 1 dice comunque ' + (conf * 100).toFixed(1) + '%. I cinque membri vanno dal ' +
+      (Math.min.apply(null, ps) * 100).toFixed(0) + '% al ' + (Math.max.apply(null, ps) * 100).toFixed(0) + '%: <b>non ne hanno idea, e lo dice solo l’ensemble.</b></p>';
+    else if (dist > 3 && sd <= 0.15) h += '<p class="small mb0"><b style="color:var(--warn)">Lontano dai dati, e l’ensemble concorda lo stesso.</b> Tutte e cinque le reti hanno esteso per caso la frontiera nello stesso modo. ' +
+      'Il disaccordo cattura buona parte del non familiare, non tutto — è il controllo della distanza (' + dist.toFixed(1) + 'σ) a segnalare questo caso.</p>';
+    else if (dist <= 1.5) h += '<p class="small mb0">Vicino ai dati di addestramento. Qui la confidenza significa qualcosa, e i membri concordano. Ora clicca da qualche parte lontano da entrambi i cluster.</p>';
+    else h += '<p class="small mb0">Tra il familiare e il non familiare. Confronta le tre letture mentre ti allontani.</p>';
+    setHTML('fNote', h);
+  }
+
+  /* =================================================================== init */
+  window.PAGE_INIT = function () {
+    /* 16.1 */
+    aPlot = new AI.Plot($('aCv'), { dom: [0, 20], ran: [82.2, 85.8], pad: { l: 50, r: 12, t: 12, b: 40 } });
+    AI.bindRange('aN', function (v) { return v + ' giri'; }, function (v) { A.n = v; A.res = null; sched(aDraw); });
+    AI.bindRange('aNoise', function (v) { return '±' + v.toFixed(2) + ' s'; }, function (v) { A.noise = v; A.res = null; sched(aDraw); });
+    AI.bindRange('aProbe', function (v) { return v.toFixed(1) + '°'; }, function (v) { A.probe = v; sched(aDraw); });
+    AI.segmented($('aPlanSeg'), function (v) { A.plan = v; setText('aPlanName', PLAN_NAMES[v]); A.res = null; sched(aDraw); });
+    AI.on($('aNew'), 'click', function () { A.seed++; A.res = null; aDraw(); });
+    AI.onRedraw(aDraw);
+
+    /* 16.2 */
+    bPlot = new AI.Plot($('bCv'), { dom: B_DOM.slice(), ran: [2.7, 4.3], pad: { l: 50, r: 12, t: 12, b: 40 } });
+    bindB.n = AI.bindRange('bN', function (v) { return v + ' simulazioni'; }, function (v) { B.n = v; bBase(); sched(bDraw); });
+    bindB.ell = AI.bindRange('bEll', function (v) { return v.toFixed(1) + ' mm'; }, function (v) { B.ell = v; sched(bDraw); });
+    bindB.sn = AI.bindRange('bSn', function (v) { return F.n(v * 1000, 0) + ' count'; }, function (v) { B.sn = v; sched(bDraw); });
+    AI.on($('bFit'), 'click', bFitML);
+    AI.on($('bReset'), 'click', function () { B.extra = []; bDraw(); });
+    AI.on($('bDraws'), 'change', function () { B.draws = $('bDraws').checked; bDraw(); });
+    AI.on($('bCv'), 'click', function (e) {
+      var pt = clickX($('bCv'), bPlot, e);
+      if (pt.x < B_DOM[0] || pt.x > B_DOM[1]) return;
+      B.extra.push([pt.x, cfdTrue(pt.x) + B_SCAT * gauss(bER)]);
+      bDraw();
+    });
+    AI.onRedraw(bDraw);
+
+    /* 16.3 */
+    cPlot = new AI.Plot($('cCv'), { dom: C_DOM.slice(), ran: [-0.05, 0.4], pad: { l: 52, r: 12, t: 12, b: 40 } });
+    cPlot2 = new AI.Plot($('cCv2'), { dom: C_DOM.slice(), ran: [0, 0.1], pad: { l: 52, r: 12, t: 10, b: 38 } });
+    AI.bindRange('cK', function (v) { return v; }, function (v) { CE.K = v; sched(cRestart); });
+    AI.segmented($('cMethodSeg'), function (v) {
+      CE.method = v; setText('cMethodName', v === 'nn' ? 'Reti neurali' : 'Alberi in bagging'); cRestart();
+    });
+    AI.on($('cNew'), 'click', function () { CE.seed++; cRestart(); });
+    AI.onRedraw(cDraw);
+
+    /* 16.4 */
+    dPlot = new AI.Plot($('dCv'), { dom: [120, 345], ran: [350, 1350], pad: { l: 52, r: 12, t: 12, b: 40 } });
+    dBinsPlot = new AI.Plot($('dBins'), { dom: [140, 340], ran: [0.4, 1], pad: { l: 52, r: 12, t: 10, b: 38 } });
+    AI.bindRange('dCov', function (v) { return pct(v); }, function (v) { D.cov = v; D.rep = null; sched(dDraw); });
+    AI.bindRange('dN', function (v) { return v + ' casi'; }, function (v) { D.ncal = v; D.rep = null; sched(dDraw); });
+    AI.bindRange('dShift', function (v) { return v + ' km/h'; }, function (v) { D.shift = v; sched(dDraw); });
+    AI.segmented($('dScoreSeg'), function (v) {
+      D.score = v; D.rep = null; setText('dScoreName', v === 'abs' ? 'Errore assoluto' : 'Scalato da un modello della dispersione'); dDraw();
+    });
+    AI.on($('dRedraw'), 'click', function () { D.calSeed++; D.rep = null; dDraw(); });
+    AI.on($('dRepeat'), 'click', dRepeat);
+    AI.onRedraw(dDraw);
+
+    /* 16.5 */
+    ePlot = new AI.Plot($('eCv'), { dom: [3000, 4000], ran: [0, 1], pad: { l: 14, r: 12, t: 12, b: 38 } });
+    AI.bindRange('eMeas', function (v) { return '±' + v; }, function (v) { E.meas = v; sched(eDraw); });
+    AI.bindRange('eDisc', function (v) { return '±' + v; }, function (v) { E.disc = v; sched(eDraw); });
+    AI.bindRange('eForm', function (v) { return '±' + v; }, function (v) { E.form = v; sched(eDraw); });
+    AI.bindRange('eSurr', function (v) { return '±' + v; }, function (v) { E.surr = v; sched(eDraw); });
+    AI.bindRange('eTol', function (v) { return '±' + v.toFixed(1) + ' mm'; }, function (v) { E.tol = v; sched(eDraw); });
+    AI.bindRange('eH0', function (v) { return v.toFixed(1) + ' mm'; }, function (v) { E.h0 = v; sched(eDraw); });
+    AI.bindRange('eReq', function (v) { return F.n(v, 0) + ' count'; }, function (v) { E.req = v; sched(eDraw); });
+    AI.on($('eCorr'), 'change', function () { E.corr = $('eCorr').checked; eDraw(); });
+    AI.onRedraw(eDraw);
+
+    /* 16.6 */
+    fPlot1 = new AI.Plot($('fCv1'), { dom: FDOM.slice(), ran: FRAN.slice(), pad: { l: 44, r: 10, t: 10, b: 38 } });
+    fPlot2 = new AI.Plot($('fCv2'), { dom: FDOM.slice(), ran: FRAN.slice(), pad: { l: 44, r: 10, t: 10, b: 38 } });
+    function fClick(cv, pl) {
+      return function (e) {
+        var pt = clickX(cv, pl, e);
+        FS.probe = [clamp(pt.x, FDOM[0], FDOM[1]), clamp(pt.y, FRAN[0], FRAN[1])];
+        fDraw();
+      };
+    }
+    AI.on($('fCv1'), 'click', fClick($('fCv1'), fPlot1));
+    AI.on($('fCv2'), 'click', fClick($('fCv2'), fPlot2));
+    AI.on($('fNew'), 'click', function () { FS.seed++; fRestart(); });
+    AI.onRedraw(fDraw);
+
+    /* first draw */
+    aDraw(); bDraw(); cRestart(); dDraw(); eDraw(); fRestart();
+  };
+})();
+</script>
+</body>
+</html>

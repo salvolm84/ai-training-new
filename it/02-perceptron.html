@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>2 · Il percettrone — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .neuron-svg { width: 100%; height: auto; }
+  .nz { font: 700 13px ui-monospace, monospace; }
+  .nlbl { font: 600 12px system-ui, sans-serif; }
+  .nsm { font: 11px system-ui, sans-serif; }
+
+  .cv { width: 100%; height: 330px; }
+  .cv-sm { width: 100%; height: 250px; }
+
+  .tt td, .tt th { padding: 7px 10px; font-size: .9rem; }
+  .tt td.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .tt tr.ok { background: var(--good-soft); }
+  .tt tr.no { background: var(--bad-soft); }
+  .tt .mark { font-weight: 800; }
+  .tt tr.ok .mark { color: var(--good); }
+  .tt tr.no .mark { color: var(--bad); }
+
+  .banner {
+    border-radius: var(--r); padding: 12px 16px; font-weight: 620; font-size: .95rem;
+    border: 1px solid var(--line); background: var(--bg-3); color: var(--ink-2);
+  }
+  .banner.win { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+  .banner.lose { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+
+  .eqbox {
+    font-family: var(--mono); font-size: 1.02rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 14px 16px; overflow-x: auto; line-height: 1.9;
+  }
+  .eqbox .hi { color: var(--accent); font-weight: 700; }
+  .eqbox .hi2 { color: var(--warn); font-weight: 700; }
+
+  .classpick { display: flex; gap: 8px; align-items: center; }
+  .classpick button {
+    font: inherit; font-size: .85rem; font-weight: 600; padding: 6px 13px; border-radius: 8px;
+    border: 2px solid var(--line); background: var(--panel); cursor: pointer; color: var(--ink);
+  }
+  .classpick button.on[data-c="1"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .classpick button.on[data-c="-1"] { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+
+  .stepcard {
+    border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; background: var(--panel);
+    font-size: .92rem; min-height: 86px;
+  }
+  .stepcard .mono { font-family: var(--mono); }
+</style>
+</head>
+<body data-page="p2">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 2</span>
+  <h1>Il percettrone</h1>
+  <p class="lead">Un neurone artificiale, senza coperchio. Tutto ciò che c’è in questo modulo sono due
+  moltiplicazioni, un’addizione e una soglia — e alla fine ne avrai addestrato uno a mano, e poi lo
+  avrai visto addestrarsi da solo.</p>
+</header>
+
+<main class="wrap">
+
+<!-- ============================================= 2.1 -->
+<section class="chapter" id="anatomy">
+  <h2>2.1 · Che cosa c’è dentro un neurone</h2>
+
+  <p>Un neurone riceve alcuni numeri, moltiplica ciascuno per il proprio <strong>peso</strong>, li
+  somma, aggiunge una costante chiamata <strong>bias</strong> e fa passare il risultato attraverso una
+  piccola funzione non lineare. Questa è la specifica completa. Un modello con 400 miliardi di
+  parametri è esattamente questo, ripetuto per 400 miliardi di numeri.</p>
+
+  <div class="eqbox">
+    z = <span class="hi">w₁</span>·x₁ + <span class="hi">w₂</span>·x₂ + <span class="hi2">b</span>
+    &nbsp;&nbsp;&nbsp;→&nbsp;&nbsp;&nbsp; output = f(z)
+  </div>
+
+  <p>I due input <span class="mono">x₁, x₂</span> arrivano dal mondo esterno: la lettura di un sensore,
+  un pixel, l’output di un altro neurone. I pesi e il bias sono i <em>parametri</em>: le uniche cose che
+  l’addestramento ha il permesso di cambiare. Nota che cosa significano fisicamente i pesi: un peso
+  positivo grande dice “questo input conta e spinge verso il sì”; un peso negativo dice “questo input
+  rema contro”; un peso vicino a zero dice “ignora questo input”. Il bias indica quanto facilmente il
+  neurone si attiva in generale, indipendentemente da qualsiasi input.</p>
+
+  <div class="callout">
+    <span class="ctitle">L’immagine geometrica — è tutto il modulo</span>
+    <p class="mb0">Con due input, <span class="mono">w₁x₁ + w₂x₂ + b = 0</span> è l’equazione di una
+    <strong>retta</strong>. Il neurone dice “sì” da una parte della retta e “no” dall’altra.
+    <strong>I pesi ruotano la retta; il bias la trasla.</strong> Addestrare un neurone significa
+    posizionare una retta. È tutto ciò che potrà mai fare — e l’intero modulo 3 esiste a causa di
+    questo limite.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head">
+      <h3>Laboratorio · Neurone dal vivo</h3>
+      <span class="tag try">Trascina i cursori</span>
+    </div>
+
+    <div class="split">
+      <div>
+        <svg viewBox="0 0 470 250" class="neuron-svg" id="nSvg" aria-label="Schema di un singolo neurone"></svg>
+        <div class="readout mt1">
+          <div class="stat"><span class="k">somma pesata z</span><span class="v" id="oZ">0.00</span></div>
+          <div class="stat hl"><span class="k">output f(z)</span><span class="v" id="oY">0</span></div>
+          <div class="stat"><span class="k">esito</span><span class="v" id="oV" style="font-size:1.05rem">—</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Input x₁</span><span class="val" id="x1Out"></span></div>
+          <input type="range" id="x1" min="0" max="1" step="0.05" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Input x₂</span><span class="val" id="x2Out"></span></div>
+          <input type="range" id="x2" min="0" max="1" step="0.05" value="0">
+        </div>
+        <hr style="margin:1rem 0">
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Peso w₁ &nbsp;<span class="muted small">(appreso)</span></span><span class="val" id="w1Out"></span></div>
+          <input type="range" id="w1" min="-2" max="2" step="0.05" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Peso w₂ &nbsp;<span class="muted small">(appreso)</span></span><span class="val" id="w2Out"></span></div>
+          <input type="range" id="w2" min="-2" max="2" step="0.05" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Bias b &nbsp;<span class="muted small">(appreso)</span></span><span class="val" id="bOut"></span></div>
+          <input type="range" id="b" min="-2" max="2" step="0.05" value="-0.5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Attivazione f</span><span class="val" id="actName">gradino</span></div>
+          <div class="segmented" id="actSeg">
+            <button data-v="step" class="on">gradino</button>
+            <button data-v="sigmoid">sigmoide</button>
+            <button data-v="relu">ReLU</button>
+            <button data-v="tanh">tanh</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Imposta w₁ = 1, w₂ = 1, b = −0.5 e passa in rassegna le quattro combinazioni di input. Poi
+      imposta b = −1.5 e ripassale. Due comportamenti completamente diversi, stesso neurone, un solo
+      numero cambiato.</li>
+      <li>La retta che compare nel laboratorio successivo è <em>la stessa equazione</em> dei numeri qui.
+      Dillo ad alta voce: il salto dall’aritmetica alla geometria è il punto in cui le persone o
+      capiscono o si perdono.</li>
+      <li>Se qualcuno chiede “dov’è l’intelligenza?” — da nessuna parte. Sta nella scelta dei numeri, e
+      sceglierli è ciò che fa l’addestramento.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 2.2 -->
+<section class="chapter" id="gates">
+  <h2>2.2 · Programmalo a mano</h2>
+  <p>Prima di lasciarlo imparare, fai tu l’apprendimento. Scegli una funzione logica e trova dei pesi
+  che facciano riprodurre al neurone quella funzione per tutte e quattro le combinazioni di input. Il
+  piano a destra mostra la tua retta e i quattro casi; ottieni tutte e quattro le spunte e l’hai
+  risolto.</p>
+
+  <div class="lab">
+    <div class="lab-head">
+      <h3>Laboratorio · La sfida delle porte logiche</h3>
+      <span class="tag try">Risolvi AND, poi OR, poi NAND</span>
+    </div>
+
+    <div class="btnrow">
+      <div class="segmented" id="gateSeg">
+        <button data-v="AND" class="on">AND</button>
+        <button data-v="OR">OR</button>
+        <button data-v="NAND">NAND</button>
+        <button data-v="XOR">XOR</button>
+      </div>
+      <button class="btn sm" id="gateHint">Suggerimento</button>
+      <button class="btn sm" id="gateSolve">Mostra una soluzione</button>
+      <button class="btn sm" id="gateZero">Azzera i pesi</button>
+    </div>
+
+    <div class="split">
+      <div>
+        <canvas id="gateCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Regione blu: il neurone restituisce 1. Regione grigia: restituisce 0.
+        I cerchi sono le quattro combinazioni di input, bordati nel colore della risposta <em>richiesta</em>.</p>
+      </div>
+      <div>
+        <div class="tablewrap">
+          <table class="tt"><thead><tr>
+            <th>x₁</th><th>x₂</th><th class="num">z</th><th class="num">uscita</th><th class="num">atteso</th><th></th>
+          </tr></thead><tbody id="gateTbody"></tbody></table>
+        </div>
+        <div class="banner mt1" id="gateBanner">Scegli i pesi e un bias.</div>
+        <div class="ctrl mt1">
+          <div class="ctrl-label"><span>w₁</span><span class="val" id="gw1Out"></span></div>
+          <input type="range" id="gw1" min="-2" max="2" step="0.1" value="0.5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>w₂</span><span class="val" id="gw2Out"></span></div>
+          <input type="range" id="gw2" min="-2" max="2" step="0.1" value="0.5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>b</span><span class="val" id="gbOut"></span></div>
+          <input type="range" id="gb" min="-2" max="2" step="0.1" value="0">
+        </div>
+        <div id="gateHintBox" class="callout small hidden" style="margin:1rem 0 0"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 2.3 -->
+<section class="chapter" id="xor">
+  <h2>2.3 · Il muro</h2>
+  <p>Non riesci a risolvere lo XOR. Non perché non ti impegni abbastanza: è dimostrabilmente impossibile,
+  e la dimostrazione sta in una frase: <strong>i due casi “sì” stanno su angoli opposti del quadrato,
+  quindi nessuna retta da sola può separarli dai due casi “no”.</strong> Torna indietro e guarda il piano
+  con XOR selezionato. Non c’è nessuna retta.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>Perché contava così tanto</h3>
+      <p>Nel 1969 Minsky e Papert pubblicarono esattamente questo risultato. La loro conclusione era
+      circoscritta e corretta: un percettrone a <em>singolo strato</em> è limitato ai problemi linearmente
+      separabili. Ma lo XOR è banale, e se la celebrata macchina che impara non riusciva a fare una cosa
+      banale, le ragioni per finanziarla crollavano.</p>
+      <p class="mb0">La ricerca sulle reti neurali tacque per gran parte dei due decenni successivi. La
+      soluzione — aggiungere uno strato di neuroni nel mezzo — era già nota. Quello che mancava a tutti era
+      un modo pratico per <em>addestrare</em> lo strato intermedio. Arrivò nel 1986, e si chiama
+      backpropagation.</p>
+    </div>
+    <div class="card">
+      <h3>La soluzione, in un’immagine</h3>
+      <p>Lo XOR è separabile se puoi usare <strong>due</strong> rette invece di una: una che dice “almeno un
+      input è acceso”, un’altra che dice “non sono accesi entrambi”, e un terzo neurone che le combina.
+      Tre neuroni su due strati risolvono esattamente lo XOR.</p>
+      <svg viewBox="0 0 320 150" id="xorFix" aria-label="Rete a due strati che risolve lo XOR"></svg>
+      <p class="small muted mb0">Ogni strato aggiunto permette alla rete di ripiegare di nuovo lo spazio.
+      Il modulo 3 lo rende concreto — e vedrai risolvere lo XOR.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Il punto chiave</span>
+    <p class="mb0">Un singolo neurone traccia una sola frontiera retta. <strong>È la profondità a comprare la
+    curvatura.</strong> Ogni volta che senti parlare di deep learning, ciò che la profondità compra è la
+    capacità di ritagliare una forma complicata nello spazio degli input invece di tagliarlo una volta
+    sola.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Lascia che falliscano sullo XOR per un minuto intero prima di spiegare. La frustrazione è la
+      lezione, e la sala se la ricorderà per il resto del ciclo.</li>
+      <li>Un’analogia efficace: un neurone è un singolo colpo di ghigliottina attraverso i dati. Se ciò che
+      vuoi sono due angoli in diagonale, nessun taglio singolo ci riesce.</li>
+      <li>Nota a piè di pagina onesta: Minsky e Papert avevano ragione sulla matematica e torto sulle
+      conseguenze. Vale la pena dirlo: è un buon esempio di come un risultato corretto possa bloccare un
+      campo per una generazione.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 2.4 -->
+<section class="chapter" id="learn">
+  <h2>2.4 · Ora lascialo imparare</h2>
+  <p>Il contributo di Rosenblatt nel 1958 non fu il neurone — quello è del 1943. Fu la <strong>regola di
+  apprendimento</strong>: una procedura con cui la macchina corregge i propri pesi a partire dai propri
+  errori. È lunga tre righe.</p>
+
+  <div class="eqbox">
+    per ogni esempio (x, target):<br>
+    &nbsp;&nbsp;previsione = f(w·x + b)<br>
+    &nbsp;&nbsp;errore = <span class="hi2">target − previsione</span><br>
+    &nbsp;&nbsp;<span class="hi">w ← w + η · errore · x</span> &nbsp;&nbsp;&nbsp;<span class="nsm">(η = learning rate)</span><br>
+    &nbsp;&nbsp;<span class="hi">b ← b + η · errore</span>
+  </div>
+
+  <p>Leggi la regola di aggiornamento a parole: <em>se la risposta era troppo bassa, spingi i pesi nella
+  direzione dell’input; se era troppo alta, allontanali.</em> Gli input grandi ricevono una correzione
+  grande; quelli nulli non ne ricevono affatto, perché non possono aver contribuito. Niente di più — ed
+  è garantito che trovi una soluzione in un tempo finito ogni volta che una soluzione esiste.</p>
+
+  <div class="lab">
+    <div class="lab-head">
+      <h3>Laboratorio · Guardalo addestrarsi da solo</h3>
+      <span class="tag try">Clicca sul piano per aggiungere punti</span>
+    </div>
+
+    <div class="split">
+      <div>
+        <canvas id="trainCv" class="cv"></canvas>
+        <div class="btnrow">
+          <div class="classpick">
+            <span class="small muted">Il clic aggiunge:</span>
+            <button data-c="1" class="on" id="cls1">● classe 1</button>
+            <button data-c="-1" id="cls0">● classe 0</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="btnrow">
+          <button class="btn primary" id="tStep">Addestra 1 passo</button>
+          <button class="btn" id="tRun">Esegui</button>
+          <button class="btn sm" id="tNew">Nuovi dati</button>
+          <button class="btn sm" id="tHard">Dati sovrapposti</button>
+          <button class="btn sm" id="tReset">Azzera i pesi</button>
+          <button class="btn sm" id="tClear">Cancella i punti</button>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Learning rate η</span><span class="val" id="lrOut"></span></div>
+          <input type="range" id="lr" min="0.01" max="1" step="0.01" value="0.1">
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">aggiornamenti</span><span class="v" id="sSteps">0</span></div>
+          <div class="stat hl"><span class="k">accuratezza</span><span class="v" id="sAcc">—</span></div>
+          <div class="stat"><span class="k">w₁</span><span class="v" id="sW1">0.00</span></div>
+          <div class="stat"><span class="k">w₂</span><span class="v" id="sW2">0.00</span></div>
+          <div class="stat"><span class="k">b</span><span class="v" id="sB">0.00</span></div>
+        </div>
+        <div class="stepcard mt1" id="stepInfo">Premi <b>Addestra 1 passo</b>. La regola cerca un punto
+        classificato male e corregge i pesi usando soltanto quel punto.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Prova a romperlo</span>
+      <p class="mb0">Premi <strong>Dati sovrapposti</strong>, dove nessuna retta può separare perfettamente
+      le classi, e avvialo. La retta non si assesta mai: oscilla all’infinito. La regola del percettrone
+      non ha alcun concetto di “abbastanza buono”; si ferma solo quando ogni punto è corretto. È proprio per
+      questo che l’addestramento moderno minimizza invece una <em>loss</em> regolare, ed è l’argomento della
+      prossima sezione.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Prova il learning rate</span>
+      <p class="mb0">Imposta η a 0.01 e avvia: corretto, ma lento. Impostalo a 1.0: procede a scatti, va
+      oltre il bersaglio e a volte ci mette più tempo del valore piccolo. Questo compromesso non sparisce
+      mai: il learning rate è ancora la manopola più importante in assoluto quando si addestra un modello
+      con miliardi di parametri.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 2.5 -->
+<section class="chapter" id="activation">
+  <h2>2.5 · La funzione di attivazione</h2>
+  <p>La soglia alla fine del neurone sembra un dettaglio. È invece portante: senza una funzione non
+  lineare in quel punto, <strong>una pila di strati collassa in un unico strato</strong>, perché una
+  funzione lineare di una funzione lineare è ancora lineare. La profondità non comprerebbe nulla.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Esploratore delle attivazioni</h3><span class="tag">Riferimento</span></div>
+    <div class="split">
+      <div>
+        <canvas id="actCv" class="cv-sm"></canvas>
+        <p class="small muted mb0">Linea continua: la funzione. Tratteggiata: la sua pendenza (derivata) — che
+        è ciò di cui ha bisogno l’addestramento, e il punto in cui le cose vanno storte.</p>
+      </div>
+      <div>
+        <div class="segmented mb0" id="actSeg2">
+          <button data-v="step" class="on">Gradino</button>
+          <button data-v="sigmoid">Sigmoide</button>
+          <button data-v="tanh">Tanh</button>
+          <button data-v="relu">ReLU</button>
+          <button data-v="leaky">Leaky ReLU</button>
+          <button data-v="gelu">GELU</button>
+        </div>
+        <div class="card mt1" id="actInfo" style="min-height:190px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">Perché ha vinto la ReLU</span>
+    <p class="mb0">Guarda la linea tratteggiata della sigmoide: lontano da zero è quasi piatta. Una
+    pendenza piatta significa “questo peso influisce a malapena sull’errore”, e così l’addestramento si
+    arena: è il problema del <em>gradiente evanescente</em> (vanishing gradient) che per anni ha reso le
+    reti profonde non addestrabili. La pendenza della ReLU vale esattamente 1 per tutti gli input
+    positivi, quindi il segnale passa senza attenuarsi, e calcolarla costa un solo confronto. Una modifica
+    così rozza e così economica è una parte importante del motivo per cui il deep learning ha cominciato
+    a funzionare.</p>
+  </div>
+</section>
+
+<!-- ============================================= 2.6 -->
+<section class="chapter" id="gd">
+  <h2>2.6 · Come funziona l’addestramento vero: rotolare in discesa</h2>
+  <p>La regola del percettrone funziona solo per un neurone con una soglia netta e dati separabili. Tutto
+  ciò che è moderno usa la stessa idea in forma più morbida. Definisci una <strong>loss</strong> — un
+  unico numero che misura l’errore complessivo — poi calcola ripetutamente quale direzione la riduce, e
+  fai un passo da quella parte.</p>
+
+  <div class="eqbox">
+    w ← w − <span class="hi">η</span> · <span class="hi2">∂Loss/∂w</span>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="nsm">“sposta ogni peso nel verso opposto alla pendenza dell’errore”</span>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Discesa del gradiente su un solo peso</h3><span class="tag try">Cambia η e riavvia</span></div>
+    <div class="split">
+      <div><canvas id="gdCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Peso iniziale</span><span class="val" id="gdStartOut"></span></div>
+          <input type="range" id="gdStart" min="-2" max="2" step="0.05" value="-1.7">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Learning rate η</span><span class="val" id="gdLrOut"></span></div>
+          <input type="range" id="gdLr" min="0.01" max="0.75" step="0.01" value="0.1">
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" id="gdStep">Passo</button>
+          <button class="btn" id="gdRun">Esegui 60</button>
+          <button class="btn sm" id="gdReset">Ricomincia</button>
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">peso</span><span class="v" id="gdW">—</span></div>
+          <div class="stat"><span class="k">loss</span><span class="v" id="gdL">—</span></div>
+          <div class="stat"><span class="k">pendenza</span><span class="v" id="gdG">—</span></div>
+          <div class="stat"><span class="k">passi</span><span class="v" id="gdN">0</span></div>
+        </div>
+        <div class="stepcard mt1" id="gdInfo"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="card">
+      <h4>η troppo piccolo</h4>
+      <p class="small mb0">Direzione giusta, passi minuscoli. Converge, prima o poi — e “prima o poi”, su un
+      modello di frontiera, significa settimane di tempo di datacenter. Imposta η = 0.02 e premi
+      Esegui 60.</p>
+    </div>
+    <div class="card">
+      <h4>η troppo grande</h4>
+      <p class="small mb0">Il passo scavalca la valle e atterra più in alto sul versante opposto. La loss
+      può crescere senza limite. Imposta η = 0.7 e premi Esegui 60: ecco che aspetto ha un addestramento
+      “divergente”.</p>
+    </div>
+    <div class="card">
+      <h4>Minimi locali</h4>
+      <p class="small mb0">Questa curva ha due valli. Parti da −1.7 e cadi in quella di sinistra; parti da
+      +1.7 e cadi in quella di destra. L’algoritmo non può vedere oltre la collina che ha davanti: non ha
+      una mappa, solo la pendenza sotto i piedi.</p>
+    </div>
+  </div>
+
+  <details class="reveal deeper">
+    <summary>Approfondimento · che cosa cambia su larga scala</summary>
+    <div class="body">
+      <p>Tutto quanto sopra riguarda un solo peso su una sola curva di loss. Un modello reale ha miliardi
+      di pesi, quindi la superficie della loss ha miliardi di dimensioni e non puoi disegnarla. Tre
+      differenze pratiche:</p>
+      <ul>
+        <li><strong>Discesa del gradiente stocastica.</strong> Calcolare la pendenza sull’intero dataset è
+        di gran lunga troppo costoso, quindi la si stima su un piccolo batch casuale. La stima è rumorosa —
+        e il rumore si rivela utile, perché scuote il modello fuori dalle valli cattive.</li>
+        <li><strong>Momento e passi adattivi.</strong> Ottimizzatori come Adam mantengono una media mobile
+        dei gradienti recenti e danno a ogni peso il proprio passo effettivo. Ecco perché ormai si regola
+        raramente a mano un singolo learning rate; si regola una schedule.</li>
+        <li><strong>Le dimensioni elevate sono più clementi di quanto sembri.</strong> In miliardi di
+        dimensioni, un punto in cui ogni direzione sale è rarissimo. La maggior parte dei punti piatti sono
+        punti di sella con una via di fuga, ed è per questo che addestrare modelli enormi funziona molto
+        meglio di quanto suggerirebbe l’immagine a due valli qui sopra.</li>
+      </ul>
+      <p class="mb0">Ciò che non cambia: il ciclo. Passaggio in avanti, misura dell’errore, calcolo della
+      pendenza, passo. Un addestramento da €200 milioni è quel ciclo, ripetuto un numero enorme di
+      volte.</p>
+    </div>
+  </details>
+
+  <div class="note">
+    <ul>
+      <li>L’analogia dell’escursionista bendato funziona bene: non puoi vedere la valle, puoi solo sentire
+      la pendenza sotto gli scarponi, e fai un passo. Il learning rate è la lunghezza del tuo passo.</li>
+      <li>Ricollegati alla 2.4: la regola del percettrone <em>è</em> discesa del gradiente, su una loss che
+      si dà il caso non sia regolare. Stesso ciclo, misura più grossolana.</li>
+      <li>Prepara qui il passaggio al modulo 3: “ora abbiamo un neurone e un modo per addestrarlo. L’unica
+      cosa che ci separa da un modello moderno è impilarli — più un’ultima idea per ripartire la
+      colpa.”</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo adesso</h2>
+  <p>Abbiamo un neurone, una retta e un ciclo di addestramento. Il modulo 3 li impila, addestra una vera
+  rete davanti a te e finalmente sconfigge lo XOR.</p>
+  <p><a href="03-networks.html"><strong>Modulo 3 · Dal neurone alla rete →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+
+  /* ============================================================ activations */
+  var ACT = {
+    step:    { f: function (z) { return z >= 0 ? 1 : 0; },        d: function () { return 0; } },
+    sigmoid: { f: function (z) { return 1 / (1 + Math.exp(-z)); },
+               d: function (z) { var s = 1 / (1 + Math.exp(-z)); return s * (1 - s); } },
+    tanh:    { f: function (z) { return Math.tanh(z); },           d: function (z) { var t = Math.tanh(z); return 1 - t * t; } },
+    relu:    { f: function (z) { return Math.max(0, z); },         d: function (z) { return z > 0 ? 1 : 0; } },
+    leaky:   { f: function (z) { return z > 0 ? z : 0.1 * z; },    d: function (z) { return z > 0 ? 1 : 0.1; } },
+    gelu:    { f: function (z) { return 0.5 * z * (1 + Math.tanh(0.7978845608 * (z + 0.044715 * z * z * z))); },
+               d: function (z) { var h = 1e-4; return (ACT.gelu.f(z + h) - ACT.gelu.f(z - h)) / (2 * h); } }
+  };
+
+  var ACTINFO = {
+    step: ['Gradino (Heaviside)', 'f(z) = 1 se z ≥ 0, altrimenti 0',
+      'La scelta originale del 1943/1958: il neurone o si attiva o non si attiva. Perfetta per spiegare l’idea, inutile per l’addestramento moderno: la sua pendenza è zero ovunque, quindi la discesa del gradiente non ha nulla da seguire. È esattamente per questo che il percettrone aveva bisogno di una sua regola di apprendimento speciale.'],
+    sigmoid: ['Sigmoide (logistica)', 'f(z) = 1 / (1 + e⁻ᶻ)',
+      'Comprime qualsiasi valore nell’intervallo 0–1, quindi l’output si legge naturalmente come una probabilità. Si usa ancora nello strato finale dei classificatori binari. Pessima negli strati nascosti delle reti profonde: per input molto grandi o molto piccoli la pendenza è quasi zero, quindi il segnale di apprendimento si spegne attraversando gli strati.'],
+    tanh: ['Tangente iperbolica', 'f(z) = tanh(z), intervallo da −1 a +1',
+      'Una sigmoide centrata sullo zero, il che aiuta l’addestramento a convergere perché gli output non sono tutti positivi. È stata la scelta predefinita negli strati nascosti per tutti gli anni ’90 ed è ancora comune nelle reti ricorrenti e nei piccoli modelli di controllo.'],
+    relu: ['ReLU', 'f(z) = max(0, z)',
+      'Rectified Linear Unit. Assurdamente semplice, un solo confronto per calcolarla, e la pendenza vale esattamente 1 per ogni input positivo: così il segnale di addestramento attraversa molti strati senza indebolirsi. Inoltre fa sì che circa metà dei neuroni restituisca esattamente zero, il che è efficiente. Il cavallo da tiro del deep learning dal 2012.'],
+    leaky: ['Leaky ReLU', 'f(z) = z se z > 0, altrimenti 0.01–0.1 × z',
+      'Corregge l’unico vero difetto della ReLU: un neurone il cui input è sempre negativo restituisce zero per sempre, riceve gradiente zero ed è di fatto morto. Una piccola pendenza negativa mantiene un filo di segnale, così il neurone può riprendersi.'],
+    gelu: ['GELU', 'f(z) ≈ z · Φ(z), una ReLU smussata',
+      'Gaussian Error Linear Unit: come la ReLU ma arrotondata vicino all’origine, e ammette piccoli output negativi. La regolarità aiuta l’ottimizzazione su scala molto grande, ed è per questo che è lei (insieme a parenti stretti come SiLU/Swish) che trovi dentro i transformer, e quindi dentro ogni LLM.']
+  };
+
+  /* ============================================================ 2.1 live neuron */
+  var live = { x1: 1, x2: 0, w1: 1, w2: 1, b: -0.5, act: 'step' };
+  var ACTNAME_IT = { step: 'gradino', sigmoid: 'sigmoide', relu: 'ReLU', tanh: 'tanh' };
+
+  function drawNeuron() {
+    var z = live.w1 * live.x1 + live.w2 * live.x2 + live.b;
+    var y = ACT[live.act].f(z);
+    var ink = C('--ink'), ink3 = C('--ink-3'), acc = C('--accent'), warn = C('--warn'),
+        line = C('--line'), panel = C('--panel'), good = C('--good');
+
+    function txt(x, yy, s, cls, col, anchor) {
+      return '<text x="' + x + '" y="' + yy + '" class="' + cls + '" fill="' + col + '" text-anchor="' + (anchor || 'middle') + '">' + s + '</text>';
+    }
+    var h = '';
+    /* wires */
+    var wt1 = 1 + Math.abs(live.w1) * 2.2, wt2 = 1 + Math.abs(live.w2) * 2.2;
+    h += '<path d="M78 62 C160 62 170 110 232 118" stroke="' + (live.w1 >= 0 ? acc : warn) + '" stroke-width="' + wt1 + '" fill="none" opacity=".85"/>';
+    h += '<path d="M78 172 C160 172 170 132 232 126" stroke="' + (live.w2 >= 0 ? acc : warn) + '" stroke-width="' + wt2 + '" fill="none" opacity=".85"/>';
+    h += '<path d="M78 222 C170 222 180 150 232 134" stroke="' + (live.b >= 0 ? acc : warn) + '" stroke-width="' + (1 + Math.abs(live.b) * 2.2) + '" fill="none" opacity=".55" stroke-dasharray="4 3"/>';
+    /* inputs */
+    [[62, 'x₁', live.x1], [172, 'x₂', live.x2]].forEach(function (p) {
+      h += '<circle cx="48" cy="' + p[0] + '" r="26" fill="' + panel + '" stroke="' + line + '" stroke-width="1.6"/>';
+      h += txt(48, p[0] - 3, p[1], 'nlbl', ink3);
+      h += txt(48, p[0] + 13, p[2].toFixed(2), 'nz', ink);
+    });
+    h += '<rect x="22" y="206" width="52" height="32" rx="8" fill="' + panel + '" stroke="' + line + '" stroke-width="1.6" stroke-dasharray="4 3"/>';
+    h += txt(48, 219, 'bias', 'nsm', ink3);
+    h += txt(48, 233, live.b.toFixed(2), 'nz', ink);
+    /* weight labels */
+    h += txt(150, 78, 'w₁ = ' + live.w1.toFixed(2), 'nz', live.w1 >= 0 ? acc : warn);
+    h += txt(150, 162, 'w₂ = ' + live.w2.toFixed(2), 'nz', live.w2 >= 0 ? acc : warn);
+    /* summing body */
+    h += '<circle cx="262" cy="126" r="34" fill="' + C('--accent-soft') + '" stroke="' + acc + '" stroke-width="2"/>';
+    h += txt(262, 121, 'Σ', 'nlbl', acc) ;
+    h += txt(262, 141, z.toFixed(2), 'nz', ink);
+    h += txt(262, 76, 'somma pesata', 'nsm', ink3);
+    /* activation box */
+    h += '<line x1="296" y1="126" x2="330" y2="126" stroke="' + line + '" stroke-width="2"/>';
+    h += '<rect x="330" y="96" width="62" height="60" rx="10" fill="' + panel + '" stroke="' + acc + '" stroke-width="2"/>';
+    h += txt(361, 120, 'f', 'nlbl', acc);
+    h += txt(361, 138, ACTNAME_IT[live.act] || live.act, 'nsm', ink3);
+    h += txt(361, 80, 'attivazione', 'nsm', ink3);
+    /* output */
+    h += '<line x1="392" y1="126" x2="418" y2="126" stroke="' + line + '" stroke-width="2"/>';
+    h += '<circle cx="444" cy="126" r="24" fill="' + (y > 0.5 ? C('--good-soft') : C('--bg-3')) + '" stroke="' + (y > 0.5 ? good : line) + '" stroke-width="2"/>';
+    h += txt(444, 131, y.toFixed(2), 'nz', y > 0.5 ? good : ink);
+    document.getElementById('nSvg').innerHTML = h;
+
+    document.getElementById('oZ').textContent = z.toFixed(2);
+    document.getElementById('oY').textContent = y.toFixed(2);
+    var v = document.getElementById('oV');
+    v.textContent = y > 0.5 ? 'SI ATTIVA' : 'inattivo';
+    v.style.color = y > 0.5 ? good : C('--ink-3');
+  }
+
+  function initLive() {
+    AI.bindRange('x1', function (v) { return v.toFixed(2); }, function (v) { live.x1 = v; drawNeuron(); });
+    AI.bindRange('x2', function (v) { return v.toFixed(2); }, function (v) { live.x2 = v; drawNeuron(); });
+    AI.bindRange('w1', function (v) { return v.toFixed(2); }, function (v) { live.w1 = v; drawNeuron(); });
+    AI.bindRange('w2', function (v) { return v.toFixed(2); }, function (v) { live.w2 = v; drawNeuron(); });
+    AI.bindRange('b',  function (v) { return v.toFixed(2); }, function (v) { live.b = v;  drawNeuron(); });
+    AI.segmented(document.getElementById('actSeg'), function (v) {
+      live.act = v; document.getElementById('actName').textContent = ACTNAME_IT[v] || v; drawNeuron();
+    });
+    AI.onRedraw(drawNeuron);
+    drawNeuron();
+  }
+
+  /* ============================================================ 2.2 gates */
+  var GATES = {
+    AND:  [0, 0, 0, 1], OR: [0, 1, 1, 1], NAND: [1, 1, 1, 0], XOR: [0, 1, 1, 0]
+  };
+  var HINTS = {
+    AND:  'Il neurone deve attivarsi <b>solo</b> quando entrambi gli input valgono 1. Rendi i due pesi positivi e uguali, poi scegli il bias in modo che un solo input non basti: la somma con un solo input è w, con entrambi è 2w. Metti la soglia in mezzo. Prova w₁ = w₂ = 1, b = −1.5.',
+    OR:   'Ora deve bastare <b>un</b> input. Stessi pesi positivi, ma una soglia più bassa: la retta scivola verso l’origine. Prova w₁ = w₂ = 1, b = −0.5.',
+    NAND: 'NAND è l’opposto di AND, quindi inverti il segno di tutto ciò che funzionava per AND. Pesi negativi significano che ogni input attivo <i>rema contro</i> l’attivazione, e un bias positivo significa che il neurone si attiva per impostazione predefinita. Prova w₁ = w₂ = −1, b = 1.5.',
+    XOR:  'Non c’è risposta. Guarda il piano: i due punti che devono essere blu sono agli estremi di una diagonale, e i due punti grigi sono sull’altra. Una sola retta non ce la può fare: è l’argomento della sezione 2.3.'
+  };
+  var SOLS = { AND: [1, 1, -1.5], OR: [1, 1, -0.5], NAND: [-1, -1, 1.5], XOR: null };
+  var gate = 'AND', gw = { w1: 0.5, w2: 0.5, b: 0 }, gplot;
+
+  function drawGate() {
+    var g = gplot.ctx, i, j;
+    gplot.resize(); gplot.clear();
+    /* shade regions */
+    var cell = 5;
+    gplot.clip(function (ctx) {
+      for (var px = gplot.pad.l; px < gplot.pad.l + gplot.pw; px += cell) {
+        for (var py = gplot.pad.t; py < gplot.pad.t + gplot.ph; py += cell) {
+          var X = gplot.iX(px + cell / 2), Y = gplot.iY(py + cell / 2);
+          var z = gw.w1 * X + gw.w2 * Y + gw.b;
+          ctx.fillStyle = z >= 0 ? C('--accent-soft') : C('--bg-3');
+          ctx.fillRect(px, py, cell + 1, cell + 1);
+        }
+      }
+    });
+    gplot.frame({ xticks: 4, yticks: 4, xlabel: 'x₁', ylabel: 'x₂' });
+    /* boundary */
+    gplot.clip(function () {
+      var pts = [];
+      if (Math.abs(gw.w2) > 1e-6) {
+        pts = [[-1, -(gw.w1 * -1 + gw.b) / gw.w2], [2, -(gw.w1 * 2 + gw.b) / gw.w2]];
+      } else if (Math.abs(gw.w1) > 1e-6) {
+        var xv = -gw.b / gw.w1; pts = [[xv, -1], [xv, 2]];
+      }
+      if (pts.length) gplot.line(pts, C('--accent'), 3);
+    });
+    /* points */
+    var T = GATES[gate];
+    var pts = [[0, 0], [0, 1], [1, 0], [1, 1]];
+    for (i = 0; i < 4; i++) {
+      var z = gw.w1 * pts[i][0] + gw.w2 * pts[i][1] + gw.b;
+      var out = z >= 0 ? 1 : 0;
+      var want = T[i];
+      gplot.dot(pts[i][0], pts[i][1], 12, want ? C('--accent') : C('--bg'), want ? C('--accent') : C('--ink-3'));
+      g.fillStyle = want ? '#fff' : C('--ink-2');
+      if (!want) g.fillStyle = C('--ink-2');
+      g.font = '700 12px ui-monospace, monospace';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(String(want), gplot.X(pts[i][0]), gplot.Y(pts[i][1]));
+      if (out !== want) {
+        g.beginPath(); g.arc(gplot.X(pts[i][0]), gplot.Y(pts[i][1]), 17, 0, 6.2832);
+        g.strokeStyle = C('--bad'); g.lineWidth = 2.5; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]);
+      }
+    }
+    /* table */
+    var tb = '', ok = 0;
+    for (i = 0; i < 4; i++) {
+      var zz = gw.w1 * pts[i][0] + gw.w2 * pts[i][1] + gw.b;
+      var oo = zz >= 0 ? 1 : 0, ww = T[i], good = oo === ww;
+      if (good) ok++;
+      tb += '<tr class="' + (good ? 'ok' : 'no') + '"><td class="mono">' + pts[i][0] + '</td><td class="mono">' + pts[i][1] +
+        '</td><td class="num">' + zz.toFixed(2) + '</td><td class="num">' + oo + '</td><td class="num">' + ww +
+        '</td><td class="mark">' + (good ? '✓' : '✗') + '</td></tr>';
+    }
+    document.getElementById('gateTbody').innerHTML = tb;
+    var bn = document.getElementById('gateBanner');
+    bn.className = 'banner mt1' + (ok === 4 ? ' win' : (gate === 'XOR' ? ' lose' : ''));
+    if (ok === 4) bn.innerHTML = '✓ Risolto — ' + gate + ' con tre numeri. La retta separa gli angoli blu da quelli grigi.';
+    else if (gate === 'XOR') bn.innerHTML = ok + ' su 4 corretti. Non andrai oltre 3: vedi la sezione 2.3.';
+    else bn.innerHTML = ok + ' su 4 corretti. Ruota la retta con i pesi, traslala con il bias.';
+  }
+
+  function initGates() {
+    gplot = new AI.Plot(document.getElementById('gateCv'),
+      { dom: [-0.45, 1.45], ran: [-0.45, 1.45], pad: { l: 44, r: 16, t: 14, b: 40 } });
+    var r1 = AI.bindRange('gw1', function (v) { return v.toFixed(1); }, function (v) { gw.w1 = v; drawGate(); });
+    var r2 = AI.bindRange('gw2', function (v) { return v.toFixed(1); }, function (v) { gw.w2 = v; drawGate(); });
+    var r3 = AI.bindRange('gb',  function (v) { return v.toFixed(1); }, function (v) { gw.b = v;  drawGate(); });
+    AI.segmented(document.getElementById('gateSeg'), function (v) {
+      gate = v;
+      document.getElementById('gateHintBox').classList.add('hidden');
+      drawGate();
+    });
+    AI.on(document.getElementById('gateHint'), 'click', function () {
+      var box = document.getElementById('gateHintBox');
+      box.classList.remove('hidden');
+      box.innerHTML = '<span class="ctitle">Suggerimento — ' + gate + '</span>' + HINTS[gate];
+    });
+    AI.on(document.getElementById('gateSolve'), 'click', function () {
+      var s = SOLS[gate];
+      if (!s) { document.getElementById('gateHint').click(); return; }
+      r1.set(s[0]); r2.set(s[1]); r3.set(s[2]);
+    });
+    AI.on(document.getElementById('gateZero'), 'click', function () { r1.set(0.5); r2.set(0.5); r3.set(0); });
+    AI.onRedraw(drawGate);
+    drawGate();
+  }
+
+  /* ============================================================ 2.3 xor fix diagram */
+  function drawXorFix() {
+    var line = C('--line'), acc = C('--accent'), ink3 = C('--ink-3'), panel = C('--panel'), ink = C('--ink');
+    function node(x, y, l, col) {
+      return '<circle cx="' + x + '" cy="' + y + '" r="18" fill="' + panel + '" stroke="' + col + '" stroke-width="2"/>' +
+        '<text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle" class="nsm" fill="' + ink + '">' + l + '</text>';
+    }
+    var h = '';
+    [[70, 45], [70, 105]].forEach(function (a) {
+      [[165, 45], [165, 105]].forEach(function (b2) {
+        h += '<line x1="' + (a[0] + 18) + '" y1="' + a[1] + '" x2="' + (b2[0] - 18) + '" y2="' + b2[1] + '" stroke="' + line + '" stroke-width="1.5"/>';
+      });
+    });
+    [[165, 45], [165, 105]].forEach(function (b2) {
+      h += '<line x1="' + (b2[0] + 18) + '" y1="' + b2[1] + '" x2="242" y2="75" stroke="' + line + '" stroke-width="1.5"/>';
+    });
+    h += node(70, 45, 'x₁', ink3) + node(70, 105, 'x₂', ink3);
+    h += node(165, 45, 'h₁', acc) + node(165, 105, 'h₂', acc);
+    h += node(260, 75, 'y', C('--good'));
+    h += '<text x="165" y="18" text-anchor="middle" class="nsm" fill="' + ink3 + '">strato nascosto</text>';
+    h += '<text x="165" y="142" text-anchor="middle" class="nsm" fill="' + ink3 + '">2 rette</text>';
+    h += '<text x="260" y="118" text-anchor="middle" class="nsm" fill="' + ink3 + '">combina</text>';
+    document.getElementById('xorFix').innerHTML = h;
+  }
+
+  /* ============================================================ 2.4 trainer */
+  var tr = { pts: [], w1: 0, w2: 0, b: 0, steps: 0, lr: 0.1, cls: 1, running: false, last: null };
+  var tplot;
+
+  function genData(hard) {
+    tr.pts = [];
+    var i;
+    for (i = 0; i < 14; i++) {
+      var a = hard ? 0.42 : 0.30;
+      tr.pts.push({ x: 0.42 + (Math.random() - 0.5) * a * 2.1, y: 0.40 + (Math.random() - 0.5) * a * 2.1, c: 1 });
+      tr.pts.push({ x: -0.42 + (Math.random() - 0.5) * a * 2.1, y: -0.38 + (Math.random() - 0.5) * a * 2.1, c: -1 });
+    }
+    resetW();
+  }
+  function resetW() { tr.w1 = 0.05; tr.w2 = -0.05; tr.b = 0; tr.steps = 0; tr.last = null; drawTrain(); }
+
+  function pred(p) { return (tr.w1 * p.x + tr.w2 * p.y + tr.b) >= 0 ? 1 : -1; }
+
+  function stepTrain() {
+    var order = [], i;
+    for (i = 0; i < tr.pts.length; i++) order.push(i);
+    /* start from a rotating offset so it cycles through the data */
+    var off = tr.steps % Math.max(1, tr.pts.length);
+    for (i = 0; i < order.length; i++) {
+      var k = order[(i + off) % order.length], p = tr.pts[k];
+      if (pred(p) !== p.c) {
+        var err = p.c - pred(p);                 /* +2 or -2 */
+        tr.w1 += tr.lr * err * 0.5 * p.x;
+        tr.w2 += tr.lr * err * 0.5 * p.y;
+        tr.b  += tr.lr * err * 0.5;
+        tr.steps++;
+        tr.last = { p: p, err: err };
+        drawTrain();
+        return true;
+      }
+    }
+    tr.last = null; drawTrain();
+    return false;
+  }
+
+  function drawTrain() {
+    tplot.resize(); tplot.clear();
+    var cell = 6;
+    tplot.clip(function (ctx) {
+      for (var px = tplot.pad.l; px < tplot.pad.l + tplot.pw; px += cell) {
+        for (var py = tplot.pad.t; py < tplot.pad.t + tplot.ph; py += cell) {
+          var X = tplot.iX(px + cell / 2), Y = tplot.iY(py + cell / 2);
+          var z = tr.w1 * X + tr.w2 * Y + tr.b;
+          ctx.fillStyle = z >= 0 ? C('--accent-soft') : C('--warn-soft');
+          ctx.fillRect(px, py, cell + 1, cell + 1);
+        }
+      }
+    });
+    tplot.frame({ xticks: 4, yticks: 4, xlabel: 'feature 1', ylabel: 'feature 2' });
+    tplot.clip(function () {
+      if (Math.abs(tr.w2) > 1e-9) {
+        tplot.line([[-2, -(tr.w1 * -2 + tr.b) / tr.w2], [2, -(tr.w1 * 2 + tr.b) / tr.w2]], C('--accent'), 3);
+      } else if (Math.abs(tr.w1) > 1e-9) {
+        var xv = -tr.b / tr.w1; tplot.line([[xv, -2], [xv, 2]], C('--accent'), 3);
+      }
+    });
+    var wrong = 0;
+    for (var i = 0; i < tr.pts.length; i++) {
+      var p = tr.pts[i], bad = pred(p) !== p.c;
+      if (bad) wrong++;
+      tplot.dot(p.x, p.y, 7, p.c === 1 ? C('--accent') : C('--warn'), bad ? C('--bad') : C('--panel'));
+    }
+    if (tr.last) {
+      var g = tplot.ctx;
+      g.beginPath(); g.arc(tplot.X(tr.last.p.x), tplot.Y(tr.last.p.y), 15, 0, 6.2832);
+      g.strokeStyle = C('--bad'); g.lineWidth = 2.5; g.stroke();
+    }
+    var n = tr.pts.length;
+    document.getElementById('sSteps').textContent = tr.steps;
+    document.getElementById('sAcc').textContent = n ? Math.round((n - wrong) / n * 100) + '%' : '—';
+    document.getElementById('sW1').textContent = tr.w1.toFixed(2);
+    document.getElementById('sW2').textContent = tr.w2.toFixed(2);
+    document.getElementById('sB').textContent = tr.b.toFixed(2);
+
+    var info = document.getElementById('stepInfo');
+    if (!n) info.innerHTML = 'Nessun dato. Clicca sul piano per inserire dei punti, oppure premi <b>Nuovi dati</b>.';
+    else if (tr.last) {
+      var p2 = tr.last.p;
+      info.innerHTML = 'Trovato un punto classificato male in <span class="mono">(' + p2.x.toFixed(2) + ', ' + p2.y.toFixed(2) +
+        ')</span>, appartenente alla <b>classe ' + (p2.c === 1 ? '1' : '0') + '</b>.<br>Correzione applicata: ' +
+        (tr.last.err > 0 ? 'il neurone ha detto 0 e avrebbe dovuto dire 1, quindi i pesi sono stati spinti <b>verso</b> questo punto.'
+                         : 'il neurone ha detto 1 e avrebbe dovuto dire 0, quindi i pesi sono stati <b>allontanati</b> da questo punto.');
+    } else if (wrong === 0) info.innerHTML = '<b>Convergenza raggiunta.</b> Ogni punto è dal lato giusto, quindi la regola non apporta altre modifiche. Aggiungi un punto dal lato sbagliato per risvegliarla.';
+    else info.innerHTML = 'Premi <b>Addestra 1 passo</b>.';
+    return wrong;
+  }
+
+  function initTrain() {
+    tplot = new AI.Plot(document.getElementById('trainCv'),
+      { dom: [-1.15, 1.15], ran: [-1.15, 1.15], pad: { l: 44, r: 16, t: 14, b: 40 } });
+    var cv = document.getElementById('trainCv');
+    cv.style.cursor = 'crosshair';
+    cv.addEventListener('click', function (e) {
+      var r = cv.getBoundingClientRect();
+      var X = tplot.iX(e.clientX - r.left), Y = tplot.iY(e.clientY - r.top);
+      if (X < tplot.dom[0] || X > tplot.dom[1] || Y < tplot.ran[0] || Y > tplot.ran[1]) return;
+      tr.pts.push({ x: X, y: Y, c: tr.cls });
+      drawTrain();
+    });
+    AI.qsa('.classpick button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        AI.qsa('.classpick button').forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        tr.cls = parseInt(b.getAttribute('data-c'), 10);
+      });
+    });
+    AI.bindRange('lr', function (v) { return v.toFixed(2); }, function (v) { tr.lr = v; });
+    AI.on(document.getElementById('tStep'), 'click', stepTrain);
+    AI.on(document.getElementById('tNew'), 'click', function () { genData(false); });
+    AI.on(document.getElementById('tHard'), 'click', function () { genData(true); });
+    AI.on(document.getElementById('tReset'), 'click', resetW);
+    AI.on(document.getElementById('tClear'), 'click', function () { tr.pts = []; resetW(); });
+    var runBtn = document.getElementById('tRun'), timer = null;
+    AI.on(runBtn, 'click', function () {
+      if (timer) { clearInterval(timer); timer = null; runBtn.textContent = 'Esegui'; runBtn.classList.remove('on'); return; }
+      runBtn.textContent = 'Ferma'; runBtn.classList.add('on');
+      timer = setInterval(function () {
+        var moved = stepTrain();
+        if (!moved) { clearInterval(timer); timer = null; runBtn.textContent = 'Esegui'; runBtn.classList.remove('on'); }
+      }, 90);
+    });
+    AI.onRedraw(drawTrain);
+    genData(false);
+  }
+
+  /* ============================================================ 2.5 activation plot */
+  var aplot, aKind = 'step';
+  function drawAct() {
+    aplot.resize(); aplot.clear();
+    aplot.frame({ xticks: 6, yticks: 4, xlabel: 'z (somma pesata)', ylabel: 'f(z)' });
+    var f = ACT[aKind].f, d = ACT[aKind].d, pts = [], dp = [], i;
+    for (i = 0; i <= 300; i++) {
+      var z = -4 + 8 * i / 300;
+      pts.push([z, f(z)]);
+      dp.push([z, d(z)]);
+    }
+    aplot.clip(function () {
+      aplot.line([[-4, 0], [4, 0]], C('--line'), 1);
+      aplot.line(dp, C('--ink-3'), 1.6, [5, 4]);
+      aplot.line(pts, C('--accent'), 3);
+    });
+    var info = ACTINFO[aKind];
+    document.getElementById('actInfo').innerHTML =
+      '<h3 style="margin-bottom:.2em">' + info[0] + '</h3>' +
+      '<p class="mono small" style="color:var(--accent)">' + info[1] + '</p>' +
+      '<p class="small mb0">' + info[2] + '</p>';
+  }
+  function initAct() {
+    aplot = new AI.Plot(document.getElementById('actCv'),
+      { dom: [-4, 4], ran: [-1.2, 2.2], pad: { l: 44, r: 16, t: 14, b: 40 } });
+    AI.segmented(document.getElementById('actSeg2'), function (v) { aKind = v; drawAct(); });
+    AI.onRedraw(drawAct);
+    drawAct();
+  }
+
+  /* ============================================================ 2.6 gradient descent */
+  var gd = { w: -1.7, n: 0, lr: 0.1, trail: [], start: -1.7 }, gdplot;
+  function L(w) { return 0.25 * Math.pow(w * w - 1.6, 2) + 0.3 * w + 1; }
+  function dL(w) { return w * w * w - 1.6 * w + 0.3; }
+
+  function drawGd() {
+    gdplot.resize(); gdplot.clear();
+    gdplot.frame({ xticks: 8, yticks: 4, xlabel: 'peso w', ylabel: 'loss' });
+    var pts = [], i;
+    for (i = 0; i <= 300; i++) { var w = -2.2 + 4.4 * i / 300; pts.push([w, L(w)]); }
+    gdplot.clip(function (g) {
+      gdplot.line(pts, C('--line'), 2.5);
+      /* trail */
+      for (i = 0; i < gd.trail.length; i++) {
+        gdplot.dot(gd.trail[i], L(gd.trail[i]), 3.5, C('--accent-2'));
+      }
+      /* tangent */
+      var s = dL(gd.w), x0 = gd.w - 0.5, x1 = gd.w + 0.5;
+      gdplot.line([[x0, L(gd.w) + s * (x0 - gd.w)], [x1, L(gd.w) + s * (x1 - gd.w)]], C('--warn'), 2, [4, 3]);
+      gdplot.dot(gd.w, L(gd.w), 9, C('--accent'), C('--panel'));
+      g.fillStyle = C('--ink-3'); g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'center';
+      g.fillText('pendenza ' + dL(gd.w).toFixed(2), gdplot.X(gd.w), gdplot.Y(L(gd.w)) - 18);
+    });
+    document.getElementById('gdW').textContent = gd.w.toFixed(3);
+    document.getElementById('gdL').textContent = isFinite(L(gd.w)) ? L(gd.w).toFixed(3) : '∞';
+    document.getElementById('gdG').textContent = dL(gd.w).toFixed(3);
+    document.getElementById('gdN').textContent = gd.n;
+    var inf = document.getElementById('gdInfo');
+    if (Math.abs(gd.w) > 2.15) inf.innerHTML = '<b style="color:var(--bad)">Divergenza.</b> I passi sono più grandi della valle, quindi ognuno atterra più lontano del precedente. In un addestramento reale vedresti la loss stampata come <span class="mono">NaN</span> e il job sarebbe morto.';
+    else if (Math.abs(dL(gd.w)) < 0.01) inf.innerHTML = '<b style="color:var(--good)">In un minimo.</b> La pendenza è nulla, quindi l’aggiornamento è zero e l’addestramento si ferma qui — che questo sia o meno il minimo <i>migliore</i> della curva.';
+    else inf.innerHTML = 'La pendenza è ' + (dL(gd.w) > 0 ? 'positiva, quindi il passo va a <b>sinistra</b>' : 'negativa, quindi il passo va a <b>destra</b>') +
+      '. Ampiezza del passo = η × |pendenza| = ' + gd.lr.toFixed(2) + ' × ' + Math.abs(dL(gd.w)).toFixed(2) + ' = ' + (gd.lr * Math.abs(dL(gd.w))).toFixed(3) + '.';
+  }
+  function gdStep() {
+    gd.trail.push(gd.w);
+    if (gd.trail.length > 90) gd.trail.shift();
+    gd.w = Math.max(-9, Math.min(9, gd.w - gd.lr * dL(gd.w)));
+    gd.n++; drawGd();
+  }
+  function initGd() {
+    gdplot = new AI.Plot(document.getElementById('gdCv'),
+      { dom: [-2.2, 2.2], ran: [0, 3.4], pad: { l: 46, r: 16, t: 20, b: 40 } });
+    AI.bindRange('gdStart', function (v) { return v.toFixed(2); }, function (v) {
+      gd.start = v; gd.w = v; gd.n = 0; gd.trail = []; drawGd();
+    });
+    AI.bindRange('gdLr', function (v) { return v.toFixed(2); }, function (v) { gd.lr = v; drawGd(); });
+    AI.on(document.getElementById('gdStep'), 'click', gdStep);
+    AI.on(document.getElementById('gdReset'), 'click', function () {
+      gd.w = gd.start; gd.n = 0; gd.trail = []; drawGd();
+    });
+    AI.on(document.getElementById('gdRun'), 'click', function () {
+      var k = 0, t = setInterval(function () { gdStep(); if (++k >= 60) clearInterval(t); }, 45);
+    });
+    AI.onRedraw(drawGd);
+    drawGd();
+  }
+
+  window.PAGE_INIT = function () {
+    initLive();
+    initGates();
+    drawXorFix(); AI.onRedraw(drawXorFix);
+    initTrain();
+    initAct();
+    initGd();
+  };
+})();
+</script>
+</body>
+</html>

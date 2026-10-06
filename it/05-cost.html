@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>5 · Il conto: energia e infrastruttura — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 330px; }
+  .cv-sm { width: 100%; height: 220px; }
+  .eqbox {
+    font-family: var(--mono); font-size: 1.05rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 16px; overflow-x: auto; line-height: 1.9; text-align: center;
+  }
+  .eqbox .hi { color: var(--accent); font-weight: 700; }
+  .eqbox small { display: block; font-family: var(--sans); font-size: .8rem; color: var(--ink-3); margin-top: .5em; }
+
+  .equiv { display: grid; gap: 8px; }
+  .equiv div {
+    display: flex; gap: 10px; align-items: baseline; font-size: .92rem;
+    padding: 9px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .equiv b { font-family: var(--mono); color: var(--accent); font-size: 1.02rem; min-width: 96px; text-align: right; }
+
+  .zoom { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+  @media (max-width: 900px) { .zoom { grid-template-columns: 1fr 1fr; } }
+  .zc { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; background: var(--panel); cursor: pointer; }
+  .zc:hover { border-color: var(--accent); }
+  .zc.on { background: var(--accent-soft); border-color: var(--accent); }
+  .zc .t { font-weight: 650; font-size: .95rem; }
+  .zc .p { font-family: var(--mono); font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  .zc .u { font-size: .74rem; color: var(--ink-3); }
+
+  .srcnote { font-size: .8rem; color: var(--ink-3); font-style: italic; margin-top: .4rem; }
+  .asof {
+    display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    background: var(--warn-soft); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+    padding: 2px 9px; border-radius: 20px;
+  }
+</style>
+</head>
+<body data-page="p5">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 5</span>
+  <h1>Il conto</h1>
+  <p class="lead">Ogni idea dei quattro moduli precedenti è aritmetica, e l’aritmetica consuma
+  elettricità. Questo modulo ci mette dei numeri — addestramento, inferenza, hardware, rete elettrica — e
+  ti dà un calcolatore che puoi applicare al tuo caso d’uso.</p>
+  <p><span class="asof">Dati aggiornati a settembre 2026 — verificali prima di ogni presentazione</span></p>
+</header>
+
+<main class="wrap">
+
+<div class="callout caution">
+  <span class="ctitle">Come leggere questo modulo</span>
+  <p class="mb0">Due cose sono vere contemporaneamente, ed entrambe contano. <strong>Il consumo assoluto di
+  energia è elevato e cresce rapidamente.</strong> E <strong>il costo di un’unità di lavoro utile sta
+  crollando</strong> — di circa dieci volte all’anno a parità di qualità. Qualsiasi presentazione che ti
+  mostra solo una delle due curve ti sta vendendo qualcosa. Le fonti sono elencate in fondo; tratta ogni
+  numero come un ordine di grandezza, perché quelli onesti hanno tutti ampie barre d’errore.</p>
+</div>
+
+<!-- ============================================= 5.1 -->
+<section class="chapter" id="flops">
+  <h2>5.1 · L’unità di lavoro</h2>
+  <p>Un <strong>FLOP</strong> è un’operazione in virgola mobile — una singola moltiplicazione o addizione,
+  esattamente come quelle che hai fatto a mano nel modulo 2. È la valuta di tutto questo settore, e c’è una
+  regola sorprendentemente semplice che lega la dimensione di un modello al lavoro necessario per
+  addestrarlo.</p>
+
+  <div class="eqbox">
+    Calcolo di addestramento ≈ <span class="hi">6 × N × D</span>
+    <small>N = numero di parametri · D = numero di token di addestramento</small>
+  </div>
+
+  <p>Da dove viene il 6: ogni parametro esegue circa 2 operazioni nel forward pass (una moltiplicazione,
+  un’addizione) e circa 4 nel backward pass, perché la backpropagation deve calcolare i gradienti rispetto
+  sia ai pesi sia agli input. Quindi ogni parametro costa circa 6 operazioni per ogni token che vede.
+  L’inferenza costa molto meno: circa <strong>2 × N</strong> per token generato, perché non c’è il
+  backward pass.</p>
+
+  <div class="grid g3">
+    <div class="card"><h4>Llama 3.1 405B</h4><p class="small mb0">405 miliardi di parametri × 15 mila
+    miliardi di token × 6 ≈ <span class="mono">3.6×10²⁵</span> FLOP. Meta ha dichiarato <strong>30.8
+    milioni di ore H100</strong>; la regola empirica riproduce quel valore con uno scarto di circa il 10%,
+    il che, per un numero di queste dimensioni, è notevole.</p></div>
+    <div class="card"><h4>GPT-4 (2023)</h4><p class="small mb0">Stimato in modo indipendente in circa
+    <span class="mono">2×10²⁵</span> FLOP e circa <strong>$80 milioni</strong> di calcolo. È stato il
+    primo modello noto pubblicamente oltre 10²⁵; entro metà 2025 più di trenta modelli avevano superato
+    quella soglia.</p></div>
+    <div class="card"><h4>Run di frontiera, 2026</h4><p class="small mb0">Le stime pubblicate collocano
+    gli attuali run di addestramento di punta tra <span class="mono">10²⁶</span> e
+    <span class="mono">10²⁷</span> FLOP, con costi di calcolo nell’ordine delle <strong>centinaia di
+    milioni</strong>. Oggi la crescita è limitata dall’energia e dai capitali, non dai chip.</p></div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Agli ingegneri questa sezione piace perché è la prima volta che l’intero settore diventa
+      analizzabile dimensionalmente. Sfruttalo: <em>6ND</em> è l’unica equazione che devono ricordare di
+      tutta la serie.</li>
+      <li>Un riferimento di scala utile: 10²⁵ FLOP sono circa il numero di granelli di sabbia sulla Terra,
+      moltiplicato per dieci milioni. Numeri di queste dimensioni diventano gestibili solo attraverso i
+      calcolatori del resto del modulo.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 5.2 -->
+<section class="chapter" id="traincalc">
+  <h2>5.2 · Quanto costa un run di addestramento</h2>
+  <p>Imposta il modello che vuoi e l’hardware che noleggeresti. Tutto il resto deriva da 6ND — nessuna
+  ipotesi nascosta oltre a quelle sui cursori.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Calcolatore del costo di addestramento</h3><span class="tag try">Parti da un preset</span></div>
+    <div class="btnrow">
+      <span class="small muted">Preset</span>
+      <button class="btn sm" data-preset="7,1500">Piccolo, interno · 7B</button>
+      <button class="btn sm" data-preset="70,15000">Open di taglia media · 70B</button>
+      <button class="btn sm" data-preset="405,15000">Classe Llama-3.1-405B</button>
+      <button class="btn sm" data-preset="280,13000">Classe GPT-4</button>
+      <button class="btn sm" data-preset="2000,30000">Classe frontiera 2026</button>
+    </div>
+
+    <div class="split-wide">
+      <div>
+        <div class="grid g2" style="gap:14px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Parametri N</span><span class="val" id="pNOut"></span></div>
+            <input type="range" id="pN" min="0.5" max="5000" step="0.5" value="70">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Token di addestramento D</span><span class="val" id="pDOut"></span></div>
+            <input type="range" id="pD" min="50" max="60000" step="50" value="15000">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Tipo di GPU</span><span class="val" id="gpuName">H100</span></div>
+            <div class="segmented" id="gpuSeg">
+              <button data-v="a100">A100</button>
+              <button data-v="h100" class="on">H100</button>
+              <button data-v="b200">B200</button>
+              <button data-v="gb200">GB200</button>
+            </div>
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Numero di GPU nel cluster</span><span class="val" id="pGOut"></span></div>
+            <input type="range" id="pG" min="8" max="100000" step="8" value="8192">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Utilizzo effettivo (MFU)</span><span class="val" id="pUOut"></span></div>
+            <input type="range" id="pU" min="0.1" max="0.6" step="0.01" value="0.38">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Overhead del datacenter (PUE)</span><span class="val" id="pPOut"></span></div>
+            <input type="range" id="pP" min="1.05" max="1.8" step="0.01" value="1.15">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Prezzo dell’elettricità</span><span class="val" id="pEOut"></span></div>
+            <input type="range" id="pE" min="40" max="300" step="5" value="120">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Intensità di carbonio della rete</span><span class="val" id="pCOut"></span></div>
+            <input type="range" id="pC" min="10" max="700" step="10" value="250">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Tariffa di noleggio GPU</span><span class="val" id="pROut"></span></div>
+            <input type="range" id="pR" min="0.5" max="8" step="0.1" value="2.5">
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="readout">
+          <div class="stat hl"><span class="k">calcolo di addestramento</span><span class="v" id="oF">—</span><span class="u">FLOP</span></div>
+          <div class="stat"><span class="k">ore GPU</span><span class="v" id="oGH">—</span></div>
+          <div class="stat"><span class="k">durata effettiva</span><span class="v" id="oT">—</span></div>
+          <div class="stat"><span class="k">potenza assorbita dal cluster</span><span class="v" id="oPw">—</span><span class="u">MW, PUE incluso</span></div>
+          <div class="stat hl"><span class="k">energia</span><span class="v" id="oE">—</span><span class="u">MWh</span></div>
+          <div class="stat"><span class="k">bolletta elettrica</span><span class="v" id="oEc">—</span></div>
+          <div class="stat hl"><span class="k">costo di calcolo</span><span class="v" id="oCc">—</span><span class="u">alla tariffa di noleggio</span></div>
+          <div class="stat"><span class="k">CO₂e</span><span class="v" id="oCo">—</span><span class="u">tonnellate</span></div>
+        </div>
+        <h4 class="mt1">Quell’energia equivale a</h4>
+        <div class="equiv" id="equivHost"></div>
+      </div>
+    </div>
+    <p class="srcnote">I valori di throughput di picco sono le specifiche dense BF16 dichiarate dai
+    produttori; i run reali raggiungono il 30–45% del picco (model FLOPs utilisation), ed è per questo che
+    esiste quel cursore. La voce del costo di calcolo usa una tariffa di noleggio e quindi include
+    l’ammortamento dell’hardware — normalmente vale diverse volte la sola bolletta elettrica. Per un modello
+    mixture-of-experts, inserisci i parametri <b>attivi</b> per token, non quelli totali: solo gli esperti
+    attivati fanno aritmetica, ed è proprio questo che rende l’architettura interessante. Il preset GPT-4
+    usa per questo motivo una stima di ~280B parametri attivi.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Verifica il calcolatore</span>
+      <p class="mb0">Seleziona <strong>Classe Llama-3.1-405B</strong> con H100 e utilizzo al 38%. Dovresti
+      ottenere circa 27–31 milioni di ore GPU, contro i 30.8 milioni dichiarati da Meta, e un’energia
+      dell’ordine di 20–25 GWh. Quando un modello dell’intero settore si può confrontare con un dato
+      pubblicato in un clic, vale la pena farlo dal vivo.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">La parte che nessuno mette nella slide</span>
+      <p class="mb0">Il run finale è una frazione del costo reale. Prima ci sono run falliti, ablation,
+      ricerche di iperparametri e lavoro sulle pipeline dei dati — comunemente <strong>da due a quattro
+      volte</strong> il numero dichiarato. Aggiungi gli stipendi dei ricercatori e spesso il calcolo non è
+      più la voce più grande.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 5.3 -->
+<section class="chapter" id="scaling">
+  <h2>5.3 · Leggi di scala: perché i modelli hanno le dimensioni che hanno</h2>
+  <p>Dato un budget di calcolo fisso, puoi spenderlo in un modello più grande o in più dati. Per anni il
+  settore ha speso troppo in parametri. Nel 2022 il risultato “Chinchilla” ha mostrato che il rapporto
+  ottimale rispetto al calcolo è di circa <strong>20 token di addestramento per parametro</strong> — e che
+  molti famosi modelli di grandi dimensioni erano stati significativamente sotto-addestrati rispetto alla
+  loro dimensione.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Spendi un budget di calcolo</h3><span class="tag try">Sposta il cursore del budget</span></div>
+    <div class="split">
+      <div><canvas id="scCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Budget di calcolo</span><span class="val" id="scBOut"></span></div>
+          <input type="range" id="scB" min="21" max="27" step="0.1" value="24">
+        </div>
+        <div class="readout">
+          <div class="stat hl"><span class="k">dimensione ottimale</span><span class="v" id="scN">—</span><span class="u">parametri</span></div>
+          <div class="stat hl"><span class="k">dati ottimali</span><span class="v" id="scD">—</span><span class="u">token</span></div>
+          <div class="stat"><span class="k">rapporto</span><span class="v">20:1</span><span class="u">token per parametro</span></div>
+        </div>
+        <div class="card mt1" id="scNote" style="min-height:170px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Perché conta commercialmente, non solo accademicamente</span>
+    <p class="mb0">Ottimale per il calcolo non significa ottimale per il <em>deployment</em>. Se un modello
+    servirà un miliardo di richieste, conviene sovra-addestrare deliberatamente un modello <strong>più
+    piccolo</strong> ben oltre il punto Chinchilla: paghi di più una volta, poi risparmi su ogni inferenza
+    per sempre. Ecco perché i modelli utili degli ultimi due anni sono diventati più piccoli e migliori
+    anziché semplicemente più grandi — e perché un modello del 2026 da 8 miliardi di parametri supera uno
+    del 2020 da 175 miliardi.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">E il muro che nessuno ha risolto</span>
+    <p class="mb0">La regola richiede 20 token per parametro. Un modello da 10 mila miliardi di parametri
+    avrebbe bisogno di 200 mila miliardi di token di testo di qualità, cioè più testo umano di alta qualità
+    di quanto ne esista in forma accessibile. Quel tetto dei dati — non la disponibilità di chip — è uno dei
+    motivi principali per cui il settore si è spostato verso la spesa di calcolo al momento della
+    <em>risposta</em> (modelli di ragionamento) anziché al momento dell’addestramento.</p>
+  </div>
+</section>
+
+<!-- ============================================= 5.4 -->
+<section class="chapter" id="inference">
+  <h2>5.4 · Il vero conto è l’inferenza</h2>
+  <p>L’addestramento è una singola spesa spettacolare. L’inferenza è una piccola spesa ripetuta di continuo,
+  e su scala aziendale vince lei. Il consenso del settore è che oggi l’inferenza rappresenti la netta
+  maggioranza del calcolo dedicato all’AI.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · L’inferenza alla tua scala</h3><span class="tag try">Impostalo sul tuo organico</span></div>
+    <div class="split-wide">
+      <div>
+        <div class="grid g2" style="gap:14px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Persone che lo usano</span><span class="val" id="iUOut"></span></div>
+            <input type="range" id="iU" min="10" max="30000" step="10" value="3000">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Richieste per persona per giorno lavorativo</span><span class="val" id="iQOut"></span></div>
+            <input type="range" id="iQ" min="1" max="150" step="1" value="25">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Energia per richiesta</span><span class="val" id="iWOut"></span></div>
+            <input type="range" id="iW" min="0.02" max="10" step="0.02" value="0.3">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Prezzo per richiesta</span><span class="val" id="iPOut"></span></div>
+            <input type="range" id="iP" min="0.0002" max="0.08" step="0.0002" value="0.004">
+          </div>
+        </div>
+        <div class="btnrow">
+          <span class="small muted">Tipo di carico</span>
+          <button class="btn sm" data-inf="0.05,0.0004">Piccolo modello di classificazione</button>
+          <button class="btn sm" data-inf="0.3,0.004">Richiesta chat tipica</button>
+          <button class="btn sm" data-inf="3,0.05">Modello di ragionamento, risposta lunga</button>
+          <button class="btn sm" data-inf="6,0.06">Generazione di immagini</button>
+        </div>
+        <div class="readout mt1">
+          <div class="stat"><span class="k">richieste / anno</span><span class="v" id="oQy">—</span></div>
+          <div class="stat hl"><span class="k">energia / anno</span><span class="v" id="oEy">—</span><span class="u">MWh</span></div>
+          <div class="stat hl"><span class="k">spesa / anno</span><span class="v" id="oSy">—</span></div>
+          <div class="stat"><span class="k">CO₂e / anno</span><span class="v" id="oCy">—</span><span class="u">tonnellate</span></div>
+          <div class="stat"><span class="k">potenza continua</span><span class="v" id="oKw">—</span><span class="u">kW medi</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="card" id="infNote" style="min-height:180px"></div>
+        <h4 class="mt1">Confronto per singola richiesta</h4>
+        <div class="equiv" id="infEquiv"></div>
+      </div>
+    </div>
+    <p class="srcnote">Punti di riferimento: Google ha pubblicato per il prompt testuale mediano di Gemini un
+    consumo di 0.24 Wh di energia, 0.03 g di CO₂e e 0.26 mL di acqua (misurati a maggio 2025, pubblicati ad
+    agosto 2025). Le stime indipendenti per una tipica richiesta a ChatGPT si concentrano attorno a 0.3 Wh.
+    I modelli di ragionamento e la generazione di immagini sono più alti di uno o due ordini di grandezza,
+    perché generano molti più token per risposta.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">La curva dell’efficienza è ripida</span>
+      <p class="mb0">Google ha riferito che il prompt mediano di Gemini a maggio 2025 consumava <strong>33
+      volte meno energia</strong> di un anno prima, per una risposta migliore. Quantizzazione, distillazione,
+      routing mixture-of-experts, batching migliore e silicio dedicato si sommano rapidamente. Qualsiasi dato
+      per richiesta più vecchio di circa un anno è sbagliato di un ordine di grandezza.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Eppure la domanda totale continua a crescere</span>
+      <p class="mb0">L’energia per richiesta è scesa di 33× mentre il consumo elettrico totale dell’AI è
+      cresciuto nettamente, perché i volumi sono cresciuti più in fretta. È il paradosso di Jevons: rendere
+      qualcosa più economico ne aumenta il consumo totale. <strong>Entrambe le affermazioni sono vere e
+      nessuna annulla l’altra.</strong></p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Il confronto onesto</span>
+      <p class="mb0">A 0.3 Wh, una richiesta equivale a circa dieci secondi di un PC desktop, o a un quinto
+      dell’energia di un minuto di streaming video. Il numero che inquieta non è mai la singola richiesta — è
+      l’aggregato, e i datacenter che si stanno costruendo per sostenerlo.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 5.5 -->
+<section class="chapter" id="hardware">
+  <h2>5.5 · La macchina fisica, vista dall’alto</h2>
+  <p>Fai clic su ogni livello. Il passaggio che ha mandato in crisi vent’anni di progettazione dei
+  datacenter avviene tra il terzo e il quarto.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Dal die al datacenter</h3><span class="tag try">Fai clic su un livello</span></div>
+    <div class="zoom" id="zoomHost"></div>
+    <div class="card mt1" id="zoomInfo" style="min-height:190px"></div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Perché il raffreddamento a liquido non è più facoltativo</span>
+    <p class="mb0">Un rack aziendale convenzionale assorbe 5–15 kW ed è raffreddato ad aria. Un rack H100
+    raffreddato ad aria arriva a circa 40 kW. Un rack GB200 NVL72 di generazione attuale assorbe circa
+    <strong>120 kW nell’ingombro di un armadio</strong>. Oltre circa 30 kW per rack, smaltire quel calore
+    con l’aria smette di avere senso dal punto di vista fisico, e il raffreddamento diretto a liquido diventa
+    la base di progetto. È un cambiamento idraulico e di ingegneria civile, non un aggiornamento IT — ed è
+    per questo che la capacità di calcolo per l’AI è limitata dalle costruzioni e dagli allacciamenti alla
+    rete più che dalla disponibilità di chip.</p>
+  </div>
+</section>
+
+<!-- ============================================= 5.6 -->
+<section class="chapter" id="macro">
+  <h2>5.6 · Il quadro macro</h2>
+  <p>I data center — tutti, non solo quelli per l’AI — hanno consumato circa <strong>415 TWh</strong> nel
+  2024, circa l’1.5% dell’elettricità mondiale. Lo scenario base dell’Agenzia Internazionale dell’Energia
+  (IEA) prevede che questo valore <strong>raddoppi a circa 945 TWh entro il 2030</strong>, intorno al 3%
+  della domanda mondiale, con il consumo specifico dell’AI che triplica nello stesso periodo.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Domanda elettrica globale dei data center</h3><span class="tag">Scenario base IEA</span></div>
+    <canvas id="macroCv" class="cv"></canvas>
+    <p class="srcnote">IEA, <i>Energy and AI</i> (2025). Le barre grigie sono punti di riferimento per la
+    scala, non previsioni. Nota l’onesta avvertenza della stessa IEA: proiezioni così ripide dipendono da
+    ipotesi su efficienza, disponibilità di chip e costruzione di nuova capacità che potrebbero
+    plausibilmente spostare il dato del 2030 di ±40%.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="card"><h4>In prospettiva</h4><p class="small mb0">945 TWh sono circa tre volte l’intero
+    consumo elettrico annuo dell’Italia. Sono anche solo circa il 3% della domanda mondiale — meno dei
+    motori industriali, del cemento o dell’aria condizionata. Nel dibattito pubblico si usano entrambe le
+    letture, di solito senza l’altra.</p></div>
+    <div class="card"><h4>Il problema locale</h4><p class="small mb0">La difficoltà non è la percentuale
+    globale, è la concentrazione. Un singolo campus può chiedere 300–1&#8239;000 MW in un unico nodo della
+    rete — quanto una piccola città — e nella maggior parte dei mercati il vincolo determinante sono ormai
+    le code per l’allacciamento alla rete, non la costruzione.</p></div>
+    <div class="card"><h4>Acqua</h4><p class="small mb0">Il raffreddamento evaporativo consuma acqua.
+    Google ha riferito 0.26 mL per prompt testuale mediano: trascurabile per la singola richiesta, rilevante
+    su scala di campus in una regione con scarsità idrica. Il raffreddamento a liquido a circuito chiuso
+    elimina in gran parte il consumo, a fronte di un costo di investimento più alto e di un’efficienza
+    energetica leggermente peggiore.</p></div>
+  </div>
+</section>
+
+<!-- ============================================= 5.7 -->
+<section class="chapter" id="collapse">
+  <h2>5.7 · L’altra curva</h2>
+  <p>Se presenti solo il grafico dell’energia, fuorvierai la sala. Il prezzo di un livello di capacità
+  fisso è sceso di circa <strong>un ordine di grandezza all’anno</strong> — uno dei cali di costo più
+  rapidi mai registrati per una tecnologia.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Prezzo a parità di livello di qualità</h3><span class="tag">Scala logaritmica</span></div>
+    <canvas id="priceCv" class="cv"></canvas>
+    <p class="srcnote">Prezzi di listino API dichiarati per il modello più economico di qualità “classe
+    GPT-4” a ciascuna data; ordini di grandezza, e la definizione del livello di qualità è necessariamente
+    approssimativa. Compilati da listini pubblici e analisi di settore (l’analisi “LLMflation” di a16z
+    stima il tasso in circa 10× all’anno a capacità costante).</p>
+  </div>
+
+  <div class="grid g4 mt2">
+    <div class="card"><h4>Distillazione</h4><p class="small mb0">Addestri un modello piccolo a imitarne uno
+    grande. Gran parte della qualità a una frazione della dimensione — il motore principale dei modelli
+    capaci ed economici.</p></div>
+    <div class="card"><h4>Quantizzazione</h4><p class="small mb0">Memorizzi i pesi a 8 o 4 bit anziché 16.
+    Da due a quattro volte meno memoria e aritmetica più veloce, al prezzo di una piccola perdita di
+    accuratezza.</p></div>
+    <div class="card"><h4>Mixture of experts</h4><p class="small mb0">Attivi solo una piccola frazione di un
+    modello enorme per ogni token. La capacità di un modello grande al costo di esercizio di uno
+    piccolo.</p></div>
+    <div class="card"><h4>Silicio migliore</h4><p class="small mb0">Ogni generazione di GPU porta circa 2–3×
+    di throughput utile in più per watt per questo specifico carico, oltre a chip progettati apposta per
+    l’inferenza.</p></div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">Che cosa significa per la pianificazione</span>
+    <p class="mb0">Non progettare l’architettura attorno al prezzo di oggi. Un caso d’uso marginale ai costi
+    attuali sarà probabilmente comodo entro 18 mesi, e un sistema costruito per essere indipendente dal
+    modello — cambi il modello, tieni il retrieval, il set di valutazione e i guard-rail — cattura quel calo
+    gratuitamente. Al contrario, non costruire un business case che <em>dipenda</em> dal proseguimento del
+    calo: il vincolo si sta spostando dal silicio all’elettricità, e i prezzi dell’elettricità non scendono
+    di 10× all’anno.</p>
+  </div>
+</section>
+
+<!-- ============================================= 5.8 -->
+<section class="chapter" id="buy">
+  <h2>5.8 · Comprare o costruire: la decisione che dovrai davvero prendere</h2>
+  <p>Pagare a token tramite un’API, o far girare modelli open-weight sul tuo hardware. Il punto di
+  pareggio è una questione di volumi, e la risposta di solito è meno ovvia di quanto sostenga l’uno o
+  l’altro fornitore.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · API contro self-hosted</h3><span class="tag try">Trova il tuo punto di pareggio</span></div>
+    <div class="split-wide">
+      <div><canvas id="beCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Il tuo volume</span><span class="val" id="bVOut"></span></div>
+          <input type="range" id="bV" min="0" max="4" step="0.05" value="2.4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Prezzo API</span><span class="val" id="bAOut"></span></div>
+          <input type="range" id="bA" min="0.05" max="15" step="0.05" value="4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Costo d’acquisto della GPU</span><span class="val" id="bCOut"></span></div>
+          <input type="range" id="bC" min="5000" max="60000" step="1000" value="30000">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Throughput per GPU</span><span class="val" id="bTOut"></span></div>
+          <input type="range" id="bT" min="100" max="6000" step="50" value="1500">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Utilizzo medio</span><span class="val" id="bUOut"></span></div>
+          <input type="range" id="bU" min="0.05" max="0.9" step="0.01" value="0.35">
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">costo API / mese</span><span class="v" id="oApi">—</span></div>
+          <div class="stat"><span class="k">self-hosted / mese</span><span class="v" id="oSelf">—</span></div>
+          <div class="stat"><span class="k">GPU necessarie</span><span class="v" id="oGpus">—</span></div>
+          <div class="stat hl"><span class="k">pareggio</span><span class="v" id="oBe">—</span><span class="u">token / mese</span></div>
+        </div>
+        <div class="card mt1" id="beNote" style="min-height:120px"></div>
+      </div>
+    </div>
+    <p class="srcnote">Costo self-hosted = investimento ammortizzato su 36 mesi + elettricità a €120/MWh con
+    PUE 1.2 + 35% per hosting, rete e operatività. Esclude il team di ingegneria, che di solito è il costo
+    vero ed è il motivo per cui i deployment piccoli non vincono quasi mai sul prezzo.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="card">
+      <h3>Motivi per il self-hosting che non riguardano il prezzo</h3>
+      <ul class="small mb0">
+        <li><strong>Residenza e riservatezza dei dati</strong> — l’argomento decisivo nella maggior parte dei contesti regolamentati o sensibili per la proprietà intellettuale, e non ha bisogno di una giustificazione economica.</li>
+        <li><strong>Stabilità della versione.</strong> Un modello ospitato può cambiare sotto i tuoi piedi; uno locale no. Questo conta enormemente per tutto ciò che è validato.</li>
+        <li><strong>Latenza</strong> per usi industriali in tempo reale o on-premise.</li>
+        <li><strong>Disponibilità</strong> indipendente dalla capacità, dai limiti di frequenza o dalle condizioni di un fornitore.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Motivi per cui di solito vince comunque l’API</h3>
+      <ul class="small mb0">
+        <li><strong>Utilizzo.</strong> Le tue GPU restano inattive di notte e nei fine settimana; le hai pagate comunque. Al 25% di utilizzo paghi quattro volte il costo unitario teorico.</li>
+        <li><strong>La frontiera si sposta.</strong> L’hardware comprato oggi serve un modello che fra diciotto mesi sarà indietro di due generazioni.</li>
+        <li><strong>Divario di qualità.</strong> I migliori modelli open-weight restano dietro ai migliori modelli ospitati — il divario si è ridotto molto, ma non è zero.</li>
+        <li><strong>Personale.</strong> Gestire un’infrastruttura di serving con qualità affidabile da produzione richiede un team specialistico, in modo permanente.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Lo schema che viene davvero adottato</span>
+    <p class="mb0">Ibrido, e non è un compromesso. Instrada i compiti ad alto volume, ben definiti e
+    sensibili — classificazione, estrazione, oscuramento dei dati, embedding per il retrieval — verso un
+    piccolo modello self-hosted, dove volume e riservatezza giocano entrambi a suo favore. Instrada il lavoro
+    a basso volume, difficile e aperto verso la migliore API di frontiera disponibile. <strong>Tieni
+    retrieval, valutazione e guard-rail completamente fuori dal modello</strong>, così che sostituire l’uno
+    o l’altro lato sia una modifica di configurazione e non un progetto.</p>
+  </div>
+</section>
+
+<!-- ============================================= 5.9 -->
+<section class="chapter" id="close">
+  <h2>5.9 · Che cosa riportare alla tua scrivania</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Cinque domande da fare su qualsiasi proposta di AI</h3>
+      <ol class="small mb0">
+        <li><strong>Qual è il volume di token?</strong> Tutto — costo, latenza, fattibilità — discende da lì, e la maggior parte delle proposte non l’ha mai stimato.</li>
+        <li><strong>È inferenza o addestramento?</strong> Se qualcuno propone di addestrare un modello, chiedi che cosa hanno ottenuto prima retrieval e prompting.</li>
+        <li><strong>Qual è la baseline misurata?</strong> Accuratezza su quali dati tenuti da parte, rispetto a ciò che oggi ottiene una persona.</li>
+        <li><strong>Che cosa succede quando sbaglia?</strong> Se la risposta coinvolge sicurezza, certificazione o denaro che esce dall’azienda, il progetto deve prevedere una persona nel percorso.</li>
+        <li><strong>È indipendente dal modello?</strong> Se cambiare modello significa riscrivere tutto, ti sei precluso un calo dei costi di dieci volte all’anno.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Di che cosa parlava la Parte I</h3>
+      <p class="small">Un neurone è una somma pesata e una soglia. Una rete è fatta di strati di neuroni,
+      addestrati scendendo a valle su una superficie d’errore. Un modello linguistico è quella macchina, su
+      scala enorme, che fa una sola cosa: predire il token successivo. E il motivo per cui funziona adesso e
+      non nel 1969 è che l’aritmetica è diventata accessibile.</p>
+      <p class="small mb0">Il che significa che nel tuo lavoro le domande utili riguardano raramente la
+      matematica. Riguardano i dati che possiedi, gli errori che puoi tollerare, le decisioni che richiedono
+      una persona e l’entità del conto. Sono domande di ingegneria e di gestione — ed è di questo che parla
+      la Parte II.</p>
+    </div>
+  </div>
+
+  <h3 class="mt2">Fonti di questo modulo</h3>
+  <ul class="sources">
+    <li>International Energy Agency — <i>Energy and AI</i> (2025): domanda globale dei data center di circa 415 TWh nel 2024, in crescita fino a circa 945 TWh entro il 2030. <span class="mono">iea.org/reports/energy-and-ai</span></li>
+    <li>Google Cloud — <i>Measuring the environmental impact of AI inference</i> (agosto 2025): prompt testuale mediano di Gemini a 0.24 Wh, 0.03 g CO₂e, 0.26 mL di acqua; riduzione dell’energia di 33× in dodici mesi. <span class="mono">cloud.google.com/blog</span></li>
+    <li>Epoch AI — stime di calcolo e di costo di addestramento per i modelli di frontiera (GPT-4 ≈ 2×10²⁵ FLOP; modelli oltre la soglia di 10²⁵ FLOP; analisi dell’energia per richiesta). <span class="mono">epoch.ai</span></li>
+    <li>Meta — model card di Llama 3.1: 30.8 milioni di ore H100 per il modello 405B, 39.3 milioni per l’intera famiglia.</li>
+    <li>Hoffmann et al. (DeepMind, 2022) — <i>Training Compute-Optimal Large Language Models</i> (“Chinchilla”): il risultato di ≈20 token per parametro.</li>
+    <li>Specifiche di prodotto NVIDIA — throughput e potenza di A100, H100, B200, GB200 NVL72; potenza del rack GB200 NVL72 di circa 120 kW.</li>
+    <li>Andreessen Horowitz — <i>LLMflation</i>: prezzo dell’inferenza a capacità costante in calo di circa 10× all’anno.</li>
+    <li>Kaplan et al. (2020) — <i>Scaling Laws for Neural Language Models</i>: la relazione di calcolo 6ND.</li>
+  </ul>
+  <p class="small muted">Ogni dato di questa pagina è una stima con ampia incertezza, e diversi dei numeri
+  sottostanti sono commercialmente sensibili e quindi dedotti anziché pubblicati. Usali per ordini di
+  grandezza e decisioni, non per un business case, e ricontrollali prima di ogni presentazione — i numeri
+  per richiesta e per token, in particolare, cambiano di fattori elevati nel giro di un anno.</p>
+
+  <h3 class="mt2">Dove andiamo adesso</h3>
+  <p>Con questo si chiude la Parte I — che cos’è la macchina. La Parte II riguarda come ingegnerizzare con
+  essa, e si apre sostenendo che per la maggior parte dei tuoi dati non dovresti usare affatto una rete
+  neurale.</p>
+  <p><a href="06-classical.html"><strong>Modulo 6 · Oltre le reti neurali →</strong></a></p>
+
+  <div class="note">
+    <ul>
+      <li>Una frase di chiusura che funziona: “l’aritmetica non è cambiata dal 1958. Quello che è cambiato è
+      che ora possiamo permetterci di farla mille miliardi di volte al secondo — e le domande interessanti
+      riguardano tutte che cosa scegliamo di farci.”</li>
+      <li>Se qualcuno chiede se l’AI sia un problema ambientale, la risposta onesta ha tre parti: la domanda
+      assoluta cresce rapidamente ed è concentrata localmente; l’efficienza per unità di lavoro migliora più
+      in fretta di quasi qualsiasi altra tecnologia mai registrata; e l’effetto netto dipende interamente
+      dalla velocità con cui si aggiunge generazione pulita. Resisti alla tentazione di dare una risposta
+      unilaterale in un senso o nell’altro.</li>
+      <li>Lascia aperto il calcolatore dell’addestramento alla fine. Le persone si avvicinano dopo e vogliono
+      inserirci i propri numeri — è in quel momento che la serie lascia davvero il segno.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+
+  /* ===================================================== 5.2 training calculator */
+  var GPU = {
+    a100:  { n: 'A100 80GB', tf: 312,  w: 400 },
+    h100:  { n: 'H100 SXM',  tf: 989,  w: 700 },
+    b200:  { n: 'B200',      tf: 2250, w: 1000 },
+    gb200: { n: 'GB200',     tf: 2500, w: 1200 }
+  };
+  var T = { N: 70, D: 15000, gpu: 'h100', G: 8192, U: 0.38, P: 1.15, E: 120, Ci: 250, R: 2.5 };
+
+  function calcTrain() {
+    var N = T.N * 1e9, D = T.D * 1e9;
+    var flops = 6 * N * D;
+    var g = GPU[T.gpu];
+    var gpuHours = flops / (g.tf * 1e12 * T.U * 3600);
+    var days = gpuHours / T.G / 24;
+    var powerMW = T.G * g.w * T.P / 1e6;
+    var mwh = gpuHours * g.w * T.P / 1e6;
+    var eCost = mwh * T.E;
+    var cCost = gpuHours * T.R;
+    var co2 = mwh * T.Ci / 1000;
+
+    document.getElementById('oF').textContent = F.sci(flops, 2);
+    document.getElementById('oGH').textContent = F.c(gpuHours);
+    document.getElementById('oT').textContent = days < 1 ? (days * 24).toFixed(1) + ' h'
+      : (days < 400 ? days.toFixed(days < 10 ? 1 : 0) + ' g' : (days / 365).toFixed(1) + ' anni');
+    document.getElementById('oPw').textContent = powerMW.toFixed(powerMW < 10 ? 2 : 0);
+    document.getElementById('oE').textContent = F.c(mwh);
+    document.getElementById('oEc').textContent = '€' + F.c(eCost);
+    document.getElementById('oCc').textContent = '€' + F.c(cCost);
+    document.getElementById('oCo').textContent = F.c(co2);
+
+    var eq = '';
+    eq += '<div><b>' + F.c(mwh / 2.7) + '</b> famiglie italiane per un anno <span class="muted small">(2.7 MWh ciascuna)</span></div>';
+    eq += '<div><b>' + F.c(mwh * 1000 / 0.18) + '</b> km percorsi da un’auto elettrica <span class="muted small">(0.18 kWh/km)</span></div>';
+    eq += '<div><b>' + F.c(co2 / 1.0) + '</b> voli andata e ritorno in economy Milano–New York <span class="muted small">(≈1 t CO₂e ciascuno)</span></div>';
+    eq += '<div><b>' + (mwh / 8760).toFixed(mwh / 8760 < 10 ? 2 : 1) + ' MW</b> di generazione in funzione continua per un anno</div>';
+    eq += '<div><b>' + (mwh / 300e6 * 100).toFixed(4) + '%</b> del consumo elettrico annuo dell’Italia <span class="muted small">(≈300 TWh)</span></div>';
+    document.getElementById('equivHost').innerHTML = eq;
+  }
+  function initTrain() {
+    AI.bindRange('pN', function (v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'T' : v + 'B'; }, function (v) { T.N = v; calcTrain(); });
+    AI.bindRange('pD', function (v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'T' : v + 'B'; }, function (v) { T.D = v; calcTrain(); });
+    AI.bindRange('pG', function (v) { return F.c(v); }, function (v) { T.G = v; calcTrain(); });
+    AI.bindRange('pU', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { T.U = v; calcTrain(); });
+    AI.bindRange('pP', function (v) { return v.toFixed(2); }, function (v) { T.P = v; calcTrain(); });
+    AI.bindRange('pE', function (v) { return '€' + v + '/MWh'; }, function (v) { T.E = v; calcTrain(); });
+    AI.bindRange('pC', function (v) { return v + ' kg/MWh'; }, function (v) { T.Ci = v; calcTrain(); });
+    AI.bindRange('pR', function (v) { return '€' + v.toFixed(1) + '/GPU-h'; }, function (v) { T.R = v; calcTrain(); });
+    AI.segmented(document.getElementById('gpuSeg'), function (v) {
+      T.gpu = v; document.getElementById('gpuName').textContent = GPU[v].n; calcTrain();
+    });
+    AI.qsa('[data-preset]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = b.getAttribute('data-preset').split(',');
+        document.getElementById('pN').value = p[0];
+        document.getElementById('pD').value = p[1];
+        document.getElementById('pN').dispatchEvent(new Event('input'));
+        document.getElementById('pD').dispatchEvent(new Event('input'));
+      });
+    });
+    calcTrain();
+  }
+
+  /* ===================================================== 5.3 scaling */
+  var scplot, scB = 24;
+  function drawSc() {
+    var Cb = Math.pow(10, scB);
+    /* N_opt: C = 6 N D, D = 20 N  =>  C = 120 N^2  =>  N = sqrt(C/120) */
+    var N = Math.sqrt(Cb / 120), D = 20 * N;
+    document.getElementById('scN').textContent = F.c(N);
+    document.getElementById('scD').textContent = F.c(D);
+
+    scplot.resize(); scplot.clear();
+    scplot.dom = [21, 27]; scplot.ran = [7, 13.5];
+    scplot.frame({ xticks: 6, yticks: 5,
+      xlabel: 'calcolo di addestramento (FLOP, scala log)', ylabel: 'log₁₀ del conteggio',
+      xfmt: function (x) { return '10' + F.sup(Math.round(x)); },
+      yfmt: function (y) { return '10' + F.sup(Math.round(y)); } });
+    var pn = [], pd = [], i;
+    for (i = 0; i <= 120; i++) {
+      var e = 21 + 6 * i / 120, c = Math.pow(10, e);
+      var n = Math.sqrt(c / 120);
+      pn.push([e, Math.log10(n)]);
+      pd.push([e, Math.log10(20 * n)]);
+    }
+    scplot.clip(function (g) {
+      scplot.line(pd, C('--accent-2'), 2.6);
+      scplot.line(pn, C('--accent'), 2.6);
+      scplot.line([[scB, 7], [scB, 13.5]], C('--ink-3'), 1.4, [4, 4]);
+      scplot.dot(scB, Math.log10(N), 6, C('--accent'), C('--panel'));
+      scplot.dot(scB, Math.log10(D), 6, C('--accent-2'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--accent-2'); g.fillText('token di addestramento ottimali', scplot.X(21.15), scplot.Y(13.0));
+      g.fillStyle = C('--accent'); g.fillText('parametri ottimali', scplot.X(21.15), scplot.Y(12.4));
+      /* landmarks */
+      [[23.4, 'classe GPT-3'], [25.3, 'classe GPT-4'], [26.5, 'frontiera 2026']].forEach(function (m) {
+        g.strokeStyle = C('--line'); g.lineWidth = 1;
+        g.beginPath(); g.moveTo(scplot.X(m[0]), scplot.Y(7)); g.lineTo(scplot.X(m[0]), scplot.Y(7.6)); g.stroke();
+        g.fillStyle = C('--ink-3'); g.font = '10px system-ui,sans-serif'; g.textAlign = 'center';
+        g.fillText(m[1], scplot.X(m[0]), scplot.Y(7.9));
+      });
+    });
+    var note = '<h4>Come leggerlo</h4><p class="small">Con un budget di 10' + F.sup(scB.toFixed(1)) +
+      ' FLOP, la scelta ottimale rispetto al calcolo è circa <b>' + F.c(N) + ' parametri</b> addestrati su <b>' +
+      F.c(D) + ' token</b>. Entrambi crescono come la radice quadrata del budget, quindi un budget 100× più grande compra un modello 10× più grande su 10× più dati — non un modello 100× più grande.</p>';
+    if (D > 3e13) note += '<p class="small mb0" style="color:var(--warn)"><b>Tetto dei dati.</b> ' + F.c(D) +
+      ' token superano la quantità di testo di alta qualità plausibilmente disponibile. Oltre circa 10¹⁴ token la strategia deve cambiare: dati sintetici, più passate sugli stessi dati, altre modalità, oppure spendere il calcolo al momento della risposta.</p>';
+    else note += '<p class="small mb0">Storicamente la maggior parte dei modelli di grandi dimensioni stava ben al di sotto della linea dei token — troppo grandi per i dati che avevano ricevuto. Correggere questo squilibrio, anziché costruire qualcosa di più grande, ha prodotto gran parte dei progressi del 2023–24.</p>';
+    document.getElementById('scNote').innerHTML = note;
+  }
+  function initSc() {
+    scplot = new AI.Plot(document.getElementById('scCv'),
+      { dom: [21, 27], ran: [7, 13.5], pad: { l: 52, r: 16, t: 16, b: 44 } });
+    AI.bindRange('scB', function (v) { return '10' + F.sup(v.toFixed(1)) + ' FLOP'; }, function (v) { scB = v; drawSc(); });
+    AI.onRedraw(drawSc);
+    drawSc();
+  }
+
+  /* ===================================================== 5.4 inference */
+  var I = { users: 3000, q: 25, wh: 0.3, price: 0.004 };
+  function calcInf() {
+    var qy = I.users * I.q * 250;
+    var mwh = qy * I.wh / 1e6;
+    var spend = qy * I.price;
+    var co2 = mwh * 0.25;
+    var kw = mwh * 1000 / 8760;
+    document.getElementById('oQy').textContent = F.c(qy);
+    document.getElementById('oEy').textContent = mwh < 10 ? mwh.toFixed(2) : F.c(mwh);
+    document.getElementById('oSy').textContent = '€' + F.c(spend);
+    document.getElementById('oCy').textContent = co2 < 10 ? co2.toFixed(2) : F.c(co2);
+    document.getElementById('oKw').textContent = kw.toFixed(kw < 10 ? 2 : 1);
+
+    var n = '<h4>Che cosa ti dice</h4>';
+    n += '<p class="small">' + F.c(I.users) + ' persone a ' + I.q + ' richieste per giorno lavorativo fanno <b>' +
+      F.c(qy) + ' richieste all’anno</b>, con un assorbimento medio continuo di <b>' + kw.toFixed(1) +
+      ' kW</b> e un costo di <b>€' + F.c(spend) + '</b>.</p>';
+    n += '<p class="small">Per confronto, l’elettricità equivale a circa <b>' + F.c(mwh / 2.7) +
+      ' famiglie</b>. E nota quale cifra è più grande: ' + (spend > mwh * 120 * 4 ? 'la spesa API fa sembrare irrisorio il costo dell’elettricità sottostante — stai pagando hardware, margine e l’ammortamento dell’addestramento, non l’energia' : 'per questa configurazione i due numeri sono più vicini del solito') + '.</p>';
+    n += '<p class="small mb0">Verifica di plausibilità della spesa: dividila per il numero di persone. Fa <b>€' +
+      (spend / I.users).toFixed(0) + ' per persona all’anno</b> — il numero da confrontare con una licenza software, non con una bolletta elettrica.</p>';
+    document.getElementById('infNote').innerHTML = n;
+
+    var eq = '';
+    eq += '<div><b>' + (I.wh * 3600 / 1000).toFixed(2) + ' kJ</b> per richiesta</div>';
+    eq += '<div><b>' + (I.wh * 1200).toFixed(0) + ' s</b> di una lampadina LED da 3 W</div>';
+    eq += '<div><b>' + (I.wh * 60).toFixed(1) + ' s</b> di un portatile da 60 W</div>';
+    eq += '<div><b>' + (I.wh / 2000 * 3600).toFixed(1) + ' s</b> di un bollitore elettrico <span class="muted small">(2 kW)</span></div>';
+    eq += '<div><b>' + (I.wh / 180 * 1000).toFixed(1) + ' m</b> percorsi con un’auto elettrica</div>';
+    document.getElementById('infEquiv').innerHTML = eq;
+  }
+  function initInf() {
+    AI.bindRange('iU', function (v) { return F.c(v); }, function (v) { I.users = v; calcInf(); });
+    AI.bindRange('iQ', function (v) { return v; }, function (v) { I.q = v; calcInf(); });
+    AI.bindRange('iW', function (v) { return v.toFixed(2) + ' Wh'; }, function (v) { I.wh = v; calcInf(); });
+    AI.bindRange('iP', function (v) { return '€' + v.toFixed(4); }, function (v) { I.price = v; calcInf(); });
+    AI.qsa('[data-inf]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = b.getAttribute('data-inf').split(',');
+        document.getElementById('iW').value = p[0];
+        document.getElementById('iP').value = p[1];
+        document.getElementById('iW').dispatchEvent(new Event('input'));
+        document.getElementById('iP').dispatchEvent(new Event('input'));
+      });
+    });
+    calcInf();
+  }
+
+  /* ===================================================== 5.5 hardware zoom */
+  var ZOOM = [
+    ['Una GPU', '700', 'watt', 'Una singola H100: 80 miliardi di transistor, 80 GB di memoria velocissima, circa 989 mila miliardi di operazioni in virgola mobile al secondo in BF16. Assorbe 700 W — circa sette PC desktop, o una stufetta elettrica domestica, da un chip grande come un francobollo. Una B200 di generazione attuale assorbe circa 1\u202F000 W e un modulo GB200 circa 1\u202F200 W, inclusa la sua quota di overhead.'],
+    ['Un nodo server', '10', 'kilowatt', 'Otto GPU, due CPU, schede di rete ad alta velocità, alimentatori: circa 10 kW in uno chassis alto poche unità. Le otto GPU sono collegate da un interconnect dedicato ad alta banda, perché durante l’addestramento devono scambiarsi continuamente i gradienti — un singolo nodo è di fatto un unico grande acceleratore, non otto indipendenti.'],
+    ['Un rack', '40–120', 'kilowatt', 'Un rack aziendale tradizionale assorbe 5–15 kW. Un rack H100 raffreddato ad aria arriva a circa 40 kW. Un rack GB200 NVL72 mette 72 GPU in un unico armadio raffreddato a liquido, a circa <b>120 kW</b> — da dieci a quindici volte un rack convenzionale, nella stessa superficie. Oltre circa 30 kW il raffreddamento ad aria smette di essere praticabile e il raffreddamento diretto a liquido diventa la norma.'],
+    ['Un campus AI', '100–1\u202F000', 'megawatt', 'Migliaia di rack, più impianto di raffreddamento, distribuzione elettrica, generazione di riserva e una sottostazione. Un grande campus di addestramento chiede potenza sulla scala di <b>una piccola città</b>, in un unico punto della rete. I vincoli determinanti ora sono le code per l’allacciamento alla rete, i tempi di consegna dei trasformatori e la costruzione — non la disponibilità di chip. Ecco perché la costruzione di capacità per l’AI è diventata una storia del settore energetico.']
+  ];
+  var zSel = 2;
+  function drawZoom() {
+    var h = '';
+    ZOOM.forEach(function (z, i) {
+      h += '<div class="zc' + (i === zSel ? ' on' : '') + '" data-i="' + i + '"><div class="t">' + z[0] +
+        '</div><div class="p">' + z[1] + '</div><div class="u">' + z[2] + '</div></div>';
+    });
+    document.getElementById('zoomHost').innerHTML = h;
+    document.getElementById('zoomInfo').innerHTML = '<h3>' + ZOOM[zSel][0] + ' — ' + ZOOM[zSel][1] +
+      ' ' + ZOOM[zSel][2] + '</h3><p class="mb0">' + ZOOM[zSel][3] + '</p>';
+  }
+  function initZoom() {
+    document.getElementById('zoomHost').addEventListener('click', function (e) {
+      var z = e.target.closest ? e.target.closest('.zc') : null;
+      if (z) { zSel = parseInt(z.getAttribute('data-i'), 10); drawZoom(); }
+    });
+    drawZoom();
+  }
+
+  /* ===================================================== 5.6 macro chart */
+  var macro;
+  var MACRO = [
+    { l: '2015', v: 200, k: 'dc' },
+    { l: '2020', v: 290, k: 'dc' },
+    { l: '2024', v: 415, k: 'dc' },
+    { l: '2030\nscenario base', v: 945, k: 'proj' },
+    { l: 'Italia, tutti\ni settori', v: 300, k: 'ref' },
+    { l: 'Aviazione\nglobale', v: 130, k: 'ref' }
+  ];
+  function drawMacro() {
+    macro.resize(); macro.clear();
+    var g = macro.ctx;
+    macro.dom = [0, MACRO.length]; macro.ran = [0, 1050];
+    macro.frame({ xticks: 1, yticks: 6, ylabel: 'TWh all’anno', xfmt: function () { return ''; } });
+    var bw = macro.pw / MACRO.length * 0.62;
+    MACRO.forEach(function (m, i) {
+      var x = macro.X(i + 0.5), y = macro.Y(m.v), y0 = macro.Y(0);
+      g.fillStyle = m.k === 'dc' ? C('--accent') : (m.k === 'proj' ? C('--accent-2') : C('--ink-3'));
+      g.globalAlpha = m.k === 'ref' ? 0.45 : 1;
+      g.fillRect(x - bw / 2, y, bw, y0 - y);
+      g.globalAlpha = 1;
+      g.fillStyle = C('--ink'); g.font = '700 12px ui-monospace, monospace';
+      g.textAlign = 'center'; g.textBaseline = 'bottom';
+      g.fillText(m.v + ' TWh', x, y - 5);
+      g.fillStyle = C('--ink-3'); g.font = '11px system-ui, sans-serif'; g.textBaseline = 'top';
+      m.l.split('\n').forEach(function (ln, k) { g.fillText(ln, x, y0 + 7 + k * 13); });
+    });
+    g.fillStyle = C('--ink-3'); g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+    g.fillText('blu = tutti i data center · verde acqua = proiezione IEA 2030 · grigio = riferimenti', macro.pad.l + 4, macro.pad.t + 6);
+  }
+
+  /* ===================================================== 5.7 price collapse */
+  var priceplot;
+  var PRICE = [
+    [2023.2, 30, 'prezzo al lancio di GPT-4'],
+    [2023.9, 10, ''],
+    [2024.5, 3, ''],
+    [2025.2, 1.0, ''],
+    [2025.9, 0.35, ''],
+    [2026.6, 0.12, 'miglior prezzo attuale per quel livello di qualità']
+  ];
+  function drawPrice() {
+    priceplot.resize(); priceplot.clear();
+    priceplot.dom = [2023, 2027]; priceplot.ran = [-1.1, 1.7];
+    priceplot.frame({ xticks: 4, yticks: 4,
+      xlabel: 'anno', ylabel: '€ per milione di token in output (log)',
+      xfmt: function (x) { return Math.round(x); },
+      yfmt: function (y) { var v = Math.pow(10, y); return v >= 1 ? '€' + v.toFixed(0) : '€' + v.toFixed(2); } });
+    var pts = PRICE.map(function (p) { return [p[0], Math.log10(p[1])]; });
+    priceplot.clip(function (g) {
+      /* 10x-per-year reference line */
+      priceplot.line([[2023.2, Math.log10(30)], [2026.8, Math.log10(30) - 3.6]], C('--ink-3'), 1.4, [5, 4]);
+      priceplot.line(pts, C('--accent'), 3);
+      PRICE.forEach(function (p) { priceplot.dot(p[0], Math.log10(p[1]), 5.5, C('--accent'), C('--panel')); });
+      g.font = '600 10px system-ui,sans-serif'; g.fillStyle = C('--ink-3'); g.textAlign = 'left';
+      g.fillText('tratteggio = esattamente 10× meno caro ogni anno', priceplot.X(2023.15), priceplot.Y(-0.85));
+      g.textAlign = 'right';
+      g.fillStyle = C('--accent');
+      g.fillText('≈250× meno caro in 3 anni', priceplot.X(2026.85), priceplot.Y(0.45));
+    });
+  }
+
+  /* ===================================================== 5.8 break-even */
+  var BE = { vol: 2.4, api: 4, capex: 30000, thr: 1500, util: 0.35 }, beplot;
+  function selfCost(tokensM) {
+    /* tokensM = millions of tokens per month */
+    var perGpuMonth = BE.thr * BE.util * 3600 * 24 * 30 / 1e6;  /* M tokens per GPU per month */
+    var gpus = Math.max(1, Math.ceil(tokensM / perGpuMonth));
+    var capexM = gpus * BE.capex / 36;
+    var energyM = gpus * 0.9 /*kW incl. host+PUE*/ * 24 * 30 / 1000 * 120;
+    var ops = (capexM + energyM) * 0.35;
+    return { c: capexM + energyM + ops, gpus: gpus, perGpuMonth: perGpuMonth };
+  }
+  function drawBe() {
+    var tokensM = Math.pow(10, BE.vol);
+    var s = selfCost(tokensM), apiC = tokensM * BE.api;
+    document.getElementById('oApi').textContent = '€' + F.c(apiC);
+    document.getElementById('oSelf').textContent = '€' + F.c(s.c);
+    document.getElementById('oGpus').textContent = s.gpus;
+    /* break-even: smallest volume where api >= self */
+    var be = null;
+    for (var e = 0; e <= 4.5; e += 0.01) {
+      var v = Math.pow(10, e);
+      if (v * BE.api >= selfCost(v).c) { be = v; break; }
+    }
+    document.getElementById('oBe').textContent = be ? F.c(be * 1e6) : 'mai';
+
+    beplot.resize(); beplot.clear();
+    beplot.dom = [0, 4.5]; beplot.ran = [1, 6];
+    beplot.frame({ xticks: 9, yticks: 5,
+      xlabel: 'token al mese (log)', ylabel: '€ al mese (log)',
+      xfmt: function (x) { return F.c(Math.pow(10, x) * 1e6); },
+      yfmt: function (y) { return '€' + F.c(Math.pow(10, y)); } });
+    var a = [], b = [], i;
+    for (i = 0; i <= 180; i++) {
+      var ex = 4.5 * i / 180, v = Math.pow(10, ex);
+      a.push([ex, Math.log10(Math.max(10, v * BE.api))]);
+      b.push([ex, Math.log10(selfCost(v).c)]);
+    }
+    beplot.clip(function (g) {
+      beplot.line(b, C('--warn'), 2.6);
+      beplot.line(a, C('--accent'), 2.6);
+      if (be) beplot.line([[Math.log10(be), 1], [Math.log10(be), 6]], C('--good'), 1.6, [4, 4]);
+      beplot.dot(BE.vol, Math.log10(Math.max(10, tokensM * BE.api)), 5.5, C('--accent'), C('--panel'));
+      beplot.dot(BE.vol, Math.log10(s.c), 5.5, C('--warn'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--accent'); g.fillText('API a consumo (per token)', beplot.X(0.1), beplot.Y(5.7));
+      g.fillStyle = C('--warn'); g.fillText('self-hosted (a gradini: compri GPU intere)', beplot.X(0.1), beplot.Y(5.4));
+    });
+
+    var n = '';
+    if (apiC < s.c) n = '<p class="small mb0"><b style="color:var(--accent)">Al tuo volume l’API costa meno</b> — €' +
+      F.c(apiC) + ' contro €' + F.c(s.c) + ' al mese. Il self-hosting diventa più conveniente oltre circa <b>' +
+      (be ? F.c(be * 1e6) : '—') + ' token al mese</b>. Al di sotto, stai comprando capacità che non riesci a riempire: nota la scalinata della linea arancione — l’hardware si compra a GPU intere.</p>';
+    else n = '<p class="small mb0"><b style="color:var(--warn)">Al tuo volume il self-hosting costa meno</b> sulla carta — €' +
+      F.c(s.c) + ' contro €' + F.c(apiC) + '. Prima di agire di conseguenza, aggiungi il team di serving, la reperibilità, gli aggiornamenti del modello e il fatto che ogni GPU si ripaga solo al ' +
+      (BE.util * 100).toFixed(0) + '% di utilizzo. Alza l’utilizzo e il caso migliora rapidamente; di solito è quella la vera leva.</p>';
+    document.getElementById('beNote').innerHTML = n;
+  }
+  function initBe() {
+    beplot = new AI.Plot(document.getElementById('beCv'),
+      { dom: [0, 4.5], ran: [1, 6], pad: { l: 62, r: 16, t: 16, b: 44 } });
+    AI.bindRange('bV', function (v) { return F.c(Math.pow(10, v) * 1e6) + ' tok/mese'; }, function (v) { BE.vol = v; drawBe(); });
+    AI.bindRange('bA', function (v) { return '€' + v.toFixed(2) + '/M tok'; }, function (v) { BE.api = v; drawBe(); });
+    AI.bindRange('bC', function (v) { return '€' + F.c(v); }, function (v) { BE.capex = v; drawBe(); });
+    AI.bindRange('bT', function (v) { return F.c(v) + ' tok/s'; }, function (v) { BE.thr = v; drawBe(); });
+    AI.bindRange('bU', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { BE.util = v; drawBe(); });
+    AI.onRedraw(drawBe);
+    drawBe();
+  }
+
+  window.PAGE_INIT = function () {
+    initTrain();
+    initSc();
+    initInf();
+    initZoom();
+    macro = new AI.Plot(document.getElementById('macroCv'),
+      { dom: [0, 6], ran: [0, 1050], pad: { l: 56, r: 16, t: 16, b: 48 } });
+    priceplot = new AI.Plot(document.getElementById('priceCv'),
+      { dom: [2023, 2027], ran: [-1.1, 1.7], pad: { l: 70, r: 16, t: 16, b: 44 } });
+    AI.onRedraw(drawMacro); AI.onRedraw(drawPrice);
+    drawMacro(); drawPrice();
+    initBe();
+  };
+})();
+</script>
+</body>
+</html>

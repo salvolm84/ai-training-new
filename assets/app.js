@@ -11,38 +11,120 @@
     { k: 'IV',  name: 'Shipping it',       note: 'How it gets into a product and stays safe' }
   ];
 
+  /* page language: English pages sit at the root, Italian copies with the same file names in it/ */
+  var LANG = (document.documentElement.getAttribute('lang') || 'en').slice(0, 2) === 'it' ? 'it' : 'en';
+
   /* author and dates — refreshed by scripts/stamp-dates.py before each release */
   var AUTHOR = 'Salvatore La Malfa';
-  var RELEASE = '2026-10-02';
+  var RELEASE = '2026-10-06';
 
   var PAGES = [
-    { id: 'index', n: '',   file: 'index.html',        short: 'Overview',        title: 'Course overview', part: null, mins: 0, upd: '2026-10-02' },
+    { id: 'index', n: '',   file: 'index.html',        short: 'Overview',        title: 'Course overview', part: null, mins: 0, upd: '2026-10-06' },
 
-    { id: 'p1',  n: '1',  file: '01-history.html',    short: 'History & jargon', title: 'What AI actually is', part: 0, mins: 30, upd: '2026-10-02' },
-    { id: 'p2',  n: '2',  file: '02-perceptron.html', short: 'The perceptron',   title: 'The perceptron', part: 0, mins: 30, upd: '2026-10-02' },
-    { id: 'p3',  n: '3',  file: '03-networks.html',   short: 'Networks',         title: 'From neuron to network', part: 0, mins: 45, upd: '2026-10-02' },
-    { id: 'p4',  n: '4',  file: '04-llm.html',        short: 'LLMs',             title: 'How an LLM works', part: 0, mins: 75, upd: '2026-10-02' },
-    { id: 'p5',  n: '5',  file: '05-cost.html',       short: 'Energy & cost',    title: 'The bill', part: 0, mins: 40, upd: '2026-10-02' },
+    { id: 'p1',  n: '1',  file: '01-history.html',    short: 'History & jargon', title: 'What AI actually is', part: 0, mins: 30, upd: '2026-10-06' },
+    { id: 'p2',  n: '2',  file: '02-perceptron.html', short: 'The perceptron',   title: 'The perceptron', part: 0, mins: 30, upd: '2026-10-06' },
+    { id: 'p3',  n: '3',  file: '03-networks.html',   short: 'Networks',         title: 'From neuron to network', part: 0, mins: 45, upd: '2026-10-06' },
+    { id: 'p4',  n: '4',  file: '04-llm.html',        short: 'LLMs',             title: 'How an LLM works', part: 0, mins: 75, upd: '2026-10-06' },
+    { id: 'p5',  n: '5',  file: '05-cost.html',       short: 'Energy & cost',    title: 'The bill', part: 0, mins: 40, upd: '2026-10-06' },
 
-    { id: 'p6',  n: '6',  file: '06-classical.html',  short: 'Classical ML',     title: 'Beyond neural networks', part: 1, mins: 50, upd: '2026-10-02' },
-    { id: 'p7',  n: '7',  file: '07-data.html',       short: 'Data',             title: 'Data: where projects are won and lost', part: 1, mins: 55, upd: '2026-10-02' },
-    { id: 'p8',  n: '8',  file: '08-evaluation.html', short: 'Evaluation',       title: 'Evaluation: proving it works', part: 1, mins: 50, upd: '2026-10-02' },
-    { id: 'p9',  n: '9',  file: '09-agents.html',     short: 'Agents & tools',   title: 'Agents and tool use', part: 1, mins: 45, upd: '2026-10-02' },
-    { id: 'p10', n: '10', file: '10-governance.html', short: 'Governance',       title: 'Governance, security and the AI Act', part: 1, mins: 55, upd: '2026-10-02' },
+    { id: 'p6',  n: '6',  file: '06-classical.html',  short: 'Classical ML',     title: 'Beyond neural networks', part: 1, mins: 50, upd: '2026-10-06' },
+    { id: 'p7',  n: '7',  file: '07-data.html',       short: 'Data',             title: 'Data: where projects are won and lost', part: 1, mins: 55, upd: '2026-10-06' },
+    { id: 'p8',  n: '8',  file: '08-evaluation.html', short: 'Evaluation',       title: 'Evaluation: proving it works', part: 1, mins: 50, upd: '2026-10-06' },
+    { id: 'p9',  n: '9',  file: '09-agents.html',     short: 'Agents & tools',   title: 'Agents and tool use', part: 1, mins: 45, upd: '2026-10-06' },
+    { id: 'p10', n: '10', file: '10-governance.html', short: 'Governance',       title: 'Governance, security and the AI Act', part: 1, mins: 55, upd: '2026-10-06' },
 
-    { id: 'p11', n: '11', file: '11-engineering.html',short: 'Engineering use',  title: 'AI in engineering and simulation', part: 2, mins: 85, upd: '2026-10-02' },
-    { id: 'p12', n: '12', file: '12-prompting.html',  short: 'Prompting lab',    title: 'Prompting: a working skill', part: 2, mins: 70, upd: '2026-10-02' },
-    { id: 'p13', n: '13', file: '13-human.html',      short: 'Human factors',    title: 'Human factors and adoption', part: 2, mins: 40, upd: '2026-10-02' },
-    { id: 'p14', n: '14', file: '14-limits.html',     short: 'Limits',           title: 'Limits and open questions', part: 2, mins: 35, upd: '2026-10-02' },
+    { id: 'p11', n: '11', file: '11-engineering.html',short: 'Engineering use',  title: 'AI in engineering and simulation', part: 2, mins: 85, upd: '2026-10-06' },
+    { id: 'p12', n: '12', file: '12-prompting.html',  short: 'Prompting lab',    title: 'Prompting: a working skill', part: 2, mins: 70, upd: '2026-10-06' },
+    { id: 'p13', n: '13', file: '13-human.html',      short: 'Human factors',    title: 'Human factors and adoption', part: 2, mins: 40, upd: '2026-10-06' },
+    { id: 'p14', n: '14', file: '14-limits.html',     short: 'Limits',           title: 'Limits and open questions', part: 2, mins: 35, upd: '2026-10-06' },
 
-    { id: 'p15', n: '15', file: '15-timeseries.html', short: 'Time series',      title: 'Time series and telemetry', part: 3, mins: 45, upd: '2026-10-02' },
-    { id: 'p16', n: '16', file: '16-uncertainty.html',short: 'Uncertainty',      title: 'Uncertainty: how sure is the model?', part: 3, mins: 40, upd: '2026-10-02' },
-    { id: 'p17', n: '17', file: '17-explainability.html', short: 'Explainability', title: 'Explaining a model\'s predictions', part: 3, mins: 40, upd: '2026-10-02' },
-    { id: 'p18', n: '18', file: '18-adaptation.html', short: 'Adapting models',  title: 'Adapting models: fine-tuning, LoRA, distillation', part: 3, mins: 45, upd: '2026-10-02' },
-    { id: 'p19', n: '19', file: '19-deployment.html', short: 'Deployment',       title: 'Deploying and running models', part: 3, mins: 45, upd: '2026-10-02' },
-    { id: 'p20', n: '20', file: '20-safety.html',     short: 'Vehicle safety',   title: 'AI in safety-critical vehicle systems', part: 3, mins: 50, upd: '2026-10-02' },
-    { id: 'p21', n: '21', file: '21-capstone.html',   short: 'Capstone',         title: 'Capstone: your own use case', part: 3, mins: 75, upd: '2026-10-02' }
+    { id: 'p15', n: '15', file: '15-timeseries.html', short: 'Time series',      title: 'Time series and telemetry', part: 3, mins: 45, upd: '2026-10-06' },
+    { id: 'p16', n: '16', file: '16-uncertainty.html',short: 'Uncertainty',      title: 'Uncertainty: how sure is the model?', part: 3, mins: 40, upd: '2026-10-06' },
+    { id: 'p17', n: '17', file: '17-explainability.html', short: 'Explainability', title: 'Explaining a model\'s predictions', part: 3, mins: 40, upd: '2026-10-06' },
+    { id: 'p18', n: '18', file: '18-adaptation.html', short: 'Adapting models',  title: 'Adapting models: fine-tuning, LoRA, distillation', part: 3, mins: 45, upd: '2026-10-06' },
+    { id: 'p19', n: '19', file: '19-deployment.html', short: 'Deployment',       title: 'Deploying and running models', part: 3, mins: 45, upd: '2026-10-06' },
+    { id: 'p20', n: '20', file: '20-safety.html',     short: 'Vehicle safety',   title: 'AI in safety-critical vehicle systems', part: 3, mins: 50, upd: '2026-10-06' },
+    { id: 'p21', n: '21', file: '21-capstone.html',   short: 'Capstone',         title: 'Capstone: your own use case', part: 3, mins: 75, upd: '2026-10-06' }
   ];
+
+  /* Italian part and page names, by part index and page id */
+  var PARTS_IT = [
+    { name: 'Fondamenti',             note: 'Come funziona' },
+    { name: 'Progettarla',            note: 'Come costruirla e dimostrare che funziona' },
+    { name: 'Applicarla',             note: 'Come entra nell’organizzazione' },
+    { name: 'Portarla in produzione', note: 'Come arriva in un prodotto e resta sicura' }
+  ];
+  var PAGES_IT = {
+    index: { short: 'Panoramica',          title: 'Panoramica del corso' },
+    p1:  { short: 'Storia e gergo',        title: 'Che cos’è davvero l’AI' },
+    p2:  { short: 'Il percettrone',        title: 'Il percettrone' },
+    p3:  { short: 'Reti',                  title: 'Dal neurone alla rete' },
+    p4:  { short: 'LLM',                   title: 'Come funziona un LLM' },
+    p5:  { short: 'Energia e costi',       title: 'Il conto' },
+    p6:  { short: 'ML classico',           title: 'Oltre le reti neurali' },
+    p7:  { short: 'Dati',                  title: 'Dati: dove i progetti si vincono e si perdono' },
+    p8:  { short: 'Valutazione',           title: 'Valutazione: dimostrare che funziona' },
+    p9:  { short: 'Agenti e strumenti',    title: 'Agenti e uso di strumenti' },
+    p10: { short: 'Governance',            title: 'Governance, sicurezza informatica e AI Act' },
+    p11: { short: 'Uso in ingegneria',     title: 'L’AI nell’ingegneria e nella simulazione' },
+    p12: { short: 'Laboratorio prompting', title: 'Prompting: una competenza pratica' },
+    p13: { short: 'Fattore umano',         title: 'Fattore umano e adozione' },
+    p14: { short: 'Limiti',                title: 'Limiti e questioni aperte' },
+    p15: { short: 'Serie temporali',       title: 'Serie temporali e telemetria' },
+    p16: { short: 'Incertezza',            title: 'Incertezza: quanto è sicuro il modello?' },
+    p17: { short: 'Spiegabilità',          title: 'Spiegare le previsioni di un modello' },
+    p18: { short: 'Adattare i modelli',    title: 'Adattare i modelli: fine-tuning, LoRA, distillazione' },
+    p19: { short: 'Deployment',            title: 'Rilasciare e gestire i modelli' },
+    p20: { short: 'Sicurezza veicolo',     title: 'L’AI nei sistemi del veicolo critici per la sicurezza' },
+    p21: { short: 'Progetto finale',       title: 'Progetto finale: il tuo caso d’uso' }
+  };
+  if (LANG === 'it') {
+    PARTS.forEach(function (p, i) { p.name = PARTS_IT[i].name; p.note = PARTS_IT[i].note; });
+    PAGES.forEach(function (p) { p.short = PAGES_IT[p.id].short; p.title = PAGES_IT[p.id].title; });
+  }
+
+  /* shell strings */
+  var STR = {
+    en: { by: 'By', updated: 'Last updated', released: 'Released', prev: '← Previous', next: 'Next →',
+      toLight: 'Switch to light', toDark: 'Switch to dark', theme: 'Theme', notes: 'Speaker notes',
+      showNotes: 'Show speaker notes', hideNotes: 'Hide speaker notes', language: 'Language',
+      months: ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+        'August', 'September', 'October', 'November', 'December'] },
+    it: { by: 'Di', updated: 'Aggiornato il', released: 'Rilascio del', prev: '← Precedente', next: 'Successivo →',
+      toLight: 'Passa al tema chiaro', toDark: 'Passa al tema scuro', theme: 'Tema', notes: 'Note del relatore',
+      showNotes: 'Mostra le note del relatore', hideNotes: 'Nascondi le note del relatore', language: 'Lingua',
+      months: ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio',
+        'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'] }
+  };
+  var S = STR[LANG];
+
+  /* language switcher: each link points at the same page in the other language */
+  var FLAGS = {
+    en: '<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
+      '<clipPath id="flagUkT"><path d="M30,15h30v15zv15h-30zh-30v-15zv-15h30z"/></clipPath>' +
+      '<path d="M0,0v30h60v-30z" fill="#012169"/>' +
+      '<path d="M0,0L60,30M60,0L0,30" stroke="#fff" stroke-width="6"/>' +
+      '<path d="M0,0L60,30M60,0L0,30" clip-path="url(#flagUkT)" stroke="#c8102e" stroke-width="4"/>' +
+      '<path d="M30,0v30M0,15h60" stroke="#fff" stroke-width="10"/>' +
+      '<path d="M30,0v30M0,15h60" stroke="#c8102e" stroke-width="6"/></svg>',
+    it: '<svg class="flag" viewBox="0 0 3 2" aria-hidden="true">' +
+      '<rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/>' +
+      '<rect x="2" width="1" height="2" fill="#ce2b37"/></svg>'
+  };
+  var LANGS = [
+    { k: 'en', code: 'EN', name: 'English' },
+    { k: 'it', code: 'IT', name: 'Italiano' }
+  ];
+  function langSwitch(file) {
+    var h = '<div class="langsw" role="group" aria-label="' + S.language + '">';
+    LANGS.forEach(function (l) {
+      var href = l.k === LANG ? file : (l.k === 'it' ? 'it/' + file : '../' + file);
+      h += '<a href="' + href + '" hreflang="' + l.k + '" lang="' + l.k + '" title="' + l.name + '"' +
+        (l.k === LANG ? ' class="on" aria-current="true"' : '') + '>' +
+        FLAGS[l.k] + '<span class="code">' + l.code + '</span></a>';
+    });
+    return h + '</div>';
+  }
 
   /* ---------------- theme ---------------- */
 
@@ -54,20 +136,18 @@
   function applyTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
     var b = document.getElementById('themeBtn');
-    if (b) { b.textContent = t === 'dark' ? '☀' : '◐'; b.title = t === 'dark' ? 'Switch to light' : 'Switch to dark'; }
+    if (b) { b.textContent = t === 'dark' ? '☀' : '◐'; b.title = t === 'dark' ? S.toLight : S.toDark; }
   }
 
   function applyNotes(on) {
     document.body.classList.toggle('notes-on', !!on);
     var b = document.getElementById('notesBtn');
-    if (b) { b.classList.toggle('on', !!on); b.title = on ? 'Hide speaker notes' : 'Show speaker notes'; }
+    if (b) { b.classList.toggle('on', !!on); b.title = on ? S.hideNotes : S.showNotes; }
   }
 
-  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
-    'August', 'September', 'October', 'November', 'December'];
   function fmtDate(iso) {
     var p = iso.split('-');
-    return parseInt(p[2], 10) + ' ' + MONTHS[parseInt(p[1], 10) - 1] + ' ' + p[0];
+    return parseInt(p[2], 10) + ' ' + S.months[parseInt(p[1], 10) - 1] + ' ' + p[0];
   }
 
   /* ---------------- shell ---------------- */
@@ -95,12 +175,19 @@
         '<span class="num">' + p.n + '</span>' +
         (isCur ? '<span class="label">' + p.short + '</span>' : '') + '</a>';
     }
-    html += '</nav>' +
-      '<button class="iconbtn" id="notesBtn" title="Speaker notes">✎</button>' +
-      '<button class="iconbtn" id="themeBtn" title="Theme">◐</button>' +
+    html += '</nav>' + langSwitch(idx > -1 ? PAGES[idx].file : 'index.html') +
+      '<button class="iconbtn" id="notesBtn" title="' + S.notes + '">✎</button>' +
+      '<button class="iconbtn" id="themeBtn" title="' + S.theme + '">◐</button>' +
       '</div>';
     bar.innerHTML = html;
     document.body.insertBefore(bar, document.body.firstChild);
+
+    /* keep the reader's place: carry the current #section across the switch */
+    qsa('.langsw a', bar).forEach(function (a) {
+      a.addEventListener('click', function () {
+        if (location.hash) a.setAttribute('href', a.getAttribute('href').split('#')[0] + location.hash);
+      });
+    });
 
     document.getElementById('themeBtn').addEventListener('click', function () {
       var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -118,9 +205,9 @@
       var upd = idx > -1 && PAGES[idx].upd ? PAGES[idx].upd : RELEASE;
       var by = document.createElement('p');
       by.className = 'byline';
-      by.innerHTML = '<span>By <strong>' + AUTHOR + '</strong></span>' +
-        '<span>Last updated <time datetime="' + upd + '">' + fmtDate(upd) + '</time></span>' +
-        '<span>Released <time datetime="' + RELEASE + '">' + fmtDate(RELEASE) + '</time></span>';
+      by.innerHTML = '<span>' + S.by + ' <strong>' + AUTHOR + '</strong></span>' +
+        '<span>' + S.updated + ' <time datetime="' + upd + '">' + fmtDate(upd) + '</time></span>' +
+        '<span>' + S.released + ' <time datetime="' + RELEASE + '">' + fmtDate(RELEASE) + '</time></span>';
       head.appendChild(by);
     }
 
@@ -130,9 +217,9 @@
       var prev = idx > 0 ? PAGES[idx - 1] : null;
       var next = idx < PAGES.length - 1 ? PAGES[idx + 1] : null;
       var f = '';
-      if (prev) f += '<a href="' + prev.file + '"><span class="dir">← Previous</span><span class="ttl">' +
+      if (prev) f += '<a href="' + prev.file + '"><span class="dir">' + S.prev + '</span><span class="ttl">' +
         (prev.n ? prev.n + '. ' : '') + prev.short + '</span></a>'; else f += '<span></span>';
-      if (next) f += '<a href="' + next.file + '" style="text-align:right"><span class="dir">Next →</span><span class="ttl">' +
+      if (next) f += '<a href="' + next.file + '" style="text-align:right"><span class="dir">' + S.next + '</span><span class="ttl">' +
         (next.n ? next.n + '. ' : '') + next.short + '</span></a>';
       foot.innerHTML = f;
     }
@@ -155,7 +242,9 @@
     n: function (x, d) {
       if (!isFinite(x)) return '—';
       d = d == null ? 0 : d;
-      return x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+      var s = x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+      /* Italian reads 10,000 as ten: group thousands with a narrow space, keep the decimal point */
+      return LANG === 'it' ? s.replace(/,/g, '\u202F') : s;
     },
     /* compact: 12.3k, 4.5M, 1.2B, 3.4T */
     c: function (x) {
@@ -440,6 +529,6 @@
 
   window.AI = { F: F, Plot: Plot, bindRange: bindRange, cssVar: cssVar, qs: qs, qsa: qsa,
     on: on, segmented: segmented, onRedraw: onRedraw, fireRedraw: fireRedraw,
-    PAGES: PAGES, PARTS: PARTS, AUTHOR: AUTHOR, RELEASE: RELEASE, readLS: readLS, writeLS: writeLS,
+    PAGES: PAGES, PARTS: PARTS, LANG: LANG, AUTHOR: AUTHOR, RELEASE: RELEASE, readLS: readLS, writeLS: writeLS,
     MLP: MLP, sigmoid: sigmoid };
 })();

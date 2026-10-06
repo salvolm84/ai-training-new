@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>17 · Spiegare le previsioni di un modello — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 330px; }
+  .cv-tall { width: 100%; height: 360px; }
+  .cv-sm { width: 100%; height: 250px; }
+  .bigstat { text-align: center; padding: 13px 10px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.45rem; font-weight: 700; display: block; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .bigstat .l { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.warn .n { color: var(--warn); }
+  .bigstat.acc .n { color: var(--accent); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .8rem; color: var(--ink-3); margin-top: .6rem; }
+  .legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .legend i.dash { background: repeating-linear-gradient(90deg, currentColor 0 5px, transparent 5px 9px) !important; height: 2px; }
+  .legend i.dot { width: 9px; height: 9px; border-radius: 50%; }
+  .qmap { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 760px) { .qmap { grid-template-columns: 1fr; } }
+  .qmap .card { border-top: 3px solid var(--accent); }
+  .qmap .card.loc { border-top-color: var(--warn); }
+  .qmap .card h4 { margin-bottom: .3em; }
+  .qmap .card .q { font-weight: 650; font-size: 1.02rem; margin-bottom: .5em; }
+  .gen {
+    font-family: var(--mono); font-size: .8rem; line-height: 1.75; background: var(--bg-3);
+    border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; overflow-x: auto; white-space: pre;
+  }
+  .gen .c { color: var(--ink-3); }
+  .rowdesc { font-family: var(--mono); font-size: .8rem; color: var(--ink-2); line-height: 1.7; }
+  .rowdesc b { color: var(--ink); }
+  .rev { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 760px) { .rev { grid-template-columns: 1fr; } }
+  .rev .card { border-left: 4px solid var(--good); }
+  .rev .card.no { border-left-color: var(--bad); }
+  .rev .card li { font-size: .89rem; }
+  .ctrlrow { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+</style>
+</head>
+<body data-page="p17">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 17 · Parte IV — Portarla in produzione</span>
+  <h1>Spiegare le previsioni di un modello</h1>
+  <p class="lead">Prima o poi, in una design review, qualcuno indica una previsione e chiede “perché?”.
+  Questo modulo è la cassetta degli attrezzi pratica per rispondere a quella domanda su modelli tabellari
+  e di ingegneria: che cosa calcolano i metodi standard, come leggerli, e in quali modi precisi ingannano
+  chi si fida troppo di loro.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">La tesi che questo modulo difende</span>
+  <p class="mb0">Ogni metodo qui presentato spiega <strong>il modello</strong>, non la fisica. Usati così —
+  per trovare bug, leakage e assurdità prima che un modello vada in produzione — sono tra gli strumenti più
+  utili della materia. Usati come prova che il modello ha imparato come funzionano i freni, prima o poi
+  ti metteranno in imbarazzo. Ogni laboratorio qui sotto viene addestrato e calcolato dal vivo nel tuo
+  browser, su dati sintetici di cui conosciamo le vere equazioni, così puoi vedere esattamente dove ogni
+  spiegazione è giusta e dove no. Il modulo 14.3 ha trattato la ricerca su come guardare dentro i modelli
+  linguistici; questo riguarda i modelli che è più probabile tu metta in un prodotto.</p>
+</div>
+
+<!-- ============================================= 17.1 -->
+<section class="chapter" id="questions">
+  <h2>17.1 · Due domande diverse</h2>
+  <p>“Spiega il modello” sono due richieste che si tende a confondere. Gli strumenti per ciascuna sono
+  diversi, e lo sono anche gli errori.</p>
+
+  <div class="qmap">
+    <div class="card">
+      <h4 style="color:var(--accent)">Globale</h4>
+      <p class="q">“Che cosa ha imparato questo modello, sull’insieme dei dati?”</p>
+      <p class="small">Quali input contano complessivamente, e che forma ha la relazione. È la domanda
+      che una design review pone a un modello prima di fidarsene.</p>
+      <p class="small mb0"><b>Strumenti:</b> importanza per permutazione (17.3), dipendenza parziale (17.4),
+      oppure un modello abbastanza semplice da leggere direttamente (17.2).</p>
+    </div>
+    <div class="card loc">
+      <h4 style="color:var(--warn)">Locale</h4>
+      <p class="q">“Perché ha detto <em>questo</em> per <em>questo</em> caso?”</p>
+      <p class="small">Quali input hanno spinto una singola previsione verso l’alto o verso il basso, e di
+      quanto. È la domanda che si pone quando un singolo pezzo viene scartato o una singola previsione
+      sembra sbagliata.</p>
+      <p class="small mb0"><b>Strumenti:</b> curve di aspettativa condizionata individuale (ICE, 17.4),
+      valori di Shapley (17.5).</p>
+    </div>
+  </div>
+
+  <p class="mt2">Un unico dataset attraversa quasi tutto il modulo. È <strong>sintetico</strong> e le
+  equazioni qui sotto sono state scritte a scopo didattico: hanno una forma plausibile, ma non sono
+  calibrate su alcun impianto frenante reale. Il senso di usare dati inventati è che conosciamo la
+  risposta vera, e quindi possiamo correggere i compiti di ogni metodo di spiegazione.</p>
+
+  <div class="gen"><span class="c">// SCRITTO A MANO — il processo che genera i dati di una sessione in pista (n = 900, con seed)</span>
+pressure   ~ uniform 25–85 bar          ambient ~ uniform 5–38 °C
+duct       ~ uniform 0–100 % open       laps    ~ integer 5–30
+compound   = road or track, 50/50       severity ~ normal(0, 1)   <span class="c">// severità di frenata del circuito, non registrata</span>
+disc temp  = 330 + 3.4·pressure − 1.5·duct + 2.5·ambient + 40·severity + noise
+wear (mm)  = laps × 0.03 × (0.5 + pressure/60) × g(disc temp, compound) × noise
+g          = road:  exp((T − 500)/150)
+             track: 0.75·exp((T − 560)/220) + 0.6·max(0, (450 − T)/80)   <span class="c">// le pastiglie da pista soffrono anche a freddo</span></div>
+
+  <p class="small muted">Leggilo una volta e ricorda tre cose: <b>la temperatura ambiente e l’apertura
+  del condotto di raffreddamento influiscono sull’usura solo attraverso la temperatura del disco</b>; le due
+  mescole delle pastiglie (stradale, <i>road</i>, e da pista, <i>track</i>) rispondono al calore in modo
+  diverso (un’interazione); e l’usura è proporzionale ai giri. Il modello è un ensemble di alberi con
+  gradient boosting — 200 alberi di profondità 3, il metodo del modulo 6.3 — addestrato su 600 sessioni e
+  testato sulle altre 300.</p>
+
+  <div class="note">
+    <ul>
+      <li>Circa 4 minuti. Metti il generatore a schermo e lascialo lì per un momento — tutto il modulo è
+      “confronta la spiegazione con ciò che sappiamo essere vero”, cosa che sui dati reali non puoi mai fare.
+      Dillo ad alta voce.</li>
+      <li>Aspettati: “perché sintetici, perché non i nostri dati?” Perché sui dati reali non puoi sapere se
+      una spiegazione è giusta. Dopo, applica questi metodi ai tuoi dati, sapendo come falliscono.</li>
+      <li>Tempi del modulo: 17.1 quattro minuti, 17.2 sei, 17.3–17.6 circa sette ciascuno, 17.7 e
+      17.8 tre ciascuno.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.2 -->
+<section class="chapter" id="interpretable">
+  <h2>17.2 · Interpretabile per costruzione, o spiegato a posteriori</h2>
+  <p>Le strade sono due. Costruire un modello la cui struttura <em>è</em> la spiegazione, oppure costruire
+  quello che predice meglio e spiegarlo a posteriori con i metodi di 17.3–17.5. La seconda strada è la più
+  comune. La prima meriterebbe di essere tentata per prima, più spesso di quanto accada.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <h4>Modelli lineari e logistici</h4>
+      <p class="small mb0">Il coefficiente <em>è</em> la spiegazione: un bar di pressione in più aggiunge
+      tanti millimetri di usura. Esatto se la relazione è lineare; sbagliato con sicurezza se non lo è, e
+      il modello non ti avverte.</p>
+    </div>
+    <div class="card">
+      <h4>Alberi poco profondi e liste di regole</h4>
+      <p class="small mb0">Tre o quattro livelli di regole se-allora stanno su una pagina e possono essere
+      verificati riga per riga da un esperto di dominio (modulo 6.2). Di solito si paga un po’ di
+      accuratezza; la verificabilità è eccellente.</p>
+    </div>
+    <div class="card">
+      <h4>Modelli vincolati</h4>
+      <p class="small mb0">Tieni un modello flessibile e vieta le forme che sai essere fisicamente sbagliate.
+      I <strong>vincoli di monotonia</strong> — “l’usura non può diminuire quando la temperatura del disco
+      sale” — sono supportati da XGBoost, LightGBM e CatBoost, costano una riga di configurazione e sono
+      poco usati.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Un vincolo che puoi firmare</h3><span class="tag try">Alza il rumore, poi conta le inversioni</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="moCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--ink-3)"></i>sessioni di addestramento</span>
+          <span style="color:var(--ink-3)"><i class="dash"></i>curva vera (l’abbiamo scritta noi)</span>
+          <span><i style="background:var(--violet)"></i>retta</span>
+          <span><i style="background:var(--warn)"></i>stump con boosting, senza vincoli</span>
+          <span><i style="background:var(--good)"></i>stump con boosting, monotoni</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Sessioni di addestramento</span><span class="val" id="moNOut"></span></div>
+          <input type="range" id="moN" min="15" max="300" step="5" value="40">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Rumore di misura</span><span class="val" id="moNoiseOut"></span></div>
+          <input type="range" id="moNoise" min="0.05" max="0.8" step="0.01" value="0.3">
+        </div>
+        <div class="btnrow"><button class="btn sm" id="moSeed">Nuovo campione</button></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Modello</th><th class="num">RMSE di test</th><th class="num">inversioni</th></tr></thead>
+            <tbody>
+              <tr><td style="color:var(--violet)">Retta</td><td class="num" id="moRL">—</td><td class="num" id="moVL">—</td></tr>
+              <tr><td style="color:var(--warn)">Senza vincoli</td><td class="num" id="moRU">—</td><td class="num" id="moVU">—</td></tr>
+              <tr><td style="color:var(--good)">Monotono</td><td class="num" id="moRM">—</td><td class="num" id="moVM">—</td></tr>
+              <tr><td class="muted">Curva vera</td><td class="num muted" id="moRT">—</td><td class="num muted">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card mt1" id="moNote" style="min-height:130px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Entrambi i modelli ad albero sono 150 stump (alberi con un solo split)
+    combinati con boosting, learning rate 0.3, addestrati qui. Quello monotono rifiuta ogni split il cui lato
+    destro predirebbe meno usura di quello sinistro. L’RMSE di test è misurato su 400 sessioni nuove dallo
+    stesso generatore; un’<em>inversione</em> è un punto in cui l’usura predetta scende mentre la
+    temperatura sale, contata su una griglia di 1 °C.</p>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">Che cosa ti compra il vincolo</span>
+    <p class="mb0">Di solito quasi nessuna perdita di accuratezza, a volte persino un piccolo guadagno — e una
+    proprietà che puoi enunciare in una review senza un solo grafico: <strong>la previsione di usura del
+    modello non diminuisce mai con la temperatura del disco, per nessun input.</strong> È una garanzia sul
+    modello, non la descrizione di un test set, ed è il tipo di frase che piace agli ingegneri di
+    certificazione. Usa i vincoli dove la fisica non è in dubbio; non usarli per imporre una convinzione che
+    non hai verificato.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 6 minuti. Parti da 40 sessioni e rumore 0.3: la curva senza vincoli ha piccoli gradini
+      all’indietro. Poi scendi a 15 sessioni — i gradini peggiorano. Poi sali a 300 — si riducono ma
+      raramente spariscono.</li>
+      <li>La retta serve a far passare il messaggio che “interpretabile” non vuol dire “giusto”: ha zero
+      inversioni e l’errore peggiore, perché la verità è curva.</li>
+      <li>Domanda prevista: “un’inversione è sempre sbagliata?” No — certa fisica è davvero non monotona (la
+      mescola da pista in 17.4 lo è). Il vincolo è un’affermazione che fai tu; falla solo quando saresti
+      disposto a difenderla.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.3 -->
+<section class="chapter" id="permutation">
+  <h2>17.3 · Importanza per permutazione: rompi una colonna, guarda cosa si rompe</h2>
+  <p>La misura di importanza globale più onesta è anche la più semplice. Prendi il test set, rimescola una
+  colonna in modo che non sia più allineata con il resto della riga, e misura quanto peggiorano le
+  previsioni. Una feature su cui il modello fa affidamento fa molto danno quando viene rimescolata; una che
+  il modello ignora non ne fa affatto. Funziona con qualsiasi modello, perché servono solo le previsioni.</p>
+
+  <div class="eqbox">importanza(feature) = <span class="hi">errore con quella colonna rimescolata</span> − errore sui dati reali
+    <small>Qui l’errore è l’errore quadratico medio (RMSE) in millimetri di usura, quindi anche l’importanza
+    è in millimetri. Ripeti con diversi rimescolamenti e riporta la dispersione.</small></div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Su cosa fa affidamento il modello?</h3><span class="tag try">Confronta addestramento e test, poi porta la profondità a 6</span></div>
+    <div class="ctrlrow">
+      <div class="segmented" id="piEvalSeg">
+        <button data-v="test" class="on">Misurata sul test set</button>
+        <button data-v="train">Misurata sul training set</button>
+      </div>
+      <button class="btn sm" id="piSeed">Riaddestra con un nuovo seed</button>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="piCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent);height:9px"></i>importanza per permutazione (mm), baffo = intervallo sui rimescolamenti</span>
+          <span><i style="background:var(--ink-3);height:4px"></i>importanza da guadagno di split, scalata allo stesso massimo</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Profondità degli alberi (1 = nessuna interazione)</span><span class="val" id="piDepOut"></span></div>
+          <input type="range" id="piDep" min="1" max="6" step="1" value="3">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Rimescolamenti per feature</span><span class="val" id="piRepOut"></span></div>
+          <input type="range" id="piRep" min="1" max="20" step="1" value="5">
+        </div>
+        <div class="metrics">
+          <div class="m"><span class="k">RMSE di addestramento</span><span class="v" id="piTr">—</span></div>
+          <div class="m"><span class="k">RMSE di test</span><span class="v" id="piTe">—</span></div>
+          <div class="m"><span class="k">R² di test</span><span class="v" id="piR2">—</span></div>
+          <div class="m"><span class="k">RMSE predicendo la media</span><span class="v" id="piBase">—</span></div>
+        </div>
+        <div class="card mt1" id="piNote" style="min-height:170px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Misurala su dati tenuti da parte</span>
+      <p class="mb0">Sul training set, l’importanza misura ciò che il modello ha <em>memorizzato</em>. Sul
+      test set misura ciò su cui il modello fa affidamento <em>e che generalizza</em>. Aumenta la profondità
+      e guarda le due divergere. L’importanza calcolata sui dati di addestramento è un errore comune, e
+      silenzioso, nei report.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Diffida dell’importanza integrata</span>
+      <p class="mb0">Le barre grigie sono la “feature importance” che la maggior parte delle librerie stampa
+      di default: il guadagno di split totale. Su questi dati sintetici puliti concorda a grandi linee con il
+      risultato della permutazione — dillo, quando lo vedi. In generale però è calcolata sui dati di
+      <em>addestramento</em>, quindi non può separare il segnale dalla memorizzazione, ed è noto che
+      favorisce le feature con molti valori distinti, come ID e timestamp. Dove le due non concordano, credi
+      alla permutazione su dati tenuti da parte.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 7 minuti. Fai notare per prima cosa che la classifica corrisponde al generatore: temperatura
+      del disco, giri e mescola in cima; condotto e temperatura ambiente vicini a zero, perché agiscono solo
+      attraverso la temperatura del disco, che il modello vede direttamente.</li>
+      <li>Poi profondità 1: il modello non riesce più a rappresentare l’interazione mescola × temperatura,
+      l’errore di test sale e l’importanza della mescola cambia. L’importanza descrive <em>questo</em>
+      modello, non il problema.</li>
+      <li>Domanda prevista: “un’importanza leggermente negativa?” Il rimescolamento ha aiutato un pochino per
+      puro caso; leggila come zero. È per questo che ripetiamo i rimescolamenti e mostriamo l’intervallo.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.4 -->
+<section class="chapter" id="pdp">
+  <h2>17.4 · Dipendenza parziale e ICE: la forma di una relazione</h2>
+  <p>L’importanza ti dice <em>quanto</em> conta una feature; non ti dice <em>in che direzione</em>. Per
+  quello, prendi una sessione, fai variare un input su tutto il suo intervallo tenendo gli altri input dove
+  sono, e traccia la previsione. Quella curva è una <strong>curva ICE</strong> (individual conditional
+  expectation, aspettativa condizionata individuale). Fallo per molte sessioni e fai la media: quella media
+  è la curva di <strong>dipendenza parziale</strong> (PDP).</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Fai variare un input</h3><span class="tag try">Scegli la temperatura del disco, poi colora per mescola</span></div>
+    <div class="ctrlrow">
+      <div class="segmented" id="pdFeatSeg">
+        <button data-v="0" class="on">Temp. disco</button>
+        <button data-v="1">Pressione</button>
+        <button data-v="2">Condotto</button>
+        <button data-v="3">Ambiente</button>
+        <button data-v="4">Mescola</button>
+        <button data-v="5">Giri</button>
+      </div>
+    </div>
+    <div class="ctrlrow">
+      <label class="check"><input type="checkbox" id="pdColour"> Colora le curve per mescola delle pastiglie</label>
+      <label class="check"><input type="checkbox" id="pdCentre"> Centra le curve sul bordo sinistro</label>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="pdCv" class="cv-tall"></canvas>
+        <div class="legend" id="pdLegend"></div>
+      </div>
+      <div>
+        <div class="metrics">
+          <div class="m"><span class="k">escursione della PD</span><span class="v" id="pdRange">—</span></div>
+          <div class="m"><span class="k">dispersione ICE a destra</span><span class="v" id="pdSpread">—</span></div>
+          <div class="m"><span class="k">curve contrarie alla media</span><span class="v" id="pdDisagree">—</span></div>
+        </div>
+        <div class="card mt1" id="pdNote" style="min-height:230px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">60 sessioni di test, ciascuna fatta variare su 40 punti di griglia tra il
+    1° e il 99° percentile dei dati di addestramento. Ogni punto è una vera previsione del modello
+    addestrato. Le tacche in basso mostrano dove si trovano davvero i dati di addestramento.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Due trappole in un solo grafico</span>
+    <p><strong>La media nasconde i casi.</strong> La dipendenza parziale è una linea sola; la popolazione
+    sottostante può essere fatta di due gruppi che vanno in direzioni opposte. Traccia sempre le curve ICE
+    dietro di essa.</p>
+    <p class="mb0"><strong>La variazione inventa sessioni.</strong> Portare la temperatura del disco a
+    680 °C in una sessione con il condotto tutto aperto e pressione bassa produce una combinazione che non si
+    è mai verificata, e lì il modello sta estrapolando. La dipendenza parziale tratta le feature come se
+    fossero indipendenti; quando non lo sono, parte della curva è l’ipotesi del modello su condizioni
+    impossibili. La sezione 17.6 ci ritorna.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 7 minuti. Prima la temperatura del disco, senza colori: una curva crescente. Spunta la
+      casella della mescola e si divide in due famiglie — le pastiglie stradali salgono ripide, quelle da
+      pista salgono lentamente e risalgono all’estremo freddo. La dipendenza parziale è la media di due
+      comportamenti che nessuna delle due mescole ha davvero.</li>
+      <li>Poi i giri: curve ICE a ventaglio, tutte crescenti, con pendenze molto diverse. Centrarle rende il
+      ventaglio evidente. Quel ventaglio è la struttura moltiplicativa del generatore.</li>
+      <li>Poi il condotto: quasi piatto. Tieni a mente questo punto per la 17.7 — è la linea più importante
+      del modulo, ed è fuorviante.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.5 -->
+<section class="chapter" id="shap">
+  <h2>17.5 · Valori di Shapley: ripartire una singola previsione</h2>
+  <p>Per una singola sessione il modello predice, diciamo, 2 mm di usura, e la sessione media è attorno a
+  0.8 mm. La domanda “perché 1.2 mm più della media?” è un problema di equa ripartizione: sei feature hanno
+  cooperato per produrre la differenza, e vogliamo dividerla tra loro. La teoria dei giochi ha risposto nel
+  1953. Il <strong>valore di Shapley</strong> di una feature è il suo contributo marginale, mediato su tutti
+  gli ordini in cui le feature avrebbero potuto essere rivelate al modello. È l’unico modo di ripartire che
+  soddisfa un breve elenco di proprietà di equità, una delle quali conta molto in pratica: <strong>i
+  contributi sommano esattamente alla previsione meno la baseline</strong>.</p>
+
+  <div class="eqbox">φ<sub>i</sub> = Σ<sub>S ⊆ altre</sub> <span class="hi">|S|! (p − |S| − 1)! / p!</span> · [ v(S ∪ {i}) − v(S) ]
+    <small>v(S) è la previsione media del modello quando le feature in S sono fissate ai valori di questa
+    sessione e le altre sono prese da un insieme di riferimento (background) di sessioni reali. Con p = 6
+    feature ci sono 2⁶ = 64 coalizioni, quindi questa pagina le calcola tutte: <b>enumerazione esatta,
+    niente campionamento e niente approssimazioni</b>. La diffusa libreria SHAP usa algoritmi più veloci
+    che approssimano questa quantità, o la calcolano esattamente per gli alberi.</small></div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Perché questa sessione?</h3><span class="tag try">Scegli la sessione con l’usura più alta, poi cambia il riferimento</span></div>
+    <div class="ctrlrow">
+      <button class="btn sm" id="shHigh">Usura predetta più alta</button>
+      <button class="btn sm" id="shTyp">Una sessione tipica</button>
+      <button class="btn sm" id="shLow">Usura predetta più bassa</button>
+      <button class="btn sm" id="shRand">Sessione casuale</button>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="shCv" class="cv-tall"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--bad);height:9px"></i>spinge l’usura in su</span>
+          <span><i style="background:var(--accent);height:9px"></i>spinge l’usura in giù</span>
+          <span><i style="background:var(--ink-3);height:9px"></i>baseline e previsione</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Sessione di test</span><span class="val" id="shRowOut"></span></div>
+          <input type="range" id="shRow" min="0" max="299" step="1" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Confronta con</span><span class="val" id="shBgName"></span></div>
+          <div class="segmented" id="shBgSeg">
+            <button data-v="all" class="on">Tutte le sessioni</button>
+            <button data-v="road">Solo pastiglie stradali</button>
+            <button data-v="cool">Dischi freddi (&lt; 450 °C)</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Sessioni di riferimento</span><span class="val" id="shBgNOut"></span></div>
+          <input type="range" id="shBgN" min="10" max="200" step="10" value="100">
+        </div>
+        <div class="rowdesc card flat" id="shRowDesc" style="padding:12px 14px"></div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">f(x) previsione</span><span class="v" id="shFx">—</span></div>
+          <div class="m"><span class="k">baseline E[f]</span><span class="v" id="shBase">—</span></div>
+          <div class="m"><span class="k">Σ φ</span><span class="v" id="shSum">—</span></div>
+          <div class="m"><span class="k">Σ φ − (f − E[f])</span><span class="v" id="shErr">—</span></div>
+          <div class="m"><span class="k">chiamate al modello</span><span class="v" id="shEvals">—</span></div>
+          <div class="m"><span class="k">tempo</span><span class="v" id="shTime">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="shNote" style="min-height:90px"></div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Una spiegazione relativa a qualcosa</span>
+      <p class="mb0">Cambia il riferimento e la spiegazione cambia — a volte il segno di un contributo si
+      inverte. Non è un bug. Un valore di Shapley risponde a <em>“perché questa sessione è diversa da quel
+      gruppo?”</em>, e il gruppo è una scelta che devi dichiarare. “Rispetto a tutte le sessioni del
+      programma di prove 2025” è una spiegazione completa; un grafico a cascata (waterfall) nudo e crudo
+      non lo è.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Additivo, quindi spalma le interazioni</span>
+      <p class="mb0">L’interazione mescola × temperatura del modello va attribuita a una feature o all’altra,
+      e la regola di Shapley la divide tra le due. Niente nel grafico ti dice che esiste un’interazione.
+      Leggi un waterfall come la contabilità di una singola previsione, non come la descrizione di un
+      meccanismo.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 7 minuti. Mostra per prime le cifre di controllo: Σφ coincide con f − E[f] fino a circa
+      10⁻¹⁶. È la proprietà su cui tutti fanno affidamento, e qui viene calcolata invece che affermata.</li>
+      <li>Sessione con l’usura più alta (pastiglie stradali), riferimento “tutte”: dominano temperatura del
+      disco e giri. Passa a “solo pastiglie stradali”: la barra della mescola scende esattamente a zero,
+      perché anche ogni sessione di riferimento ha pastiglie stradali, e la baseline sale. Stesso modello,
+      stessa sessione, domanda diversa.</li>
+      <li>Domanda prevista: “è questo che fa la libreria SHAP?” Stessa quantità (valori di Shapley
+      interventistici rispetto a un insieme di riferimento). La libreria evita di enumerare 2<sup>p</sup>
+      coalizioni, cosa che conta con 50 feature e non con 6.</li>
+      <li>Chiamate al modello: 64 coalizioni × dimensione del riferimento. Ecco perché la dimensione del
+      riferimento è una manopola di costo, e perché riferimenti piccoli producono spiegazioni più
+      rumorose.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.6 -->
+<section class="chapter" id="correlated">
+  <h2>17.6 · La trappola delle feature correlate</h2>
+  <p>Un nuovo dataset con la stessa fisica e una complicazione che ogni vero insieme di dati di telemetria
+  presenta: <strong>due sensori che misurano quasi la stessa cosa</strong>. La temperatura del disco e
+  quella della pastiglia rispondono entrambe allo stesso carico termico; l’usura dipende da quel carico
+  termico, che nessuno dei due sensori misura perfettamente. Ci sono anche pressione e giri. Il cursore
+  imposta quanto strettamente concordano i due sensori.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Gemelli</h3><span class="tag warn">Porta la correlazione a 0.99 e confronta i seed</span></div>
+    <div class="ctrlrow">
+      <div style="flex:1;min-width:240px" class="ctrl mb0">
+        <div class="ctrl-label"><span>Correlazione tra temperatura del disco e della pastiglia</span><span class="val" id="trRhoOut"></span></div>
+        <input type="range" id="trRho" min="0.3" max="0.995" step="0.005" value="0.95">
+      </div>
+      <button class="btn sm" id="trSeeds">Dieci nuovi riaddestramenti</button>
+    </div>
+    <div class="grid g2">
+      <div>
+        <canvas id="trCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent);height:9px"></i>temp. disco</span>
+          <span><i style="background:var(--warn);height:9px"></i>temp. pastiglia</span>
+          <span><i style="background:var(--good);height:9px"></i>entrambe rimescolate insieme</span>
+          <span style="color:var(--ink-3)"><i class="dash"></i>giri, come scala</span>
+        </div>
+        <p class="small muted mb0">Importanza per permutazione sullo stesso test set, per dieci modelli
+        riaddestrati ciascuno su un ricampionamento bootstrap delle stesse 500 sessioni — come se i dati
+        fossero stati raccolti in un insieme di giornate leggermente diverso.</p>
+      </div>
+      <div>
+        <canvas id="trSc" class="cv"></canvas>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--ink-3)"></i>sessioni di test reali</span>
+          <span><i class="dot" style="background:var(--bad)"></i>dopo aver rimescolato la temp. disco</span>
+          <span style="color:var(--ink-3)"><i></i>inviluppo al 99% dei dati reali</span>
+        </div>
+        <p class="small muted mb0">Su che cosa si chiede al modello di fare previsioni quando la temperatura
+        del disco viene rimescolata per il calcolo dell’importanza.</p>
+      </div>
+    </div>
+    <div class="grid g4 mt1" style="gap:10px">
+      <div class="bigstat"><span class="n" id="trCorr">—</span><span class="l">correlazione misurata</span></div>
+      <div class="bigstat warn"><span class="n" id="trShare">—</span><span class="l">quota del disco nella coppia, tra i riaddestramenti</span></div>
+      <div class="bigstat good"><span class="n" id="trGroup">—</span><span class="l">importanza di gruppo (mm)</span></div>
+      <div class="bigstat bad"><span class="n" id="trOut">—</span><span class="l">righe rimescolate fuori dall’inviluppo</span></div>
+    </div>
+    <div class="card mt1" id="trNote" style="min-height:110px"></div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">L’importanza viene spartita</span>
+      <p class="mb0">Con due quasi-copie, il modello può usare l’una o l’altra. Ciascuna, rimescolata da
+      sola, fa pochissimo danno — l’altra la copre. Così il driver fisico più forte nei dati può finire in
+      classifica <em>sotto</em> uno più debole, semplicemente perché è stato misurato due volte.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">La ripartizione è arbitraria</span>
+      <p class="mb0">Quale gemello riceve il merito dipende dai dettagli dell’addestramento. Un report che
+      dice “la temperatura del disco è due volte più importante di quella della pastiglia” potrebbe star
+      descrivendo il seed casuale. Riaddestra prima di citare un rapporto.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Che cosa fare invece</span>
+      <p class="mb0">Rimescola le feature correlate <strong>come gruppo</strong> e riporta il gruppo (le
+      barre verdi, che sono stabili). Oppure elimina uno dei gemelli e riaddestra. Oppure misura prima la
+      dipendenza — una matrice di correlazione richiede un minuto e ti dice di quali importanze non
+      fidarti.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 7 minuti. Parti da 0.95. Indica le barre verdi: stabili tra i riaddestramenti e sopra la
+      linea dei giri. Poi quelle blu e arancioni: ciascuna ben sotto i giri, e il rapporto tra le due che
+      cambia da un riaddestramento all’altro.</li>
+      <li>Poi il grafico a dispersione. Ogni punto rosso è una sessione con, diciamo, un disco a 650 °C e una
+      pastiglia a 330 °C. Nessuna sessione del genere esiste, il modello non ne ha mai vista una, e il numero
+      di importanza è in parte una misura di come si comporta il modello lì. Lo stesso vale per la
+      dipendenza parziale (17.4) e per i valori di Shapley con un riferimento indipendente (17.5).</li>
+      <li>Scendi a 0.3: la nuvola rossa non si distingue più da quella reale, e i gemelli non sono più
+      gemelli. La trappola richiede correlazione, che i dati reali dei sensori hanno quasi sempre.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.7 -->
+<section class="chapter" id="causation">
+  <h2>17.7 · Una spiegazione non è una causa</h2>
+  <p>Torniamo ai dati dei freni e alla linea piatta per l’apertura del condotto in 17.4. Il modello ha
+  ragione: data la temperatura del disco, il condotto non gli dice nient’altro, perché nel nostro generatore
+  il condotto agisce <em>solo</em> raffreddando il disco. Ogni metodo di spiegazione visto sopra riporta
+  correttamente che il <strong>modello</strong> non usa il condotto. Un ingegnere che lo legge come “il
+  condotto non influisce sull’usura” ha tratto la conclusione sbagliata da un grafico corretto: aprire il
+  condotto è una leva potente.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Interroga il modello sul condotto dei freni</h3><span class="tag warn">Passa a “impostato dagli ingegneri”, poi riduci l’effetto di raffreddamento</span></div>
+    <div class="ctrlrow">
+      <div class="segmented" id="caSeg">
+        <button data-v="rand" class="on">Condotto impostato a caso (una prova progettata)</button>
+        <button data-v="conf">Condotto impostato dagli ingegneri per circuito</button>
+      </div>
+    </div>
+    <div class="split-wide">
+      <div>
+        <canvas id="caCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>modello A, tutte le feature: dipendenza parziale</span>
+          <span><i style="background:var(--warn)"></i>modello B, senza temp. disco: dipendenza parziale</span>
+          <span style="color:var(--good)"><i class="dash"></i>che cosa succede davvero se imposti il condotto (dal generatore)</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Vero effetto di raffreddamento del condotto</span><span class="val" id="caKOut"></span></div>
+          <input type="range" id="caK" min="0" max="2.5" step="0.1" value="1.5">
+        </div>
+        <div class="grid g3" style="gap:8px">
+          <div class="bigstat acc"><span class="n" id="caA">—</span><span class="l">secondo il modello A</span></div>
+          <div class="bigstat warn"><span class="n" id="caB">—</span><span class="l">secondo il modello B</span></div>
+          <div class="bigstat good"><span class="n" id="caT">—</span><span class="l">verità</span></div>
+        </div>
+        <p class="small muted mt1">Variazione dell’usura media predetta quando il condotto passa da chiuso a
+        tutto aperto, in mm per sessione. Entrambi i modelli vengono riaddestrati dal vivo (200 alberi
+        ciascuno) ogni volta che cambi un’impostazione.</p>
+        <div class="card" id="caNote" style="min-height:170px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">La regola generale</span>
+    <p class="mb0">I metodi di spiegazione descrivono come la previsione dipende dagli input <em>così come
+    li vede il modello</em>. Se cambiare un input nel mondo reale cambi il risultato è una domanda causale,
+    e dipende da come sono nati i dati — esperimento progettato o storico di esercizio — e da quali variabili
+    sono state registrate. Nessuna quantità di strumenti di spiegazione applicati a dati osservazionali
+    sostituisce una prova progettata. Il <a href="07-data.html#causal">modulo 7.6</a> tratta la causalità
+    come si deve — i confondenti, e perché una correlazione non è una manopola; il modulo 11.2, su dove
+    collocare i campioni, è la risposta costruttiva.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 3 minuti, e forse i tre più importanti del modulo. Con impostazioni del condotto
+      randomizzate, il modello B (che non vede la temperatura del disco) recupera l’effetto vero
+      ragionevolmente bene, perché la randomizzazione rimuove il confondimento. È esattamente il motivo per
+      cui esistono gli esperimenti progettati.</li>
+      <li>Passa a “impostato dagli ingegneri”: gli ingegneri aprono il condotto sui circuiti severi, che
+      girano più caldi. Il modello B ora vede condotti aperti insieme a usura alta e riporta un beneficio
+      piccolo o nullo — con un effetto di raffreddamento basso, dice che aprire il condotto
+      <em>aumenta</em> l’usura. Ogni numero a schermo è un calcolo onesto; la conclusione è comunque
+      sbagliata.</li>
+      <li>Domanda prevista: “allora quale modello ha ragione?” Entrambi, su domande diverse. A ha ragione
+      sulla previsione; nessuno dei due risponde a “e se aprissimo il condotto?” senza la struttura
+      causale.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 17.8 -->
+<section class="chapter" id="review">
+  <h2>17.8 · Che cosa portare davanti a una design review</h2>
+  <p>Le spiegazioni sono strumenti di debugging. Sono molto brave a scovare un modello che ha ragione per
+  il motivo sbagliato — un timestamp trapelato (modulo 7.4), l’ID di un sensore che fa le veci di un banco
+  prova, una relazione con il segno sbagliato. Sono una prova debole del fatto che un modello abbia ragione
+  per il motivo giusto, perché ogni metodo ha i punti ciechi che questo modulo ha appena mostrato.</p>
+
+  <div class="rev">
+    <div class="card">
+      <h3>Porta</h3>
+      <ul class="mb0">
+        <li>L’importanza per permutazione <strong>su dati tenuti da parte</strong>, con la dispersione sui
+        rimescolamenti e sui riaddestramenti, e con le feature correlate raggruppate.</li>
+        <li>La dipendenza parziale <strong>con le curve ICE dietro</strong>, limitata all’intervallo in cui
+        esistono dati, e una nota su quali feature sono correlate.</li>
+        <li>Per ogni relazione la cui direzione è fissata dalla fisica, una verifica che il modello sia
+        d’accordo — o un vincolo di monotonia che lo renda d’accordo per costruzione.</li>
+        <li>Una manciata di spiegazioni locali per gli errori peggiori e per le previsioni con le conseguenze
+        più rilevanti, ciascuna con il proprio insieme di riferimento dichiarato.</li>
+        <li>Le cose che hai trovato e corretto usando questi strumenti. Quell’elenco è la prova più
+        convincente che gli strumenti sono stati usati sul serio.</li>
+      </ul>
+    </div>
+    <div class="card no">
+      <h3>Non affermare</h3>
+      <ul class="mb0">
+        <li>“Il modello ha imparato la fisica.” Ha imparato una funzione che si adatta ai dati; la
+        spiegazione riguarda quella funzione.</li>
+        <li>“La feature X non conta.” Non conta <em>per questo modello, dati gli altri input</em> — vedi
+        17.7.</li>
+        <li>“X è due volte più importante di Y” quando X e Y sono correlate — vedi 17.6.</li>
+        <li>Qualunque spiegazione come sostituto delle prove di validazione del modulo 8 e del modulo 11.10.
+        L’accuratezza su un test set rappresentativo e tenuto da parte è la prova; la spiegazione è il modo
+        in cui decidi se crederci.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Il messaggio chiave</span>
+    <p class="mb0">Chiedi a ogni spiegazione: <strong>rispetto a che cosa, su quali dati, e
+    sopravviverebbe a un riaddestramento?</strong> Preferisci modelli vincolati o abbastanza semplici da non
+    aver bisogno di molte spiegazioni, quando te lo puoi permettere. Quando non puoi, usa gli strumenti
+    a posteriori come strumenti per trovare difetti — e ricorda che per le funzioni rilevanti per la
+    sicurezza l’argomentazione poggia su validazione, condizioni operative delimitate e monitoraggio, ed è
+    da lì che riparte il modulo 20.</p>
+  </div>
+
+  <details class="reveal deeper">
+    <summary>Per approfondire · le fonti originali</summary>
+    <div class="body">
+      <ul class="sources">
+        <li>L. S. Shapley, “A value for n-person games”, 1953 — il risultato sull’equa ripartizione.</li>
+        <li>S. Lundberg e S.-I. Lee, “A unified approach to interpreting model predictions”, NeurIPS
+        2017 — i valori di Shapley come SHAP.</li>
+        <li>L. Breiman, “Random forests”, Machine Learning, 2001 — l’importanza per permutazione.</li>
+        <li>J. H. Friedman, “Greedy function approximation: a gradient boosting machine”, Annals of
+        Statistics, 2001 — gradient boosting e dipendenza parziale.</li>
+        <li>A. Goldstein et al., “Peeking inside the black box: visualizing statistical learning with
+        plots of individual conditional expectation”, 2015 — le curve ICE.</li>
+        <li>C. Molnar, <em>Interpretable Machine Learning</em> — una trattazione gratuita, accurata e di
+        lunghezza pari a un libro di tutto ciò che c’è in questo modulo.</li>
+      </ul>
+    </div>
+  </details>
+
+  <div class="note">
+    <ul>
+      <li>Circa 3 minuti. La frase da portarsi a casa: “le spiegazioni servono al debugging, non alla
+      dimostrazione”.</li>
+      <li>Se qualcuno tira in ballo la regolamentazione: i requisiti di trasparenza dell’AI Act per i
+      sistemi ad alto rischio (modulo 10) riguardano la capacità di interpretare l’output e di usarlo in modo
+      appropriato; non trasformano un grafico SHAP in un’argomentazione di sicurezza. Non promettere più di
+      quanto questi grafici dimostrino.</li>
+      <li>Un buon esercizio di chiusura, se c’è tempo: chiedi alla sala un modello che usano oggi e quali
+      delle righe “non affermare” conteneva la sua ultima review.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo ora</h2>
+  <p>Ora sai interrogare un modello che hai addestrato. La maggior parte dei team non addestrerà da zero:
+  partirà dal modello di qualcun altro e lo adatterà ai propri dati, il che porta con sé i propri
+  compromessi tra costo, accuratezza e ciò che puoi ancora spiegare.</p>
+  <p><a href="18-adaptation.html"><strong>Modulo 18 · Adattare i modelli: fine-tuning, LoRA, distillazione →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+
+  /* ================================================== seeded random numbers */
+  function rng(seed) {
+    var a = (seed >>> 0) || 1;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) {
+    var u = 0; while (u === 0) u = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r());
+  }
+  function permutation(n, r) {
+    var p = [], i, j, t;
+    for (i = 0; i < n; i++) p.push(i);
+    for (i = n - 1; i > 0; i--) { j = Math.floor(r() * (i + 1)); t = p[i]; p[i] = p[j]; p[j] = t; }
+    return p;
+  }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }
+  function quantile(a, q) {
+    var s = a.slice().sort(function (x, y) { return x - y; });
+    var k = (s.length - 1) * q, lo = Math.floor(k), hi = Math.ceil(k);
+    return s[lo] + (s[hi] - s[lo]) * (k - lo);
+  }
+
+  /* ================================================== gradient-boosted trees
+     Squared-error boosting with histogram splits (at most 32 quantile bins per
+     feature), row subsampling and per-tree column subsampling — the recipe of
+     XGBoost / LightGBM, minus the engineering. */
+  function GBM(X, y, o) {
+    o = o || {};
+    var nT = o.trees || 200, lr = o.lr || 0.08, maxD = o.depth || 3, minLeaf = o.minLeaf || 8,
+      sub = o.subsample || 0.8, colf = o.colsample || 1, r = rng(o.seed || 1);
+    var n = X.length, p = X[0].length, i, f, t, k;
+    /* bin edges: every distinct value if there are few, otherwise quantiles */
+    var thr = [], B = [];
+    for (f = 0; f < p; f++) {
+      var v = X.map(function (row) { return row[f]; }).sort(function (a, b) { return a - b; });
+      var uq = [v[0]], edges = [];
+      for (k = 1; k < n; k++) if (v[k] > uq[uq.length - 1]) uq.push(v[k]);
+      if (uq.length <= 32) {
+        for (k = 1; k < uq.length; k++) edges.push((uq[k - 1] + uq[k]) / 2);
+      } else {
+        for (k = 1; k < 32; k++) {
+          var c = v[Math.floor(k * n / 32)], lo2 = 0, hi2 = uq.length - 1;
+          while (lo2 < hi2) { var md = (lo2 + hi2) >> 1; if (uq[md] < c) lo2 = md + 1; else hi2 = md; }
+          if (lo2 + 1 < uq.length) {
+            var e = (uq[lo2] + uq[lo2 + 1]) / 2;
+            if (!edges.length || e > edges[edges.length - 1]) edges.push(e);
+          }
+        }
+      }
+      thr.push(edges);
+    }
+    for (i = 0; i < n; i++) {
+      var br = new Array(p);
+      for (f = 0; f < p; f++) {
+        var ed = thr[f], lo = 0, hi = ed.length;          /* first edge >= x */
+        while (lo < hi) { var mid = (lo + hi) >> 1; if (X[i][f] <= ed[mid]) hi = mid; else lo = mid + 1; }
+        br[f] = lo;
+      }
+      B.push(br);
+    }
+    this.base = mean(y);
+    this.trees = []; this.gain = []; for (f = 0; f < p; f++) this.gain.push(0);
+    this.p = p;
+    var Fv = new Float64Array(n), g = new Float64Array(n), self = this;
+    for (i = 0; i < n; i++) Fv[i] = this.base;
+
+    function grow(rows, d, feats) {
+      var m = rows.length, S = 0, j;
+      for (j = 0; j < m; j++) S += g[rows[j]];
+      var node = { v: lr * S / m };
+      if (d >= maxD || m < 2 * minLeaf) return node;
+      var best = null;
+      for (var q = 0; q < feats.length; q++) {
+        var ff = feats[q], nb = thr[ff].length + 1;
+        var hs = new Float64Array(nb), hc = new Int32Array(nb);
+        for (j = 0; j < m; j++) { var bb = B[rows[j]][ff]; hs[bb] += g[rows[j]]; hc[bb]++; }
+        var sl = 0, cl = 0;
+        for (var tt = 0; tt < nb - 1; tt++) {
+          sl += hs[tt]; cl += hc[tt];
+          var cr = m - cl;
+          if (cl < minLeaf) continue;
+          if (cr < minLeaf) break;
+          var sr = S - sl, gn = sl * sl / cl + sr * sr / cr - S * S / m;
+          if (!best || gn > best.gn) best = { gn: gn, f: ff, t: tt };
+        }
+      }
+      if (!best || best.gn <= 1e-12) return node;
+      var L = [], R = [];
+      for (j = 0; j < m; j++) (B[rows[j]][best.f] <= best.t ? L : R).push(rows[j]);
+      self.gain[best.f] += best.gn;
+      node.f = best.f; node.t = thr[best.f][best.t];
+      node.l = grow(L, d + 1, feats); node.r = grow(R, d + 1, feats);
+      return node;
+    }
+
+    for (t = 0; t < nT; t++) {
+      for (i = 0; i < n; i++) g[i] = y[i] - Fv[i];
+      var perm = permutation(n, r), rows = perm.slice(0, Math.max(2 * minLeaf, Math.round(n * sub)));
+      var fp = permutation(p, r), feats = fp.slice(0, Math.max(1, Math.round(p * colf)));
+      var tree = grow(rows, 0, feats);
+      this.trees.push(tree);
+      for (i = 0; i < n; i++) Fv[i] += treeVal(tree, X[i]);
+    }
+  }
+  function treeVal(nd, x) { while (nd.l) nd = x[nd.f] <= nd.t ? nd.l : nd.r; return nd.v; }
+  GBM.prototype.predict = function (x) {
+    var s = this.base, T = this.trees;
+    for (var k = 0; k < T.length; k++) s += treeVal(T[k], x);
+    return s;
+  };
+  function rmse(model, X, y) {
+    var s = 0;
+    for (var i = 0; i < X.length; i++) { var e = model.predict(X[i]) - y[i]; s += e * e; }
+    return Math.sqrt(s / X.length);
+  }
+  /* permutation importance: rise in RMSE when a column (or a group of columns,
+     moved together with the same shuffle) is scrambled; R repeats */
+  function permImp(model, X, y, groups, R, seed) {
+    var r = rng(seed), base = rmse(model, X, y), out = [];
+    groups.forEach(function (grp) {
+      var vals = [];
+      for (var k = 0; k < R; k++) {
+        var pm = permutation(X.length, r);
+        var Xp = X.map(function (row, i) {
+          var c = row.slice();
+          for (var q = 0; q < grp.length; q++) c[grp[q]] = X[pm[i]][grp[q]];
+          return c;
+        });
+        vals.push(rmse(model, Xp, y) - base);
+      }
+      out.push({ mean: mean(vals), lo: Math.min.apply(null, vals), hi: Math.max.apply(null, vals) });
+    });
+    return { base: base, imp: out };
+  }
+
+  /* exact interventional Shapley values by enumerating all 2^p coalitions.
+     v(S) = the model's average output when the features in S are fixed to this
+     row's values and the others are taken from each background row in turn. */
+  function shapExact(model, x, bg) {
+    var p = x.length, nS = 1 << p, v = new Float64Array(nS), z = new Array(p), mask, j, k;
+    for (mask = 0; mask < nS; mask++) {
+      var s = 0;
+      for (k = 0; k < bg.length; k++) {
+        for (j = 0; j < p; j++) z[j] = (mask >> j) & 1 ? x[j] : bg[k][j];
+        s += model.predict(z);
+      }
+      v[mask] = s / bg.length;
+    }
+    var fact = [1]; for (j = 1; j <= p; j++) fact.push(fact[j - 1] * j);
+    var phi = [];
+    for (j = 0; j < p; j++) {
+      var acc = 0;
+      for (mask = 0; mask < nS; mask++) {
+        if ((mask >> j) & 1) continue;
+        var sz = 0, mm2 = mask; while (mm2) { sz += mm2 & 1; mm2 >>= 1; }
+        acc += fact[sz] * fact[p - sz - 1] / fact[p] * (v[mask | (1 << j)] - v[mask]);
+      }
+      phi.push(acc);
+    }
+    return { phi: phi, base: v[0], full: v[nS - 1], evals: nS * bg.length };
+  }
+
+  /* ================================================== the synthetic brake data
+     AUTHORED: these structural equations are invented for teaching (they are
+     printed in 17.1). Plausible in shape, not calibrated to any real system. */
+  function wearMean(T, pr, comp, laps) {
+    var g = comp < 0.5 ? Math.exp((T - 500) / 150)
+      : 0.75 * Math.exp((T - 560) / 220) + 0.6 * Math.max(0, (450 - T) / 80);
+    return laps * 0.03 * (0.5 + pr / 60) * g;
+  }
+  function discTemp(pr, duct, amb, eT, k) { return clamp(330 + 3.4 * pr - k * duct + 2.5 * amb + eT, 280, 800); }
+  var NOISE_MEAN = Math.exp(0.1 * 0.1 / 2);   /* mean of the multiplicative log-normal noise */
+  function genBrake(n, seed, k, confounded) {
+    var r = rng(seed), X = [], y = [], ex = [];
+    for (var i = 0; i < n; i++) {
+      var pr = 25 + 60 * r(), amb = 5 + 33 * r(), comp = r() < 0.5 ? 0 : 1, laps = 5 + Math.floor(26 * r());
+      var sev = gauss(r), eT = 40 * sev + 15 * gauss(r);
+      var duct = confounded ? clamp(50 + 35 * sev + 12 * gauss(r), 0, 100) : 100 * r();
+      var T = discTemp(pr, duct, amb, eT, k);
+      var w = wearMean(T, pr, comp, laps) * Math.exp(0.1 * gauss(r));
+      X.push([T, pr, duct, amb, comp, laps]); y.push(w);
+      ex.push({ pr: pr, amb: amb, comp: comp, laps: laps, eT: eT });
+    }
+    return { X: X, y: y, ex: ex };
+  }
+
+  /* two sensors on the same hidden heat load H; corr(disc, pad) = rho by construction */
+  function genTrap(n, rho, seed) {
+    var r = rng(seed), X = [], y = [], s = Math.sqrt(1 / rho - 1), nz = Math.sqrt(1 + s * s);
+    for (var i = 0; i < n; i++) {
+      var H = gauss(r), D = 520 + 80 * (H + s * gauss(r)) / nz, P = 400 + 60 * (H + s * gauss(r)) / nz;
+      var pr = 25 + 60 * r(), laps = 5 + Math.floor(26 * r());
+      X.push([D, P, pr, laps]);
+      y.push(laps * 0.03 * (0.5 + pr / 60) * Math.exp(0.6 * H) * Math.exp(0.1 * gauss(r)));
+    }
+    return { X: X, y: y };
+  }
+  /* ================================================== 17.2 one-feature models */
+  function monoTrue(T) { return 0.25 * Math.exp((T - 480) / 110); }
+  function genMono(n, noise, seed) {
+    var r = rng(seed), x = [], y = [];
+    for (var i = 0; i < n; i++) { var T = 350 + 400 * r(); x.push(T); y.push(monoTrue(T) + noise * gauss(r)); }
+    return { x: x, y: y };
+  }
+  /* boosted stumps on one feature; with mono = true every stump must step up,
+     and a sum of non-decreasing steps is non-decreasing */
+  function fitStumps(x, y, M, lr, minLeaf, mono) {
+    var n = x.length, ord = [], i, m;
+    for (i = 0; i < n; i++) ord.push(i);
+    ord.sort(function (a, b) { return x[a] - x[b]; });
+    var xs = ord.map(function (i) { return x[i]; }), ys = ord.map(function (i) { return y[i]; });
+    var base = mean(ys), Fv = ys.map(function () { return base; }), st = [];
+    for (m = 0; m < M; m++) {
+      var res = [], S = 0;
+      for (i = 0; i < n; i++) { res.push(ys[i] - Fv[i]); S += res[i]; }
+      var sl = 0, best = null;
+      for (i = 1; i < n; i++) {
+        sl += res[i - 1];
+        if (i < minLeaf || n - i < minLeaf || xs[i] === xs[i - 1]) continue;
+        var mL = sl / i, mR = (S - sl) / (n - i);
+        if (mono && mL > mR) continue;
+        var gn = sl * sl / i + (S - sl) * (S - sl) / (n - i) - S * S / n;
+        if (!best || gn > best.gn) best = { gn: gn, t: (xs[i - 1] + xs[i]) / 2, a: lr * mL, b: lr * mR };
+      }
+      if (!best || best.gn < 1e-12) break;
+      st.push(best);
+      for (i = 0; i < n; i++) Fv[i] += xs[i] <= best.t ? best.a : best.b;
+    }
+    return function (v) { var s = base; for (var k = 0; k < st.length; k++) s += v <= st[k].t ? st[k].a : st[k].b; return s; };
+  }
+  function fitLine(x, y) {
+    var mx = mean(x), my = mean(y), sxy = 0, sxx = 0;
+    for (var i = 0; i < x.length; i++) { sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) * (x[i] - mx); }
+    var b = sxx ? sxy / sxx : 0, a = my - b * mx;
+    return function (v) { return a + b * v; };
+  }
+
+  /* ================================================== shared helpers */
+  function $(id) { return document.getElementById(id); }
+  function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+  function proj(X, cols) { return X.map(function (r) { return cols.map(function (c) { return r[c]; }); }); }
+  function mm(v, d) { return (v >= 0 ? '' : '−') + Math.abs(v).toFixed(d == null ? 2 : d); }
+  function smm(v, d) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d == null ? 2 : d); }
+  function sd(a) { var m = mean(a), s = 0; for (var i = 0; i < a.length; i++) s += (a[i] - m) * (a[i] - m); return Math.sqrt(s / a.length); }
+  function corr(a, b) {
+    var ma = mean(a), mb = mean(b), s = 0, sa = 0, sb = 0;
+    for (var i = 0; i < a.length; i++) { s += (a[i] - ma) * (b[i] - mb); sa += (a[i] - ma) * (a[i] - ma); sb += (b[i] - mb) * (b[i] - mb); }
+    return s / Math.sqrt(sa * sb);
+  }
+  function col(X, f) { return X.map(function (r) { return r[f]; }); }
+
+  var FEATS = [
+    { name: 'Temp. disco',       fmt: function (v) { return v.toFixed(0) + ' °C'; } },
+    { name: 'Pressione freni',   fmt: function (v) { return v.toFixed(0) + ' bar'; } },
+    { name: 'Apertura condotto', fmt: function (v) { return v.toFixed(0) + ' %'; } },
+    { name: 'Temp. ambiente',    fmt: function (v) { return v.toFixed(0) + ' °C'; } },
+    { name: 'Mescola pastiglie', fmt: function (v) { return v < 0.5 ? 'stradale' : 'pista'; } },
+    { name: 'Giri',              fmt: function (v) { return v.toFixed(0); } }
+  ];
+
+  /* horizontal bar frame: rows top to bottom, value axis along x */
+  function hFrame(p, n, lo, hi, labels, xlabel, fmt, lfont) {
+    p.resize(); p.clear();
+    p.dom = [lo, hi]; p.ran = [0, n];
+    var g = p.ctx, i;
+    g.font = '11px ui-monospace, monospace'; g.fillStyle = C('--ink-3');
+    g.textAlign = 'center'; g.textBaseline = 'top';
+    for (i = 0; i <= 4; i++) {
+      var xv = lo + (hi - lo) * i / 4, px = p.X(xv);
+      g.strokeStyle = C('--line-2'); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(px, p.pad.t); g.lineTo(px, p.pad.t + p.ph); g.stroke();
+      g.fillText(fmt ? fmt(xv) : xv.toFixed(2), px, p.pad.t + p.ph + 6);
+    }
+    if (lo < 0 && hi > 0) {
+      g.strokeStyle = C('--ink-3'); g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(p.X(0), p.pad.t); g.lineTo(p.X(0), p.pad.t + p.ph); g.stroke();
+    }
+    g.strokeStyle = C('--line'); g.lineWidth = 1.2; g.strokeRect(p.pad.l, p.pad.t, p.pw, p.ph);
+    g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillStyle = C('--ink-2');
+    g.font = lfont || '600 12px system-ui, sans-serif';
+    for (i = 0; i < labels.length; i++) g.fillText(labels[i], p.pad.l - 8, rowY(p, n, i));
+    if (xlabel) {
+      g.fillStyle = C('--ink-3'); g.textAlign = 'center'; g.textBaseline = 'bottom';
+      g.font = '600 11px system-ui, sans-serif'; g.fillText(xlabel, p.pad.l + p.pw / 2, p.h - 1);
+    }
+  }
+  function rowY(p, n, i) { return p.Y(n - i - 0.5); }
+  function rowH(p, n) { return p.ph / n; }
+  function hRect(p, a, b, y, h, color) {
+    var g = p.ctx, x0 = p.X(Math.min(a, b)), x1 = p.X(Math.max(a, b));
+    g.fillStyle = color; g.fillRect(x0, y - h / 2, Math.max(1, x1 - x0), h);
+  }
+
+  /* ================================================== the main brake model */
+  var M = {};
+  function buildMain() {
+    var d = genBrake(900, 23, 1.5, false);
+    M.trX = d.X.slice(0, 600); M.trY = d.y.slice(0, 600);
+    M.teX = d.X.slice(600); M.teY = d.y.slice(600);
+    M.model = new GBM(M.trX, M.trY, { trees: 200, depth: 3, lr: 0.08, minLeaf: 8, seed: 3 });
+    M.pred = M.teX.map(function (x) { return M.model.predict(x); });
+  }
+
+  /* ================================================== 17.2 monotonic constraint */
+  var MO = { n: 40, noise: 0.3, seed: 4 }, moPlot;
+  function moFit() {
+    var d = genMono(MO.n, MO.noise, MO.seed), te = genMono(400, MO.noise, MO.seed + 9001);
+    MO.d = d;
+    MO.f = {
+      L: fitLine(d.x, d.y),
+      U: fitStumps(d.x, d.y, 150, 0.3, 2, false),
+      M: fitStumps(d.x, d.y, 150, 0.3, 2, true),
+      T: monoTrue
+    };
+    function r(f) { var s = 0; te.x.forEach(function (v, i) { var e = f(v) - te.y[i]; s += e * e; }); return Math.sqrt(s / te.x.length); }
+    function rev(f) { var c = 0, worst = 0, p = f(350); for (var k = 1; k <= 400; k++) { var q = f(350 + k); if (q < p - 1e-9) { c++; worst = Math.max(worst, p - q); } p = q; } return { c: c, w: worst }; }
+    MO.r = { L: r(MO.f.L), U: r(MO.f.U), M: r(MO.f.M), T: r(MO.f.T) };
+    MO.v = { L: rev(MO.f.L), U: rev(MO.f.U), M: rev(MO.f.M) };
+    drawMono();
+  }
+  function drawMono() {
+    var ymax = 0; MO.d.y.forEach(function (v) { ymax = Math.max(ymax, v); });
+    ymax = Math.max(ymax, monoTrue(750)) * 1.05;
+    var ymin = Math.min(-0.2, Math.min.apply(null, MO.d.y) - 0.05);
+    moPlot.dom = [350, 750]; moPlot.ran = [ymin, ymax];
+    moPlot.resize(); moPlot.clear();
+    moPlot.frame({ xticks: 4, yticks: 5, xlabel: 'temperatura di picco del disco (°C)', ylabel: 'usura pastiglie (mm)',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(1); } });
+    function curve(f) { var pts = []; for (var t = 350; t <= 750; t += 1) pts.push([t, f(t)]); return pts; }
+    moPlot.clip(function () {
+      for (var i = 0; i < MO.d.x.length; i++) moPlot.dot(MO.d.x[i], MO.d.y[i], 3.4, C('--ink-3'));
+      moPlot.line(curve(monoTrue), C('--ink-3'), 1.6, [6, 5]);
+      moPlot.line(curve(MO.f.L), C('--violet'), 2);
+      moPlot.line(curve(MO.f.U), C('--warn'), 2.2);
+      moPlot.line(curve(MO.f.M), C('--good'), 2.6);
+    });
+    $('moRL').textContent = MO.r.L.toFixed(3); $('moRU').textContent = MO.r.U.toFixed(3);
+    $('moRM').textContent = MO.r.M.toFixed(3); $('moRT').textContent = MO.r.T.toFixed(3);
+    $('moVL').textContent = MO.v.L.c; $('moVU').textContent = MO.v.U.c; $('moVM').textContent = MO.v.M.c;
+    var dif = MO.r.U - MO.r.M, s = '<h4>Che cosa ha fatto il fit</h4>';
+    if (MO.v.U.c > 0) {
+      s += '<p class="small">Il modello senza vincoli ha <b>' + MO.v.U.c + ' punti</b> in cui più caldo significa meno usura, il maggiore con un calo di <b>' +
+        MO.v.U.w.toFixed(2) + ' mm</b>. Ognuno è il modello che si adatta al rumore di ' + MO.n + ' sessioni, e ognuno è un’affermazione sui freni che nessun ingegnere firmerebbe.</p>';
+    } else {
+      s += '<p class="small">Questa volta il modello senza vincoli per caso non ha inversioni. Premi <b>Nuovo campione</b> qualche volta, o riduci il numero di sessioni — dura raramente.</p>';
+    }
+    s += '<p class="small mb0">Il modello monotono non ne ha, per costruzione, e il suo errore di test è ' +
+      (Math.abs(dif) < 0.004 ? '<b>sostanzialmente lo stesso</b>' : dif > 0 ? '<b>migliore di ' + dif.toFixed(3) + ' mm</b>' : '<b>peggiore di ' + (-dif).toFixed(3) + ' mm</b>') +
+      '. Nemmeno la retta si inverte mai, e ha l’errore più grande (' + MO.r.L.toFixed(3) + ' mm), perché la verità è curva: semplice non vuol dire corretto.</p>';
+    $('moNote').innerHTML = s;
+  }
+  function initMono() {
+    moPlot = new AI.Plot($('moCv'), { pad: { l: 50, r: 14, t: 14, b: 42 } });
+    var go = debounce(moFit, 30);
+    AI.bindRange('moN', function (v) { return v; }, function (v) { MO.n = v; go(); });
+    AI.bindRange('moNoise', function (v) { return v.toFixed(2) + ' mm'; }, function (v) { MO.noise = v; go(); });
+    AI.on($('moSeed'), 'click', function () { MO.seed += 1; moFit(); });
+    AI.onRedraw(function () { if (MO.d) drawMono(); });
+    moFit();
+  }
+
+  /* ================================================== 17.3 permutation importance */
+  var PI = { depth: 3, R: 5, on: 'test', seed: 3 }, piPlot;
+  function piTrain() {
+    PI.model = new GBM(M.trX, M.trY, { trees: 200, depth: PI.depth, lr: 0.08, minLeaf: 4, seed: PI.seed });
+    piCompute();
+  }
+  function piCompute() {
+    var X = PI.on === 'test' ? M.teX : M.trX, y = PI.on === 'test' ? M.teY : M.trY;
+    PI.res = permImp(PI.model, X, y, [[0], [1], [2], [3], [4], [5]], PI.R, PI.seed * 13 + 1);
+    PI.trR = rmse(PI.model, M.trX, M.trY); PI.teR = rmse(PI.model, M.teX, M.teY);
+    PI.sdY = sd(M.teY);
+    drawPI();
+  }
+  function drawPI() {
+    var imp = PI.res.imp, order = [0, 1, 2, 3, 4, 5].sort(function (a, b) { return imp[b].mean - imp[a].mean; });
+    var hi = 0, lo = 0, gmax = 0;
+    imp.forEach(function (o) { hi = Math.max(hi, o.hi); lo = Math.min(lo, o.lo); });
+    PI.model.gain.forEach(function (gv) { gmax = Math.max(gmax, gv); });
+    hi = hi * 1.08 || 0.1; lo = Math.min(0, lo * 1.2);
+    var labels = order.map(function (f) { return FEATS[f].name; });
+    hFrame(piPlot, 6, lo, hi, labels, 'aumento dell’RMSE col rimescolamento (mm)', function (v) { return v.toFixed(2); });
+    var bh = rowH(piPlot, 6), g = piPlot.ctx;
+    order.forEach(function (f, i) {
+      var y = rowY(piPlot, 6, i), o = imp[f];
+      hRect(piPlot, 0, o.mean, y - bh * 0.08, bh * 0.42, C('--accent'));
+      g.strokeStyle = C('--ink'); g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(piPlot.X(o.lo), y - bh * 0.08); g.lineTo(piPlot.X(o.hi), y - bh * 0.08); g.stroke();
+      g.beginPath(); g.moveTo(piPlot.X(o.lo), y - bh * 0.2); g.lineTo(piPlot.X(o.lo), y + bh * 0.04);
+      g.moveTo(piPlot.X(o.hi), y - bh * 0.2); g.lineTo(piPlot.X(o.hi), y + bh * 0.04); g.stroke();
+      var gs = gmax ? PI.model.gain[f] / gmax * (hi * 0.97) : 0;
+      hRect(piPlot, 0, gs, y + bh * 0.27, bh * 0.1, C('--ink-3'));
+      g.fillStyle = C('--ink-2'); g.font = '11px ui-monospace, monospace'; g.textAlign = 'left'; g.textBaseline = 'middle';
+      var tx = piPlot.X(Math.max(o.hi, 0)) + 6;
+      if (tx > piPlot.pad.l + piPlot.pw - 40) tx = piPlot.pad.l + piPlot.pw - 40;
+      g.fillText(o.mean.toFixed(3), tx, y - bh * 0.08);
+    });
+    $('piTr').textContent = PI.trR.toFixed(3); $('piTe').textContent = PI.teR.toFixed(3);
+    $('piR2').textContent = (1 - (PI.teR * PI.teR) / (PI.sdY * PI.sdY)).toFixed(2);
+    $('piBase').textContent = PI.sdY.toFixed(3);
+
+    /* largest disagreement between gain share and permutation share */
+    var ps = 0, gs2 = 0, worst = -1, wf = 0;
+    imp.forEach(function (o) { ps += Math.max(0, o.mean); });
+    PI.model.gain.forEach(function (gv) { gs2 += gv; });
+    for (var f = 0; f < 6; f++) {
+      var dshare = PI.model.gain[f] / gs2 - Math.max(0, imp[f].mean) / ps;
+      if (dshare > worst) { worst = dshare; wf = f; }
+    }
+    var top = order[0], s = '<h4>Come leggere questa esecuzione</h4>';
+    s += '<p class="small">In cima alla lista: <b>' + FEATS[top].name + '</b> (' + imp[top].mean.toFixed(3) + ' mm), poi <b>' +
+      FEATS[order[1]].name + '</b> e <b>' + FEATS[order[2]].name + '</b>. Apertura del condotto (' + imp[2].mean.toFixed(3) +
+      ' mm) e temperatura ambiente (' + imp[3].mean.toFixed(3) + ' mm) sono vicine a zero: contano per l’usura solo attraverso la temperatura del disco, che il modello vede direttamente.</p>';
+    if (PI.on === 'train') {
+      s += '<p class="small">Misurata sul <b>training</b> set, dove l’RMSE di addestramento è ' + PI.trR.toFixed(3) + ' contro ' + PI.teR.toFixed(3) +
+        ' sul test. ' + (PI.depth >= 5 ? 'A questa profondità il modello ha memorizzato molto, e queste barre includono la memorizzazione.' : 'Aumenta la profondità per vedere aprirsi il divario.') + '</p>';
+    } else if (PI.depth === 1) {
+      s += '<p class="small">A profondità 1 ogni albero usa una sola feature, quindi il modello è una somma di curve a una feature e non può rappresentare l’interazione mescola × temperatura. L’RMSE di test è ' +
+        PI.teR.toFixed(3) + ' mm. Le importanze descrivono questo modello più debole, non il problema.</p>';
+    } else {
+      s += '<p class="small">RMSE di test ' + PI.teR.toFixed(3) + ' mm contro ' + PI.sdY.toFixed(3) + ' mm predicendo sempre la media.</p>';
+    }
+    s += '<p class="small mb0">Massimo divario tra le due misure: <b>' + FEATS[wf].name + '</b> ottiene il ' +
+      (PI.model.gain[wf] / gs2 * 100).toFixed(0) + '% del guadagno di split ma il ' + (Math.max(0, imp[wf].mean) / ps * 100).toFixed(0) +
+      '% dell’importanza per permutazione.</p>';
+    $('piNote').innerHTML = s;
+  }
+  function initPI() {
+    piPlot = new AI.Plot($('piCv'), { pad: { l: 130, r: 16, t: 10, b: 40 } });
+    var go = debounce(piTrain, 40), goC = debounce(piCompute, 30), ready = false;
+    AI.bindRange('piDep', function (v) { return v; }, function (v) { PI.depth = v; if (ready) go(); });
+    AI.bindRange('piRep', function (v) { return v; }, function (v) { PI.R = v; if (ready) goC(); });
+    AI.segmented($('piEvalSeg'), function (v) { PI.on = v; piCompute(); });
+    AI.on($('piSeed'), 'click', function () { PI.seed += 1; piTrain(); });
+    AI.onRedraw(function () { if (PI.res) drawPI(); });
+    ready = true; piTrain();
+  }
+
+  /* ================================================== 17.4 PDP and ICE */
+  var PD = { f: 0, colour: false, centre: false }, pdPlot;
+  function pdCompute() {
+    var f = PD.f, vals = col(M.trX, f), grid = [], k;
+    if (f === 4) grid = [0, 1];
+    else {
+      var a = quantile(vals, 0.01), b = quantile(vals, 0.99);
+      for (k = 0; k < 40; k++) grid.push(a + (b - a) * k / 39);
+    }
+    var rows = M.teX.slice(0, 60), ice = rows.map(function (x) {
+      var z = x.slice();
+      return grid.map(function (gv) { z[f] = gv; return M.model.predict(z); });
+    });
+    var pd = grid.map(function (gv, j) { var s = 0; ice.forEach(function (c) { s += c[j]; }); return s / ice.length; });
+    PD.grid = grid; PD.ice = ice; PD.pd = pd; PD.rows = rows; PD.vals = vals;
+    drawPD();
+  }
+  function drawPD() {
+    var f = PD.f, grid = PD.grid, last = grid.length - 1;
+    var ice = PD.centre ? PD.ice.map(function (c) { return c.map(function (v) { return v - c[0]; }); }) : PD.ice;
+    var pd = PD.centre ? PD.pd.map(function (v) { return v - PD.pd[0]; }) : PD.pd;
+    var lo = Infinity, hi = -Infinity;
+    ice.forEach(function (c) { c.forEach(function (v) { lo = Math.min(lo, v); hi = Math.max(hi, v); }); });
+    var padv = (hi - lo) * 0.06 || 0.1;
+    pdPlot.dom = f === 4 ? [-0.15, 1.15] : [grid[0], grid[last]];
+    pdPlot.ran = [Math.min(0, lo - padv), hi + padv];
+    pdPlot.resize(); pdPlot.clear();
+    pdPlot.frame({ xticks: f === 4 ? 1 : 4, yticks: 5, xlabel: FEATS[f].name.toLowerCase(),
+      ylabel: PD.centre ? 'variazione dell’usura predetta (mm)' : 'usura predetta (mm)',
+      xfmt: f === 4 ? function () { return ''; } : function (v) { return v.toFixed(0); },
+      yfmt: function (v) { return v.toFixed(1); } });
+    var g = pdPlot.ctx;
+    if (f === 4) {
+      g.fillStyle = C('--ink-3'); g.font = '11px ui-monospace, monospace'; g.textAlign = 'center'; g.textBaseline = 'top';
+      g.fillText('stradale', pdPlot.X(0), pdPlot.pad.t + pdPlot.ph + 6); g.fillText('pista', pdPlot.X(1), pdPlot.pad.t + pdPlot.ph + 6);
+    }
+    pdPlot.clip(function (ctx) {
+      ctx.globalAlpha = PD.colour ? 0.5 : 0.32;
+      ice.forEach(function (c, i) {
+        var colr = PD.colour ? (PD.rows[i][4] < 0.5 ? C('--accent') : C('--warn')) : C('--ink-3');
+        pdPlot.line(c.map(function (v, j) { return [grid[j], v]; }), colr, 1.2);
+      });
+      ctx.globalAlpha = 1;
+      pdPlot.line(pd.map(function (v, j) { return [grid[j], v]; }), C('--ink'), 3.6);
+      if (f === 4) { pdPlot.dot(0, pd[0], 5, C('--ink')); pdPlot.dot(1, pd[1], 5, C('--ink')); }
+      /* rug */
+      ctx.strokeStyle = C('--ink-3'); ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+      var yb = pdPlot.pad.t + pdPlot.ph;
+      for (var k = 0; k < PD.vals.length; k += 3) {
+        var px = pdPlot.X(PD.vals[k] + (f === 4 ? (k % 7 - 3) * 0.012 : 0));
+        ctx.beginPath(); ctx.moveTo(px, yb); ctx.lineTo(px, yb - 7); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    });
+    $('pdLegend').innerHTML = PD.colour
+      ? '<span><i style="background:var(--accent)"></i>ICE, pastiglie stradali</span><span><i style="background:var(--warn)"></i>ICE, pastiglie da pista</span><span><i style="background:var(--ink);height:4px"></i>dipendenza parziale (la media)</span>'
+      : '<span><i style="background:var(--ink-3)"></i>ICE, una per sessione</span><span><i style="background:var(--ink);height:4px"></i>dipendenza parziale (la media)</span>';
+
+    var rng0 = Math.max.apply(null, PD.pd) - Math.min.apply(null, PD.pd);
+    var ends = PD.ice.map(function (c) { return c[last] - c[0]; });
+    var pdDir = PD.pd[last] - PD.pd[0], against = 0;
+    ends.forEach(function (e) { if (Math.abs(pdDir) > 0.05 && Math.abs(e) > 0.02 && (e > 0) !== (pdDir > 0)) against++; });
+    $('pdRange').textContent = rng0.toFixed(2) + ' mm';
+    $('pdSpread').textContent = sd(ends).toFixed(2) + ' mm';
+    $('pdDisagree').textContent = against + ' / ' + ends.length;
+
+    /* road vs track average change, for the note */
+    var rd = [], tk = [];
+    PD.rows.forEach(function (x, i) { (x[4] < 0.5 ? rd : tk).push(ends[i]); });
+    var NOTES = [
+      'In media, l’usura cresce in modo costante con la temperatura del disco, di ' + rng0.toFixed(2) + ' mm. Spunta <b>colora per mescola</b>: le sessioni con pastiglie stradali salgono in media di ' +
+        smm(mean(rd)) + ' mm sull’intera variazione, quelle con pastiglie da pista di ' + smm(mean(tk)) +
+        ' mm, e le curve da pista risalgono all’estremo freddo. La linea spessa è la media di due comportamenti che nessuna delle due mescole ha davvero.',
+      'La pressione ha un effetto diretto (il termine 0.5 + pressure/60) ma, a temperatura del disco fissata, modesto. Nel mondo reale più pressione significa anche un disco più caldo; la variazione lo ignora deliberatamente.',
+      'Quasi piatta: la variazione cambia solo il condotto e tiene la temperatura del disco dov’era, quindi il modello non vede alcun motivo per cui l’usura debba cambiare. È una descrizione corretta del modello, e fuorviante sui freni — sezione 17.7.',
+      'Piatta, per lo stesso motivo del condotto: la temperatura ambiente conta solo attraverso la temperatura del disco, che nella variazione è tenuta fissa.',
+      'Due punti per curva. Passare alle pastiglie da pista cambia l’usura in media di ' + smm(PD.pd[1] - PD.pd[0]) + ' mm, ma <b>' + against + ' delle ' + ends.length +
+        '</b> sessioni vanno nella direzione opposta: le pastiglie da pista si usurano meno a caldo e di più a freddo, quindi per le sessioni fredde il cambio peggiora le cose. La media dice poco su ogni singola sessione.',
+      'Ogni curva sale, e la forma a ventaglio mostra la struttura moltiplicativa — un giro in più costa di più in una sessione calda e ad alta pressione. Spunta <b>centra</b> per vedere bene il ventaglio. La dispersione ICE di ' + sd(ends).toFixed(2) + ' mm sul bordo destro è interazione che la media nasconde.'
+    ];
+    $('pdNote').innerHTML = '<h4>' + FEATS[f].name + '</h4><p class="small">' + NOTES[f] + '</p>' +
+      '<p class="small mb0 muted">Il commento è scritto a mano; ogni numero e ogni curva sono calcolati dal modello addestrato.</p>';
+  }
+  function initPD() {
+    pdPlot = new AI.Plot($('pdCv'), { pad: { l: 50, r: 14, t: 14, b: 42 } });
+    AI.segmented($('pdFeatSeg'), function (v) { PD.f = parseInt(v, 10); pdCompute(); });
+    AI.on($('pdColour'), 'change', function () { PD.colour = $('pdColour').checked; drawPD(); });
+    AI.on($('pdCentre'), 'change', function () { PD.centre = $('pdCentre').checked; drawPD(); });
+    AI.onRedraw(function () { if (PD.ice) drawPD(); });
+    pdCompute();
+  }
+
+  /* ================================================== 17.5 exact Shapley values */
+  var SH = { row: 0, bg: 'all', bgN: 100, r: rng(77) }, shPlot, shRowR;
+  function shBackground() {
+    var pool = M.trX.filter(function (x) {
+      return SH.bg === 'all' ? true : SH.bg === 'road' ? x[4] < 0.5 : x[0] < 450;
+    });
+    var pm = permutation(pool.length, rng(4242));
+    return pm.slice(0, Math.min(SH.bgN, pool.length)).map(function (i) { return pool[i]; });
+  }
+  function shCompute() {
+    var x = M.teX[SH.row], bg = shBackground(), t0 = (window.performance ? performance.now() : Date.now());
+    var res = shapExact(M.model, x, bg), t1 = (window.performance ? performance.now() : Date.now());
+    SH.res = res; SH.x = x; SH.fx = M.model.predict(x); SH.ms = t1 - t0; SH.nbg = bg.length;
+    drawSH();
+  }
+  function drawSH() {
+    var res = SH.res, x = SH.x, phi = res.phi;
+    var order = [0, 1, 2, 3, 4, 5].sort(function (a, b) { return Math.abs(phi[b]) - Math.abs(phi[a]); });
+    var labels = ['media (baseline)'].concat(order.map(function (f) { return FEATS[f].name + ' = ' + FEATS[f].fmt(x[f]); })).concat(['questa previsione']);
+    var cum = res.base, mn = Math.min(0, res.base), mx = res.base, steps = [];
+    order.forEach(function (f) { var a = cum; cum += phi[f]; steps.push([a, cum, f]); mn = Math.min(mn, cum); mx = Math.max(mx, cum); });
+    mx = Math.max(mx, SH.fx);
+    var span = mx - mn || 0.1;
+    var narrow = shPlot.c.clientWidth < 520;
+    shPlot.pad.l = narrow ? 168 : 200;
+    hFrame(shPlot, 8, mn, mx + span * 0.16, labels, 'usura predetta (mm)', function (v) { return v.toFixed(2); },
+      narrow ? '600 10.5px system-ui, sans-serif' : '600 12px system-ui, sans-serif');
+    var g = shPlot.ctx, bh = rowH(shPlot, 8) * 0.56;
+    hRect(shPlot, 0, res.base, rowY(shPlot, 8, 0), bh, C('--ink-3'));
+    steps.forEach(function (s, i) {
+      var y = rowY(shPlot, 8, i + 1);
+      hRect(shPlot, s[0], s[1], y, bh, s[1] >= s[0] ? C('--bad') : C('--accent'));
+      g.strokeStyle = C('--ink-3'); g.lineWidth = 1; g.setLineDash([3, 3]);
+      g.beginPath(); g.moveTo(shPlot.X(s[0]), y - rowH(shPlot, 8) + bh / 2); g.lineTo(shPlot.X(s[0]), y - bh / 2); g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = C('--ink-2'); g.font = '11px ui-monospace, monospace'; g.textBaseline = 'middle';
+      g.textAlign = 'left'; g.fillText(smm(phi[s[2]], 3), shPlot.X(Math.max(s[0], s[1])) + 5, y);
+    });
+    var yl = rowY(shPlot, 8, 7);
+    hRect(shPlot, 0, SH.fx, yl, bh, C('--ink-3'));
+    g.strokeStyle = C('--ink-3'); g.setLineDash([3, 3]);
+    g.beginPath(); g.moveTo(shPlot.X(cum), yl - rowH(shPlot, 8) + bh / 2); g.lineTo(shPlot.X(cum), yl - bh / 2); g.stroke(); g.setLineDash([]);
+    g.fillStyle = C('--ink'); g.font = '700 11px ui-monospace, monospace'; g.textAlign = 'left';
+    g.fillText(SH.fx.toFixed(3), shPlot.X(SH.fx) + 5, yl);
+    g.fillText(res.base.toFixed(3), shPlot.X(res.base) + 5, rowY(shPlot, 8, 0));
+
+    var sum = phi.reduce(function (a, b) { return a + b; }, 0), err = sum - (SH.fx - res.base);
+    $('shFx').textContent = SH.fx.toFixed(3); $('shBase').textContent = res.base.toFixed(3);
+    $('shSum').textContent = smm(sum, 3);
+    $('shErr').textContent = Math.abs(err) < 1e-300 ? '0' : err.toExponential(1);
+    $('shEvals').textContent = AI.F.n(res.evals);
+    $('shTime').textContent = SH.ms.toFixed(0) + ' ms';
+    var bgName = { all: 'tutte le sessioni', road: 'le sessioni con pastiglie stradali', cool: 'le sessioni con disco sotto i 450 °C' }[SH.bg];
+    $('shBgName').textContent = SH.nbg + ' righe';
+    $('shRowDesc').innerHTML = FEATS.map(function (F, i) { return F.name + ' <b>' + F.fmt(x[i]) + '</b>'; }).join(' · ') +
+      '<br>usura misurata <b>' + M.teY[SH.row].toFixed(3) + ' mm</b> · predetta <b>' + SH.fx.toFixed(3) + ' mm</b>';
+    var top = order[0];
+    $('shNote').innerHTML = '<p class="small mb0">Rispetto a <b>' + bgName + '</b> (' + SH.nbg + ' righe di riferimento, previsione media ' +
+      res.base.toFixed(3) + ' mm), per questa sessione la previsione è ' + smm(SH.fx - res.base, 3) + ' mm. Il contributo singolo più grande è <b>' +
+      FEATS[top].name + ' = ' + FEATS[top].fmt(x[top]) + '</b>, con ' + smm(phi[top], 3) + ' mm. I sei contributi sommano a ' + smm(sum, 3) +
+      ' mm, che coincide con lo scarto ' + (err === 0 ? 'esattamente' : 'entro ' + Math.abs(err).toExponential(0) + ' mm — arrotondamento in virgola mobile, nient’altro') + '. Questa additività è una proprietà matematica dei valori di Shapley, qui verificata anziché data per scontata.</p>';
+  }
+  function shPick(i) { shRowR.set(i); }
+  function initSH() {
+    shPlot = new AI.Plot($('shCv'), { pad: { l: 200, r: 16, t: 10, b: 40 } });
+    var go = debounce(shCompute, 30), ready = false;
+    shRowR = AI.bindRange('shRow', function (v) { return '#' + (v + 1) + ' di 300'; }, function (v) { SH.row = v; if (ready) go(); });
+    AI.bindRange('shBgN', function (v) { return v; }, function (v) { SH.bgN = v; if (ready) go(); });
+    AI.segmented($('shBgSeg'), function (v) { SH.bg = v; shCompute(); });
+    function argBy(cmp) { var b = 0; for (var i = 1; i < M.pred.length; i++) if (cmp(M.pred[i], M.pred[b])) b = i; return b; }
+    AI.on($('shHigh'), 'click', function () { shPick(argBy(function (a, b) { return a > b; })); });
+    AI.on($('shLow'), 'click', function () { shPick(argBy(function (a, b) { return a < b; })); });
+    AI.on($('shTyp'), 'click', function () {
+      var med = quantile(M.pred, 0.5), b = 0;
+      for (var i = 1; i < M.pred.length; i++) if (Math.abs(M.pred[i] - med) < Math.abs(M.pred[b] - med)) b = i;
+      shPick(b);
+    });
+    AI.on($('shRand'), 'click', function () { shPick(Math.floor(SH.r() * M.teX.length)); });
+    AI.onRedraw(function () { if (SH.res) drawSH(); });
+    ready = true;
+    SH.row = argBy(function (a, b) { return a > b; });
+    shRowR.set(SH.row);
+  }
+
+  /* ================================================== 17.6 correlated twins */
+  var TR = { rho: 0.95, batch: 0 }, trPlot, trScat;
+  function trCompute() {
+    var d = genTrap(800, TR.rho, 5), teX = d.X.slice(500), teY = d.y.slice(500);
+    var runs = [];
+    for (var s = 1; s <= 10; s++) {
+      var rr = rng(s * 31337 + TR.batch * 977), bx = [], by = [];
+      for (var i = 0; i < 500; i++) { var j = Math.floor(rr() * 500); bx.push(d.X[j]); by.push(d.y[j]); }
+      var m = new GBM(bx, by, { trees: 60, depth: 3, lr: 0.2, minLeaf: 8, subsample: 0.5, colsample: 0.5, seed: s * 7919 + TR.batch * 31 });
+      var pi = permImp(m, teX, teY, [[0], [1], [0, 1], [3]], 3, s + TR.batch * 100);
+      runs.push({ D: pi.imp[0].mean, P: pi.imp[1].mean, G: pi.imp[2].mean, L: pi.imp[3].mean, rmse: pi.base });
+    }
+    /* scatter: one shuffle of disc temp, and the 99% envelope of the real pairs */
+    var D = col(teX, 0), P = col(teX, 1), pm = permutation(teX.length, rng(99 + TR.batch));
+    var mD = mean(D), mP = mean(P), a = 0, b = 0, c = 0, n = D.length, k;
+    for (k = 0; k < n; k++) { a += (D[k] - mD) * (D[k] - mD); b += (D[k] - mD) * (P[k] - mP); c += (P[k] - mP) * (P[k] - mP); }
+    a /= n; b /= n; c /= n;
+    var det = a * c - b * b;
+    function d2(x, y) { var dx = x - mD, dy = y - mP; return (c * dx * dx - 2 * b * dx * dy + a * dy * dy) / det; }
+    var outR = 0, outS = 0, sh = [];
+    for (k = 0; k < n; k++) {
+      if (d2(D[k], P[k]) > 9.21) outR++;
+      var ds = D[pm[k]]; sh.push([ds, P[k]]);
+      if (d2(ds, P[k]) > 9.21) outS++;
+    }
+    TR.runs = runs; TR.D = D; TR.P = P; TR.sh = sh;
+    TR.env = { mD: mD, mP: mP, a: a, b: b, c: c };
+    TR.outR = outR / n; TR.outS = outS / n; TR.corr = corr(D, P);
+    drawTR();
+  }
+  function drawTR() {
+    var runs = TR.runs, mx = 0;
+    runs.forEach(function (r) { mx = Math.max(mx, r.D, r.P, r.G, r.L); });
+    mx *= 1.1;
+    trPlot.dom = [0.5, 10.5]; trPlot.ran = [0, mx];
+    trPlot.resize(); trPlot.clear();
+    trPlot.frame({ xticks: 10, yticks: 4, xlabel: 'riaddestramento', ylabel: 'importanza (mm)',
+      xfmt: function (v) { return ''; }, yfmt: function (v) { return v.toFixed(2); } });
+    var g = trPlot.ctx, w = trPlot.pw / 10, y0 = trPlot.Y(0);
+    g.font = '11px ui-monospace, monospace'; g.fillStyle = C('--ink-3'); g.textAlign = 'center'; g.textBaseline = 'top';
+    runs.forEach(function (r, i) {
+      var cx = trPlot.X(i + 1), bw = Math.max(3, w * 0.24);
+      g.fillStyle = C('--accent'); g.fillRect(cx - bw * 1.5, trPlot.Y(r.D), bw, y0 - trPlot.Y(r.D));
+      g.fillStyle = C('--warn'); g.fillRect(cx - bw * 0.5, trPlot.Y(r.P), bw, y0 - trPlot.Y(r.P));
+      g.fillStyle = C('--good'); g.fillRect(cx + bw * 0.5, trPlot.Y(r.G), bw, y0 - trPlot.Y(r.G));
+      g.fillStyle = C('--ink-3'); g.fillText(String(i + 1), cx, trPlot.pad.t + trPlot.ph + 6);
+    });
+    var Lm = mean(runs.map(function (r) { return r.L; }));
+    trPlot.line([[0.5, Lm], [10.5, Lm]], C('--ink-3'), 1.5, [6, 5]);
+    g.fillStyle = C('--ink-3'); g.textAlign = 'right'; g.textBaseline = 'bottom'; g.font = '600 10px system-ui, sans-serif';
+    g.fillText('giri', trPlot.pad.l + trPlot.pw - 4, trPlot.Y(Lm) - 2);
+
+    /* scatter */
+    var D = TR.D, P = TR.P, e = TR.env;
+    var dlo = Math.min.apply(null, D), dhi = Math.max.apply(null, D), plo = Math.min.apply(null, P), phi = Math.max.apply(null, P);
+    trScat.dom = [dlo - 10, dhi + 10]; trScat.ran = [plo - 10, phi + 10];
+    trScat.resize(); trScat.clear();
+    trScat.frame({ xticks: 4, yticks: 4, xlabel: 'temperatura disco (°C)', ylabel: 'temperatura pastiglia (°C)',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(0); } });
+    trScat.clip(function (ctx) {
+      var k;
+      for (k = 0; k < TR.sh.length; k++) trScat.dot(TR.sh[k][0], TR.sh[k][1], 2.6, C('--bad'));
+      ctx.globalAlpha = 0.85;
+      for (k = 0; k < D.length; k++) trScat.dot(D[k], P[k], 2.6, C('--ink-3'));
+      ctx.globalAlpha = 1;
+      var l11 = Math.sqrt(e.a), l21 = e.b / l11, l22 = Math.sqrt(Math.max(1e-9, e.c - l21 * l21)), rr = Math.sqrt(9.21), pts = [];
+      for (k = 0; k <= 80; k++) {
+        var t = k / 80 * 2 * Math.PI, u = rr * Math.cos(t), v = rr * Math.sin(t);
+        pts.push([e.mD + l11 * u, e.mP + l21 * u + l22 * v]);
+      }
+      trScat.line(pts, C('--ink'), 1.6);
+    });
+
+    var shares = runs.map(function (r) { var s = Math.max(0, r.D) + Math.max(0, r.P); return s ? Math.max(0, r.D) / s : 0.5; });
+    var G = runs.map(function (r) { return r.G; }), ind = runs.map(function (r) { return Math.max(r.D, r.P); });
+    var smin = Math.min.apply(null, shares), smax = Math.max.apply(null, shares);
+    $('trCorr').textContent = TR.corr.toFixed(3);
+    $('trShare').textContent = (smin * 100).toFixed(0) + '–' + (smax * 100).toFixed(0) + '%';
+    $('trGroup').textContent = mean(G).toFixed(2) + ' ± ' + sd(G).toFixed(2);
+    $('trOut').textContent = (TR.outS * 100).toFixed(0) + '%';
+    var below = 0; runs.forEach(function (r) { if (r.D < r.L && r.P < r.L) below++; });
+    var s = '<p class="small">Raggruppato, il calore misurato dai due sensori vale <b>' + mean(G).toFixed(2) + ' mm</b> — ' +
+      (mean(G) > Lm ? 'più dei' : 'quanto i') + ' giri (' + Lm.toFixed(2) + ' mm). Preso singolarmente, il gemello più forte vale in media solo <b>' +
+      mean(ind).toFixed(2) + ' mm</b>, e in <b>' + below + ' riaddestramenti su 10</b> entrambi i gemelli finiscono sotto i giri. La quota della temperatura del disco nella coppia va dal <b>' +
+      (smin * 100).toFixed(0) + '% al ' + (smax * 100).toFixed(0) + '%</b> tra i riaddestramenti sugli stessi dati.</p>';
+    if (TR.corr < 0.6) s += '<p class="small">A questa correlazione i due non sono davvero gemelli: ogni sensore porta informazioni che all’altro mancano, quindi nessuno dei due può coprire del tutto l’altro.</p>';
+    s += '<p class="small mb0">Rimescolare la temperatura del disco porta il <b>' + (TR.outS * 100).toFixed(0) + '%</b> delle righe di test fuori dalla regione in cui cade il 99% delle sessioni reali (ne cade fuori il ' +
+      (TR.outR * 100).toFixed(1) + '% delle righe reali). ' +
+      (TR.outS > 0.25 ? 'Il modello viene valutato su sessioni che non possono verificarsi.' : 'A questa correlazione le righe rimescolate sembrano ancora, a grandi linee, reali; alza il cursore.') + '</p>';
+    $('trNote').innerHTML = s;
+  }
+  function initTR() {
+    trPlot = new AI.Plot($('trCv'), { pad: { l: 48, r: 12, t: 12, b: 40 } });
+    trScat = new AI.Plot($('trSc'), { pad: { l: 50, r: 12, t: 12, b: 40 } });
+    var go = debounce(trCompute, 90), ready = false;
+    AI.bindRange('trRho', function (v) { return v.toFixed(3); }, function (v) { TR.rho = v; if (ready) go(); });
+    AI.on($('trSeeds'), 'click', function () { TR.batch += 1; trCompute(); });
+    AI.onRedraw(function () { if (TR.runs) drawTR(); });
+    ready = true; trCompute();
+  }
+
+  /* ================================================== 17.7 explanation vs cause */
+  var CA = { k: 1.5, conf: false }, caPlot;
+  function caCompute() {
+    var d = genBrake(900, 23, CA.k, CA.conf);
+    var trX = d.X.slice(0, 600), trY = d.y.slice(0, 600), teX = d.X.slice(600), ex = d.ex.slice(600);
+    var A = new GBM(trX, trY, { trees: 200, depth: 3, lr: 0.08, minLeaf: 8, seed: 3 });
+    var cb = [1, 2, 3, 4, 5], B = new GBM(proj(trX, cb), trY, { trees: 200, depth: 3, lr: 0.08, minLeaf: 8, seed: 3 });
+    var grid = []; for (var q = 0; q <= 20; q++) grid.push(q * 5);
+    var tB = proj(teX, cb);
+    CA.grid = grid;
+    CA.A = grid.map(function (dv) { var s = 0; teX.forEach(function (x) { var z = x.slice(); z[2] = dv; s += A.predict(z); }); return s / teX.length; });
+    CA.B = grid.map(function (dv) { var s = 0; tB.forEach(function (x) { var z = x.slice(); z[1] = dv; s += B.predict(z); }); return s / tB.length; });
+    CA.T = grid.map(function (dv) {
+      var s = 0;
+      ex.forEach(function (e) { s += wearMean(discTemp(e.pr, dv, e.amb, e.eT, CA.k), e.pr, e.comp, e.laps) * NOISE_MEAN; });
+      return s / ex.length;
+    });
+    CA.ductT = corr(col(teX, 2), col(teX, 0));
+    drawCA();
+  }
+  function drawCA() {
+    var all = CA.A.concat(CA.B, CA.T), lo = Math.min.apply(null, all), hi = Math.max.apply(null, all), p = (hi - lo) * 0.12 || 0.1;
+    caPlot.dom = [0, 100]; caPlot.ran = [Math.max(0, lo - p), hi + p];
+    caPlot.resize(); caPlot.clear();
+    caPlot.frame({ xticks: 5, yticks: 5, xlabel: 'apertura condotto (%)', ylabel: 'usura media (mm)',
+      xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(2); } });
+    function pts(a) { return a.map(function (v, i) { return [CA.grid[i], v]; }); }
+    caPlot.clip(function () {
+      caPlot.line(pts(CA.T), C('--good'), 2.6, [7, 5]);
+      caPlot.line(pts(CA.B), C('--warn'), 2.6);
+      caPlot.line(pts(CA.A), C('--accent'), 2.8);
+    });
+    var dA = CA.A[20] - CA.A[0], dB = CA.B[20] - CA.B[0], dT = CA.T[20] - CA.T[0];
+    $('caA').textContent = smm(dA); $('caB').textContent = smm(dB); $('caT').textContent = smm(dT);
+    var s = '<h4>Che cosa è successo</h4>';
+    s += '<p class="small">Il modello A, che vede la temperatura del disco, dice che aprire il condotto cambia l’usura di <b>' + smm(dA) +
+      ' mm</b>. Corretto come affermazione sul modello; ' + (Math.abs(dT) > 0.05 ? 'ma l’effetto reale dell’apertura del condotto è <b>' + smm(dT) + ' mm</b>.' : 'e qui anche l’effetto reale è trascurabile.') + '</p>';
+    if (!CA.conf) {
+      s += '<p class="small mb0">Il modello B non vede la temperatura del disco, quindi l’effetto del condotto deve emergere nel condotto stesso: dice <b>' + smm(dB) +
+        ' mm</b>, vicino alla verità. Funziona solo perché il condotto è stato impostato <b>a caso</b>, il che spezza ogni legame con la severità del circuito. Ora passa a “impostato dagli ingegneri”.</p>';
+    } else {
+      s += '<p class="small mb0">Gli ingegneri aprono il condotto sui circuiti severi, che girano più caldi (correlazione tra condotto e temperatura del disco in questi dati: ' +
+        CA.ductT.toFixed(2) + '). Il modello B ora attribuisce al condotto parte della severità e riporta <b>' + smm(dB) + ' mm</b>' +
+        (Math.abs(dT) < 0.05 && Math.abs(dB) > 0.1 ? ' — <b>un effetto che non esiste</b>: i condotti aperti sembrano dannosi solo perché vanno di pari passo con i circuiti severi.'
+          : dB > 0.02 && dT < -0.02 ? ' — <b>il segno sbagliato</b>: i condotti aperti sembrano aumentare l’usura.'
+          : Math.abs(dB) < 0.15 * Math.abs(dT) ? ', <b>praticamente nulla</b> dell’effetto reale.'
+          : Math.abs(dB) < Math.abs(dT) / 2 ? ', ben meno della metà dell’effetto reale.' : '.') +
+        ' Ogni curva del grafico è un calcolo corretto. Solo il generatore conosce quella verde.</p>';
+    }
+    $('caNote').innerHTML = s;
+  }
+  function initCA() {
+    caPlot = new AI.Plot($('caCv'), { pad: { l: 52, r: 14, t: 14, b: 42 } });
+    var go = debounce(caCompute, 80), ready = false;
+    AI.bindRange('caK', function (v) { return v.toFixed(1) + ' °C per %'; }, function (v) { CA.k = v; if (ready) go(); });
+    AI.segmented($('caSeg'), function (v) { CA.conf = v === 'conf'; caCompute(); });
+    AI.onRedraw(function () { if (CA.A) drawCA(); });
+    ready = true; caCompute();
+  }
+
+  window.PAGE_INIT = function () {
+    buildMain();
+    initMono();
+    initPI();
+    initPD();
+    initSH();
+    initTR();
+    initCA();
+  };
+})();
+</script>
+</body>
+</html>

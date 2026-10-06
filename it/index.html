@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>AI Foundations — Ciclo di seminari</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .hero { padding-top: 3.6rem; padding-bottom: 1.6rem; }
+  .partband {
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    padding: 1.6rem 0 .9rem; border-top: 1px solid var(--line); margin-top: 2rem;
+  }
+  .partband .k {
+    font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--accent);
+  }
+  .partband h2 { margin: 0; font-size: 1.5rem; }
+  .partband .pnote { display: block; color: var(--ink-3); font-size: .92rem; }
+  .partband .mins {
+    margin-left: auto; font-size: .82rem; color: var(--ink-3); font-weight: 600;
+    background: var(--bg-3); border: 1px solid var(--line); padding: 3px 11px; border-radius: 20px;
+  }
+  .modcard {
+    display: flex; gap: 18px; text-decoration: none; color: inherit;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 18px 20px; box-shadow: var(--shadow); transition: border-color .15s, transform .15s;
+  }
+  .modcard:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .modcard .n {
+    font-family: var(--mono); font-size: 1.25rem; font-weight: 700; color: var(--accent);
+    width: 44px; height: 44px; flex: none; display: grid; place-items: center;
+    background: var(--accent-soft); border-radius: 11px;
+  }
+  .modcard h3 { margin-bottom: .2em; font-size: 1.1rem; }
+  .modcard p { margin-bottom: .55em; color: var(--ink-2); font-size: .92rem; }
+  .modcard .feats { display: flex; gap: 5px; flex-wrap: wrap; }
+  .modcard .feats span {
+    font-size: .72rem; padding: 2px 8px; border-radius: 20px;
+    background: var(--bg-3); border: 1px solid var(--line-2); color: var(--ink-3); font-weight: 560;
+  }
+  .modcard .mins { margin-left: auto; flex: none; font-size: .78rem; color: var(--ink-3); font-weight: 600; }
+  .keyrow { display: flex; gap: 22px; flex-wrap: wrap; font-size: .9rem; color: var(--ink-3); }
+  .keyrow kbd {
+    font-family: var(--mono); font-size: .8rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--ink-2);
+  }
+  .tracks { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 14px; }
+  .track { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; background: var(--panel); }
+  .track h4 { color: var(--accent); }
+  .track .seq { font-family: var(--mono); font-size: .86rem; font-weight: 700; color: var(--ink-2); margin: .4em 0 .6em; }
+  .track p { font-size: .88rem; margin-bottom: 0; }
+</style>
+</head>
+<body data-page="index">
+
+<header class="hero wrap">
+  <span class="eyebrow">Ciclo di seminari interni</span>
+  <h1>AI Foundations</h1>
+  <p class="lead">Ventuno moduli interattivi che partono da un singolo neurone artificiale e arrivano a
+  un elenco pre-qualificato di casi d’uso tratti dal tuo lavoro. Pensati per ingegneri che si avvicinano
+  per la prima volta al machine learning: ogni concetto ha qualcosa che puoi muovere, rompere e rimettere
+  insieme, e ogni numero nei calcolatori viene calcolato, non illustrato.</p>
+</header>
+
+<main class="wrap">
+
+  <div class="partband">
+    <span class="k">I</span>
+    <div><h2>Fondamenti</h2><span class="pnote">Come funziona. Cinque moduli, circa tre ore e mezza.</span></div>
+    <span class="mins">3 h 40</span>
+  </div>
+
+  <div class="grid" style="gap:12px">
+    <a class="modcard" href="01-history.html">
+      <span class="n">1</span>
+      <div style="flex:1">
+        <div class="between"><h3>Che cos’è davvero l’AI</h3><span class="mins">30 min</span></div>
+        <p>Ottant’anni di storia in un’unica linea del tempo e un vocabolario che puoi difendere in una
+        riunione: AI, ML, deep learning, AI generativa e LLM, e cosa li distingue.</p>
+        <div class="feats"><span>Linea del tempo interattiva</span><span>Diagramma a insiemi</span><span>Mazzo del gergo</span><span>Quiz di classificazione</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="02-perceptron.html">
+      <span class="n">2</span>
+      <div style="flex:1">
+        <div class="between"><h3>Il percettrone</h3><span class="mins">30 min</span></div>
+        <p>Un neurone a cofano aperto. Imposta i pesi a mano, guarda spostarsi la frontiera di decisione,
+        poi sbatti contro il muro che ha fermato il settore per diciassette anni.</p>
+        <div class="feats"><span>Neurone dal vivo</span><span>Sfida delle porte logiche</span><span>Il muro dello XOR</span><span>Regola di apprendimento</span><span>Discesa del gradiente</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="03-networks.html">
+      <span class="n">3</span>
+      <div style="flex:1">
+        <div class="between"><h3>Dal neurone alla rete</h3><span class="mins">45 min</span></div>
+        <p>Impila i neuroni, addestrali nel browser e scopri perché la profondità permette frontiere curve —
+        e perché la forma della rete segue la forma dei dati.</p>
+        <div class="feats"><span>Costruttore di reti</span><span>Forward pass</span><span>Backpropagation</span><span>Overfitting</span><span>Kernel di una CNN</span><span>Addestra il tuo</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="04-llm.html">
+      <span class="n">4</span>
+      <div style="flex:1">
+        <div class="between"><h3>Come funziona un LLM</h3><span class="mins">75 min</span></div>
+        <p>Token, embedding, attenzione e l’unica cosa che il modello sta davvero facendo. Poi l’ingegneria
+        che ci sta intorno: finestre di contesto, RAG e come fargli recuperare la cosa giusta, fine-tuning,
+        modelli di visione e diffusione, modi di guasto.</p>
+        <div class="feats"><span>Tokenizer</span><span>Spazio degli embedding</span><span>Fai tu il modello</span><span>Mappa di attenzione</span><span>Finestra di contesto</span><span>Simulatore RAG</span><span>Valutazione del retrieval</span><span>Token delle immagini</span><span>Diffusione giocattolo</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="05-cost.html">
+      <span class="n">5</span>
+      <div style="flex:1">
+        <div class="between"><h3>Il conto</h3><span class="mins">40 min</span></div>
+        <p>Quanto costa tutto questo in FLOP, ore-GPU, megawattora, euro e tonnellate di CO₂ —
+        con un calcolatore che puoi applicare al tuo caso d’uso.</p>
+        <div class="feats"><span>Calcolatore di addestramento</span><span>Leggi di scala</span><span>Inferenza su larga scala</span><span>Zoom sul datacenter</span><span>API o self-hosting</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="partband">
+    <span class="k">II</span>
+    <div><h2>Progettarla</h2><span class="pnote">Come costruire qualcosa che funziona e dimostrarlo. Cinque moduli, circa quattro ore e un quarto.</span></div>
+    <span class="mins">4 h 15</span>
+  </div>
+
+  <div class="grid" style="gap:12px">
+    <a class="modcard" href="06-classical.html">
+      <span class="n">6</span>
+      <div style="flex:1">
+        <div class="between"><h3>Oltre le reti neurali</h3><span class="mins">50 min</span></div>
+        <p>I metodi che, senza far rumore, generano la maggior parte del valore in un’azienda manifatturiera:
+        alberi, ensemble, clustering, rilevamento delle anomalie senza guasti etichettati e apprendimento per rinforzo.</p>
+        <div class="feats"><span>Divisore ad albero decisionale</span><span>Ensemble</span><span>Alberi contro rete neurale</span><span>k-means</span><span>Rilevamento delle anomalie</span><span>Q-learning</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="07-data.html">
+      <span class="n">7</span>
+      <div style="flex:1">
+        <div class="between"><h3>Dati</h3><span class="mins">55 min</span></div>
+        <p>Il modulo che decide se il progetto funziona. Disaccordo tra etichettatori, il paradosso
+        dell’accuratezza, leakage, drift, perché una correlazione non è una manopola, e quanto ti costerà
+        davvero l’etichettatura.</p>
+        <div class="feats"><span>Esercizio di etichettatura</span><span>Sbilanciamento</span><span>Demo di leakage</span><span>Simulatore di drift</span><span>Confondimento e paradosso di Simpson</span><span>Calcolatore dei costi</span><span>Verifica di prontezza</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="08-evaluation.html">
+      <span class="n">8</span>
+      <div style="flex:1">
+        <div class="between"><h3>Valutazione</h3><span class="mins">50 min</span></div>
+        <p>Trasformare una demo in ingegneria: soglie pesate sui costi, ROC contro precision–recall,
+        calibrazione, baseline, dimensione del campione e test di regressione di un sistema basato su LLM.</p>
+        <div class="feats"><span>Ottimizzatore dei costi</span><span>ROC e PR</span><span>Calibrazione</span><span>Baseline</span><span>Intervalli di confidenza</span><span>Set di valutazione</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="09-agents.html">
+      <span class="n">9</span>
+      <div style="flex:1">
+        <div class="between"><h3>Agenti e uso di strumenti</h3><span class="mins">45 min</span></div>
+        <p>Cosa cambia quando il modello può agire. Fai girare un agente, approva o rifiuta le sue chiamate
+        agli strumenti e guarda un documento avvelenato esfiltrare il tuo listino prezzi.</p>
+        <div class="feats"><span>Simulatore di agente</span><span>Prompt injection</span><span>Progettista dei permessi</span><span>Costo quadratico</span><span>MCP</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="10-governance.html">
+      <span class="n">10</span>
+      <div style="flex:1">
+        <div class="between"><h3>Governance e AI Act</h3><span class="mins">55 min</span></div>
+        <p>Livelli di rischio, il rinvio del 2026, fornitore contro deployer, cosa può finire in un prompt,
+        gli attacchi al modello stesso, proprietà intellettuale e segreti commerciali, e un modello
+        operativo che non sia una messinscena.</p>
+        <div class="feats"><span>Strumento dei livelli di rischio</span><span>Linea del tempo</span><span>Dati nel prompt</span><span>Attacco avversario</span><span>Laboratorio backdoor</span><span>Domande al fornitore</span><span>Verifica di governance</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="partband">
+    <span class="k">III</span>
+    <div><h2>Applicarla</h2><span class="pnote">Come entra nell’organizzazione. Quattro moduli, circa quattro ore.</span></div>
+    <span class="mins">3 h 50</span>
+  </div>
+
+  <div class="grid" style="gap:12px">
+    <a class="modcard" href="11-engineering.html">
+      <span class="n">11</span>
+      <div style="flex:1">
+        <div class="between"><h3>L’AI nell’ingegneria e nella simulazione</h3><span class="mins">85 min</span></div>
+        <p>Il modulo più vicino al lavoro di tutti i giorni. Modelli surrogati, progettazione degli
+        esperimenti, ottimizzazione guidata dal surrogato, fitting informato dalla fisica, il problema
+        dell’inviluppo, il divario tra dati simulati e reali, modelli di campo dentro CFD e FEM, e un
+        approfondimento facoltativo sull’apprendimento informato dalla fisica.</p>
+        <div class="feats"><span>Laboratorio dei surrogati</span><span>Piani di campionamento</span><span>Ottimizzazione per infill</span><span>Fit informato dalla fisica</span><span>Estrapolazione</span><span>Divario sim-reale</span><span>Modello ridotto POD</span><span>Warm start del solutore</span><span>La trappola del valore di picco</span><span>PINN dal vivo</span><span>Vincoli rigidi e morbidi</span><span>Scoperta delle equazioni</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="12-prompting.html">
+      <span class="n">12</span>
+      <div style="flex:1">
+        <div class="between"><h3>Prompting</h3><span class="mins">70 min</span></div>
+        <p>Un workshop. Un costruttore di prompt che produce testo utilizzabile, una galleria di riscritture,
+        un esercizio di scomposizione, una tabella di risoluzione dei problemi, verdetti onesti sulle
+        leggende, e come lavorare con gli assistenti AI alla programmazione.</p>
+        <div class="feats"><span>Costruttore di prompt</span><span>Prima / dopo</span><span>Scomposizione</span><span>Risoluzione dei problemi</span><span>Sfatare i miti</span><span>Laboratorio di code review</span><span>Verifica d’uso degli assistenti</span><span>Esercizi</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="13-human.html">
+      <span class="n">13</span>
+      <div style="flex:1">
+        <div class="between"><h3>Fattore umano e adozione</h3><span class="mins">40 min</span></div>
+        <p>Perché i progetti pilota falliscono. Si comincia dimostrando l’automation bias sul pubblico, poi
+        si passa alla calibrazione della fiducia, alle strategie di revisione, alla perdita di competenze e
+        a metriche di adozione oneste.</p>
+        <div class="feats"><span>Esperimento sull’automation bias</span><span>Curva di affidamento</span><span>In / on / out of the loop</span><span>Verifica del flusso di lavoro</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="14-limits.html">
+      <span class="n">14</span>
+      <div style="flex:1">
+        <div class="between"><h3>Limiti e questioni aperte</h3><span class="mins">35 min</span></div>
+        <p>Cosa questi sistemi non sanno fare e perché, il muro dell’affidabilità, ciò che nessuno sa ancora,
+        le tre posizioni serie su dove si va, e come leggere le affermazioni.</p>
+        <div class="feats"><span>Calcolatore della composizione</span><span>Interpretabilità</span><span>Tre posizioni</span><span>Valutare un’affermazione</span></div>
+      </div>
+    </a>
+  </div>
+
+
+  <div class="partband">
+    <span class="k">IV</span>
+    <div><h2>Portarla in produzione</h2><span class="pnote">Come arriva in un prodotto e resta sicura. Sette moduli compreso il progetto finale, circa cinque ore e mezza.</span></div>
+    <span class="mins">5 h 40</span>
+  </div>
+
+  <div class="grid" style="gap:12px">
+    <a class="modcard" href="15-timeseries.html">
+      <span class="n">15</span>
+      <div style="flex:1">
+        <div class="between"><h3>Serie temporali e telemetria</h3><span class="mins">45 min</span></div>
+        <p>La telemetria non è una tabella di righe indipendenti. Ricampiona senza inventare frequenze, fondi
+        un GPS in ritardo con un accelerometro che deriva, trova un guasto a un cuscinetto nello spettro e
+        guarda un punteggio k-fold casuale crollare su una suddivisione in avanti nel tempo.</p>
+        <div class="feats"><span>Autocorrelazione</span><span>Aliasing e fusione sensoriale</span><span>Feature FFT</span><span>Baseline ingenue</span><span>Leakage temporale</span><span>Taratura delle anomalie</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="16-uncertainty.html">
+      <span class="n">16</span>
+      <div style="flex:1">
+        <div class="between"><h3>Incertezza</h3><span class="mins">40 min</span></div>
+        <p>Quanto è sicuro il modello, e come accorgersi quando le sue barre d’errore mentono: incertezza
+        aleatoria contro epistemica, surrogati a processo gaussiano, ensemble, intervalli conformi e il
+        bilancio dell’incertezza.</p>
+        <div class="feats"><span>Bande di confidenza GP</span><span>Disaccordo dell’ensemble</span><span>Intervalli conformi</span><span>Bilancio dell’incertezza</span><span>La trappola del softmax</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="17-explainability.html">
+      <span class="n">17</span>
+      <div style="flex:1">
+        <div class="between"><h3>Spiegare le previsioni di un modello</h3><span class="mins">40 min</span></div>
+        <p>Importanza per permutazione, dipendenza parziale, curve ICE e valori di Shapley esatti su un modello
+        di usura dei freni le cui vere equazioni sono sulla pagina — e come ognuno di questi strumenti
+        inganna con sensori correlati e con causa ed effetto.</p>
+        <div class="feats"><span>Vincoli monotoni</span><span>Importanza per permutazione</span><span>PDP e ICE</span><span>Cascata di Shapley</span><span>La trappola delle feature correlate</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="18-adaptation.html">
+      <span class="n">18</span>
+      <div style="flex:1">
+        <div class="between"><h3>Adattare i modelli</h3><span class="mins">45 min</span></div>
+        <p>Quando usare un prompt, il retrieval, il fine-tuning o un addestramento da zero. Transfer learning
+        e oblio su una rete dal vivo, LoRA come aggiornamento a basso rango, distillazione da insegnante a
+        studente e un calcolatore decisionale.</p>
+        <div class="feats"><span>Trasferimento sim-banco</span><span>Oblio e replay</span><span>Esploratore del rango LoRA</span><span>Distillazione</span><span>Calcolatore decisionale</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="19-deployment.html">
+      <span class="n">19</span>
+      <div style="flex:1">
+        <div class="between"><h3>Rilasciare e gestire i modelli</h3><span class="mins">45 min</span></div>
+        <p>Cosa succede dopo il notebook. Ricostruisci il modello del mese scorso, rispetta una scadenza di
+        latenza, quantizza una rete vera a 2 bit, distribuisci un modello leggermente peggiore in quattro
+        modi diversi e gestisci un trimestre di monitoraggio in produzione.</p>
+        <div class="feats"><span>Riproducibilità</span><span>Bilancio di latenza</span><span>Quantizzazione e pruning</span><span>Shadow / canary / A/B</span><span>Monitoraggio del drift</span><span>Checklist di messa in produzione</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="20-safety.html">
+      <span class="n">20</span>
+      <div style="flex:1">
+        <div class="between"><h3>L’AI nei sistemi del veicolo critici per la sicurezza</h3><span class="mins">50 min</span></div>
+        <p>Perché il ML rompe le ipotesi classiche della sicurezza funzionale, come si incastrano ISO 26262,
+        SOTIF, ISO/PAS 8800 e l’omologazione, e come un ODD, un’architettura doer/checker, la statistica dei
+        test e un safety case portano il ML su un veicolo.</p>
+        <div class="feats"><span>Aree SOTIF</span><span>Costruttore di ODD</span><span>Doer / checker</span><span>Calcolatore della distanza di test</span><span>Costruttore di safety case</span></div>
+      </div>
+    </a>
+    <a class="modcard" href="21-capstone.html">
+      <span class="n">21</span>
+      <div style="flex:1">
+        <div class="between"><h3>Progetto finale</h3><span class="mins">75 min</span></div>
+        <p>Una canvas per un caso d’uso del tuo lavoro, con una scheda di valutazione calcolata, un approccio
+        consigliato, tre passi concreti e una griglia di portafoglio per le idee di tutta la sala.</p>
+        <div class="feats"><span>Canvas del caso d’uso</span><span>Scheda di valutazione</span><span>Passi successivi</span><span>Griglia di portafoglio</span><span>Agenda del workshop</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="partband" style="margin-top:2.6rem">
+    <span class="k">☰</span>
+    <div><h2>Condurre il ciclo</h2><span class="pnote">Percorsi, formato e aspetti pratici.</span></div>
+  </div>
+
+  <h3>Percorsi consigliati</h3>
+  <p>Il ciclo completo dura circa diciassette ore e mezza, cioè un programma di dieci-dodici settimane
+  con una sessione a settimana. Questi percorsi più brevi funzionano come interventi a sé stanti.</p>
+
+  <div class="tracks">
+    <div class="track">
+      <h4>Mezza giornata, dirigenti</h4>
+      <div class="seq">1 · 4 · 5 · 10 · 14</div>
+      <p>Che cos’è, come funzionano i modelli linguistici, quanto costa, cosa richiede la legge e cosa è
+      davvero incerto. Salta del tutto la matematica; tieni il simulatore RAG e il calcolatore di
+      addestramento.</p>
+    </div>
+    <div class="track">
+      <h4>Una giornata, ingegneri</h4>
+      <div class="seq">2 · 3 · 6 · 7 · 11</div>
+      <p>Il meccanismo, l’algoritmo giusto per i dati, i dati stessi e le applicazioni ingegneristiche.
+      Il percorso tecnicamente più appagante e quello che genera i casi d’uso migliori.</p>
+    </div>
+    <div class="track">
+      <h4>Una giornata, team di delivery</h4>
+      <div class="seq">7 · 8 · 9 · 13 · 21</div>
+      <p>Dati, valutazione, agenti, fattore umano, progetto finale. Per chi costruirà davvero qualcosa o
+      ne sarà responsabile. Presuppone che la Parte I sia già stata svolta.</p>
+    </div>
+    <div class="track">
+      <h4>Due ore, per tutti</h4>
+      <div class="seq">1 · 12 · 13.1</div>
+      <p>Vocabolario, il workshop di prompting e l’esperimento sull’automation bias. La combinazione più
+      adatta a un pubblico ampio, che soddisfa anche l’obbligo di alfabetizzazione sull’AI discusso nel
+      modulo 10.</p>
+    </div>
+    <div class="track">
+      <h4>Il filo narrativo</h4>
+      <div class="seq">2 → 3 → 4 → 8 → 13</div>
+      <p>Se hai un solo filo da seguire: il fallimento dello XOR nel 2 viene risolto nel 3; l’obiettivo del
+      token successivo nel 4 spiega i fallimenti; l’8 li rende misurabili; il 13 mostra perché le persone
+      li accettano comunque.</p>
+    </div>
+    <div class="track">
+      <h4>Una giornata, fino al veicolo</h4>
+      <div class="seq">15 · 16 · 19 · 20</div>
+      <p>Telemetria, incertezza onesta, un modello in produzione e il safety case. Per i team il cui
+      modello finirà su un banco prova, in stabilimento o in macchina. Presuppone i moduli 7 e 8.</p>
+    </div>
+    <div class="track">
+      <h4>Prima di ogni sessione</h4>
+      <div class="seq">verifica 5, 10 e 20</div>
+      <p>I dati su energia e costi del modulo 5, le date normative del modulo 10 e lo stato degli standard
+      del modulo 20 cambiano in fretta, e sono tutti citati con le fonti sulla pagina. Dieci minuti di
+      verifica proteggono la tua credibilità.</p>
+    </div>
+  </div>
+
+  <div class="callout key mt2">
+    <span class="ctitle">Come condurre una sessione</span>
+    <p class="mb0">Ogni modulo è una pagina che proietti direttamente dal browser — senza bisogno di una
+    connessione a internet. Procedi dall’alto verso il basso e fermati a ogni blocco
+    <strong>Laboratorio</strong> per far provare i partecipanti; i laboratori sono il modulo, il testo è la
+    dispensa. Premi <kbd>N</kbd> per le note del relatore, che riportano i tempi, le domande da aspettarsi e
+    i punti in cui rallentare.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="card">
+      <h4>Tastiera</h4>
+      <div class="keyrow">
+        <span><kbd>N</kbd> note del relatore</span>
+        <span><kbd>T</kbd> chiaro / scuro</span>
+        <span><kbd>←</kbd> <kbd>→</kbd> modulo precedente / successivo</span>
+      </div>
+      <p class="small muted mt1 mb0">Le note del relatore sono nascoste per impostazione predefinita, così
+      gli stessi file possono essere consegnati ai partecipanti. Compaiono invece quando una pagina viene
+      stampata in PDF.</p>
+    </div>
+    <div class="card">
+      <h4>Onestà sul materiale</h4>
+      <p class="small mb0">Ogni calcolatore calcola i suoi numeri dal vivo — le reti si addestrano davvero, i
+      surrogati fanno davvero il fit, le statistiche vengono davvero calcolate. Tre elementi sono scritti a
+      mano anziché calcolati, e sono indicati come tali sulla pagina: il tokenizer del modulo 4.1, le
+      probabilità del token successivo nel 4.3 e le mappe di attenzione nel 4.4. I dati del modulo 5 sono
+      citati e datati; i moduli 10 e 20 sono un orientamento per ingegneri, non una consulenza legale.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <p><strong>Il filo che tiene insieme tutto il ciclo</strong> è <em>“sono tutte somme pesate e un unico
+    ciclo”</em>. Dillo nel modulo 2 e richiamalo nel modulo 4 e nel modulo 14 — le persone ricordano il
+    richiamo, ed è l’antidoto sia alla credulità sia alla mistificazione.</p>
+    <ul>
+      <li>Il modulo 2 si chiude con un fallimento (lo XOR). Lascia la sala un po’ bloccata; il modulo 3 si
+      apre tirandola fuori. Non rovinare la sorpresa.</li>
+      <li>La demo RAG del modulo 4.8 e il documento avvelenato del modulo 9.3 sono le due cose più
+      convincenti del ciclo per un pubblico manageriale. Riserva tempo a entrambe.</li>
+      <li>Il modulo 13.1 funziona solo se non avvisi prima. Resisti alla tentazione di spiegare in anticipo.</li>
+      <li>La checklist di prontezza del modulo 7 e la canvas del modulo 21 sono i due elaborati che vale la
+      pena raccogliere. Insieme sono il quadro più accurato della prontezza all’AI che chiunque
+      nell’organizzazione produrrà quest’anno.</li>
+      <li>Registra le presenze. Con l’obbligo di alfabetizzazione sull’AI discusso nel modulo 10.9, questo
+      ciclo è una misura di conformità oltre che di formazione.</li>
+    </ul>
+  </div>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <div class="footnav"></div>
+    <p class="small muted mt2 mb0">Materiale formativo interno. I dati del modulo 5 e le date normative dei
+    moduli 10 e 20 sono citati e datati sulla pagina — verificali prima di ogni sessione, perché cambiano
+    in fretta.</p>
+  </div>
+</footer>
+
+<script src="../assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>21 · Progetto finale — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 400px; }
+  .canvasgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .canvasgrid { grid-template-columns: 1fr; } }
+  .caselist { display: grid; gap: 6px; }
+  .caseitem {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; background: var(--panel);
+    font-size: .88rem;
+  }
+  .caseitem.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .caseitem .nm { cursor: pointer; font-weight: 600; }
+  .caseitem button {
+    font: inherit; font-size: .74rem; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--bg-2); color: var(--ink-3);
+  }
+  .caseitem button:hover { border-color: var(--bad); color: var(--bad); }
+  .stepbox {
+    border-left: 3px solid var(--accent); background: var(--bg-2); border-radius: 0 var(--r) var(--r) 0;
+    padding: 12px 16px; margin-bottom: 8px;
+  }
+  .stepbox .n {
+    font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--accent); display: block; margin-bottom: 3px;
+  }
+  .agenda { display: grid; gap: 8px; }
+  .agenda .row {
+    display: grid; grid-template-columns: 76px 1fr; gap: 14px; align-items: start;
+    border-bottom: 1px solid var(--line-2); padding: 10px 0;
+  }
+  .agenda .row:last-child { border-bottom: none; }
+  .agenda .tm { font-family: var(--mono); font-size: .84rem; font-weight: 700; color: var(--accent); }
+  .summary {
+    font-size: .92rem; line-height: 1.75;
+  }
+  .summary h3 { font-size: 1.05rem; margin: 1em 0 .3em; }
+  .summary dl { margin: 0 0 1em; }
+  @media print {
+    .lab, .chapter, .card { break-inside: avoid; }
+    #portfolioSection, .caselist, .agenda { display: block; }
+  }
+</style>
+</head>
+<body data-page="p21">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 21 · Parte IV — Portarla in produzione</span>
+  <h1>Progetto finale</h1>
+  <p class="lead">Quattordici moduli di materiale generale. Questo produce qualcosa: un caso d’uso
+  specifico preso dal tuo lavoro, passato al vaglio di tutto ciò che il corso ha trattato, con una
+  scheda di valutazione onesta e tre passi successivi concreti.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">Come condurre questa sessione</span>
+  <p class="mb0">Squadre da tre o quattro persone, ognuna con un caso d’uso candidato reale. Quaranta
+  minuti per compilare il canvas, venti minuti per presentarlo alla sala, quindici minuti per riportare
+  tutto sulla griglia del portafoglio. Il risultato non è una decisione — è <strong>una lista ristretta
+  di idee prequalificate, con le loro lacune dichiarate</strong>, che è ciò che chi sponsorizza questo
+  ciclo voleva davvero.</p>
+</div>
+
+<!-- ============================================= 21.1 -->
+<section class="chapter" id="canvas">
+  <h2>21.1 · Il canvas del caso d’uso</h2>
+  <p>Compilalo per un caso d’uso. Tutto viene salvato in questo browser, così puoi riprenderlo in
+  seguito.</p>
+
+  <div class="lab">
+    <div class="lab-head">
+      <h3>Laboratorio · Canvas</h3>
+      <span class="tag try">Meglio onesto che ottimista</span>
+    </div>
+
+    <div class="btnrow">
+      <button class="btn primary" id="cNew">Nuovo caso d’uso</button>
+      <button class="btn sm" id="cSave">Salva</button>
+      <button class="btn sm" id="cPrint">Stampa / salva come PDF</button>
+      <button class="btn sm" id="cExample">Carica un esempio</button>
+      <span class="small muted" id="cStatus"></span>
+    </div>
+
+    <div class="caselist mt1" id="caseList"></div>
+
+    <div class="canvasgrid mt1">
+      <div>
+        <h4>Il problema</h4>
+        <div class="field">
+          <label for="f_name">Nome del caso d’uso</label>
+          <input type="text" id="f_name" placeholder="es. Risposte sulle normative per l’ufficio progettazione">
+        </div>
+        <div class="field">
+          <label for="f_who">Di chi è questo problema? Indica una persona o un ruolo</label>
+          <input type="text" id="f_who" placeholder="es. i quattro ingegneri che rispondono alle domande sulle normative">
+          <div class="help">Se non sai indicare nessuno, questo è un progetto tecnologico, non un progetto
+          di miglioramento (modulo 13.6).</div>
+        </div>
+        <div class="field">
+          <label for="f_today">Cosa fanno oggi?</label>
+          <textarea id="f_today" rows="2" placeholder="es. cercano in uno SharePoint di 900 PDF, o chiedono a un collega"></textarea>
+        </div>
+        <div class="field">
+          <label for="f_change">Quale output o decisione cambia se funziona?</label>
+          <textarea id="f_change" rows="2" placeholder="es. risposte con la citazione della clausola in 2 minuti invece di 40"></textarea>
+        </div>
+
+        <h4 class="mt1">Le dimensioni</h4>
+        <div class="grid g2" style="gap:12px">
+          <div class="field" style="margin-bottom:0">
+            <label for="f_freq">Volte al mese</label>
+            <input type="number" id="f_freq" value="200" min="1">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="f_mins">Minuti ciascuna, oggi</label>
+            <input type="number" id="f_mins" value="30" min="1">
+          </div>
+        </div>
+
+        <h4 class="mt1">Che tipo di compito è?</h4>
+        <div class="chips" id="taskChips"></div>
+      </div>
+
+      <div>
+        <h4>I dati</h4>
+        <div class="field">
+          <label for="f_data">Quali dati esistono oggi?</label>
+          <select id="f_data">
+            <option value="0">Non esiste ancora nulla di utilizzabile</option>
+            <option value="1">Esistono, ma sono disordinati, dispersi o inaccessibili</option>
+            <option value="2" selected>Esistono, sono accessibili e ragionevolmente puliti</option>
+            <option value="3">Esistono e sono già etichettati proprio per questo compito</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f_label">Il target è definito per iscritto?</label>
+          <select id="f_label">
+            <option value="0">No — discuteremmo su cosa sia una risposta corretta</option>
+            <option value="1" selected>In parte — gli esperti sono per lo più d’accordo</option>
+            <option value="2">Sì — c’è una definizione scritta che due persone applicherebbero in modo identico</option>
+          </select>
+          <div class="help">Modulo 7.2. È la voce che la maggior parte dei progetti non riesce a spuntare, e la più economica da sistemare.</div>
+        </div>
+        <div class="field">
+          <label for="f_baseline">Sai quanto bene lo fanno le persone oggi?</label>
+          <select id="f_baseline">
+            <option value="0" selected>No</option>
+            <option value="1">A grandi linee, per sentito dire</option>
+            <option value="2">Sì, misurato</option>
+          </select>
+          <div class="help">Modulo 8.5. Senza questo non puoi capire se il modello è buono, né costruire un business case.</div>
+        </div>
+
+        <h4 class="mt1">Il rischio</h4>
+        <div class="field">
+          <label for="f_conseq">Se sbaglia e nessuno se ne accorge, cosa succede?</label>
+          <select id="f_conseq">
+            <option value="0">Niente di grave — qualcuno lo rilegge</option>
+            <option value="1" selected>Lavoro sprecato o da rifare</option>
+            <option value="2">Un costo reale, o un impegno verso l’esterno</option>
+            <option value="3">Impatto sul cliente o danno reputazionale</option>
+            <option value="4">Conseguenze di sicurezza, di omologazione o normative</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Vale anche per questo caso d’uso</label>
+          <div class="chips" id="riskChips"></div>
+        </div>
+        <div class="field">
+          <label for="f_review">Chi revisiona l’output, e quando?</label>
+          <input type="text" id="f_review" placeholder="es. l’ingegnere che ha posto la domanda, prima di usare la risposta">
+          <div class="help">Modulo 13.3. “Lo revisiona una persona”, senza un nome e senza tempo dedicato, è un alibi.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 21.2 -->
+<section class="chapter" id="scorecard">
+  <h2>21.2 · La scheda di valutazione</h2>
+  <div class="lab">
+    <div class="lab-head"><h3>Valutazione</h3><span class="tag">Calcolata dal canvas</span></div>
+    <div class="split-wide">
+      <div>
+        <div class="sbar"><span>Valore in gioco</span><div class="tr"><div class="fi" id="bar_value"></div></div><span class="vv" id="v_value">—</span></div>
+        <div class="sbar"><span>Fattibilità</span><div class="tr"><div class="fi" id="bar_feas"></div></div><span class="vv" id="v_feas">—</span></div>
+        <div class="sbar"><span>Rischio</span><div class="tr"><div class="fi" id="bar_risk"></div></div><span class="vv" id="v_risk">—</span></div>
+        <div class="sbar"><span>Prontezza a partire</span><div class="tr"><div class="fi" id="bar_ready"></div></div><span class="vv" id="v_ready">—</span></div>
+
+        <div class="readout mt1">
+          <div class="stat"><span class="k">ore all’anno in gioco</span><span class="v" id="o_hours">—</span></div>
+          <div class="stat"><span class="k">di cui realisticamente risparmiate</span><span class="v" id="o_saved">—</span><span class="u">al 50%</span></div>
+          <div class="stat hl"><span class="k">valore annuo indicativo</span><span class="v" id="o_value">—</span></div>
+          <div class="stat"><span class="k">costo di esercizio stimato / anno</span><span class="v" id="o_run">—</span></div>
+        </div>
+        <p class="small muted mt1 mb0">Il valore usa €65 per ora-ingegnere e assume che venga davvero
+        recuperata solo metà del tempo — un’ipotesi realistico-ottimista più che ottimista. Il costo di
+        esercizio usa la stima di token qui sotto a €3 per milione di token; per i compiti non linguistici
+        è invece una stima di massima per calcolo e manutenzione.</p>
+      </div>
+      <div>
+        <div class="verdict" id="verdict"></div>
+        <div class="card mt1" id="approach" style="min-height:230px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Cosa fare adesso</h3><span class="tag">Tre passi concreti</span></div>
+    <div id="steps"></div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Sintesi scritta</h3><span class="tag try">Copiala nel tuo documento</span></div>
+    <div class="summary" id="summary"></div>
+    <div class="btnrow">
+      <button class="btn sm" id="sCopy">Copia la sintesi</button>
+      <span class="small muted" id="sCopied"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 21.3 -->
+<section class="chapter" id="portfolioSection">
+  <h2>21.3 · Il portafoglio</h2>
+  <p>Tutti i casi d’uso che hai salvato, su un grafico. La dimensione della bolla è il rischio. Questa è
+  l’immagine da portare allo sponsor — non i singoli canvas.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Valore rispetto a fattibilità</h3><span class="tag try">Salvane diversi, poi guarda la forma</span></div>
+    <canvas id="portCv" class="cv"></canvas>
+    <div class="grid g4 mt1">
+      <div class="card"><h4 style="color:var(--good)">In alto a destra — falli</h4><p class="small mb0">Alto
+      valore, fattibili subito. Di solito sono meno di quanto ci si aspetta, e di solito meno entusiasmanti
+      di quelli in alto a sinistra.</p></div>
+      <div class="card"><h4 style="color:var(--warn)">In alto a sinistra — colma la lacuna</h4><p class="small mb0">Vale
+      la pena farli, ma non sono ancora possibili. L’ostacolo è quasi sempre nei dati o in una definizione
+      scritta del target. È quello il lavoro da finanziare, e costa meno di un modello.</p></div>
+      <div class="card"><h4>In basso a destra — vittorie rapide</h4><p class="small mb0">Facili e modesti.
+      Prendine uno o due per costruire competenze e credibilità, poi fermati. Un portafoglio fatto solo di
+      questi è un hobby.</p></div>
+      <div class="card"><h4 style="color:var(--ink-3)">In basso a sinistra — di’ di no</h4><p class="small mb0">Basso
+      valore, non fattibili. Dirlo esplicitamente, con il canvas come prova, è una delle cose di maggior
+      valore che questo corso possa fare per la tua organizzazione.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 21.4 -->
+<section class="chapter" id="agenda">
+  <h2>21.4 · Agenda del workshop</h2>
+  <div class="lab">
+    <div class="lab-head"><h3>75 minuti</h3><span class="tag">Per il facilitatore</span></div>
+    <div class="agenda" id="agendaHost"></div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Due avvertenze per chi facilita</span>
+    <p class="mb0">Primo, la sala vorrà discutere di <em>soluzioni</em>, e tu devi tenerla sul
+    <em>problema</em> finché la sezione sui dati non è compilata — altrimenti ogni canvas diventa
+    “dovremmo usare un LLM”. Secondo, proteggi l’onestà delle risposte su dati e rischio. La scheda di
+    valutazione è utile solo se le persone spuntano “nessuna definizione scritta” quando è vero, e c’è
+    una pressione sociale a non farlo. Di’ esplicitamente che un punteggio di prontezza basso è un
+    <strong>risultato utile, non un canvas fallito</strong>.</p>
+  </div>
+</section>
+
+<!-- ============================================= 21.5 -->
+<section class="chapter" id="close">
+  <h2>21.5 · Chiudere il ciclo</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Cosa abbiamo trattato</h3>
+      <ul class="small mb0">
+        <li><strong>Parte I</strong> — che cos’è la macchina: una somma pesata, un ciclo di addestramento,
+        un predittore del token successivo, e la sua bolletta elettrica.</li>
+        <li><strong>Parte II</strong> — come progettarci: l’algoritmo giusto per i dati, i dati stessi,
+        una valutazione onesta, gli agenti e i loro permessi, e la legge.</li>
+        <li><strong>Parte III</strong> — come atterra nella realtà: applicazioni ingegneristiche, il
+        prompting come competenza, i fattori umani che decidono l’adozione, e i limiti.</li>
+        <li><strong>Parte IV</strong> — come si porta in produzione: telemetria e serie temporali,
+        incertezza onesta, spiegazioni, adattamento dei modelli, la loro gestione in produzione, il safety
+        case sul veicolo, e il tuo caso d’uso.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Le quattro frasi da ricordare</h3>
+      <ol class="small mb0">
+        <li><strong>È tutto somme pesate e un ciclo.</strong> In tutto questo non c’è niente di magico, ed
+        è saperlo che ti permette di specificarlo.</li>
+        <li><strong>Il modello impara il tuo dataset, non la tua intenzione.</strong> La maggior parte dei
+        fallimenti risale a questo.</li>
+        <li><strong>Un sistema senza un set di valutazione è un aneddoto.</strong> Costruisci il test
+        prima della cosa.</li>
+        <li><strong>Il collo di bottiglia non è mai il modello.</strong> Sono i dati, l’integrazione, la
+        capacità di revisione e chi ne risponde — tutte cose che sono in mano tua.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">E l’unica istruzione</span>
+    <p class="mb0">Scegli il caso d’uso in alto a destra nella griglia del tuo portafoglio. Scrivi prima
+    il suo set di valutazione — trenta casi reali con le risposte attese, ci vuole un pomeriggio. Poi
+    costruisci la cosa più piccola che potrebbe superarlo. <strong>Imparerai di più da quel pomeriggio che
+    da qualunque altra lettura</strong>, e avrai fatto l’unico passo che la maggior parte dei progetti di
+    AI salta.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Raccogli i canvas. Anche compilati a metà, sono la fotografia più accurata della prontezza
+      all’AI dell’organizzazione che chiunque produrrà quest’anno, e sono evidenze per l’inventario dei
+      sistemi di AI del modulo 10.9.</li>
+      <li>Aspettati due o tre idee davvero buone da una sala di venti persone, e aspettati che almeno una
+      sia qualcosa a cui nessuno nel programma AI aveva pensato, perché le persone con i problemi sono in
+      sala e quelle con la tecnologia andavano a intuito.</li>
+      <li>Chiudi dicendo alle persone cosa succede adesso e chi decide. Un progetto finale che produce una
+      lista su cui nessuno agisce è peggio di nessun progetto finale, perché insegna alla sala che era
+      tutta scena.</li>
+      <li>Infine: registra le presenze lungo tutto il ciclo. Sono la tua evidenza di alfabetizzazione
+      sull’AI ai sensi del modulo 10.9, ed è la casella di conformità più facile che qualcuno di noi
+      spunterà mai.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <div class="footnav"></div>
+    <p class="small muted mt2 mb0">Fine del ciclo. I dati del modulo 5 e le date del modulo 10 vanno
+    ricontrollati prima di ogni erogazione.</p>
+  </div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+  var KEY = 'aisem-cases';
+
+  var TASKK = [
+    ['search', 'Trovare / rispondere dai documenti'],
+    ['extract', 'Estrarre dati strutturati'],
+    ['summar', 'Riassumere testo'],
+    ['draft', 'Redigere un documento'],
+    ['classify', 'Classificare o smistare'],
+    ['predict', 'Prevedere un numero o un esito'],
+    ['vision', 'Giudicare un’immagine'],
+    ['signal', 'Monitorare o prevedere dati di sensori'],
+    ['optimise', 'Ottimizzare un progetto o un piano'],
+    ['act', 'Compiere azioni nei sistemi']
+  ];
+  var RISKK = [
+    ['pers', 'Coinvolge dati personali'],
+    ['emp', 'Incide su decisioni relative al personale'],
+    ['ext', 'L’output esce dall’azienda'],
+    ['cert', 'Tocca lavoro certificato od omologato'],
+    ['auto', 'Girerebbe senza supervisione'],
+    ['untrusted', 'Legge documenti provenienti da fuori dall’azienda'],
+    ['vehicle', 'Gira sul veicolo o ne influenza il comportamento']
+  ];
+
+  var CUR = null, LIST = [];
+
+  function blank() {
+    return { id: Date.now(), name: '', who: '', today: '', change: '',
+      freq: 200, mins: 30, task: {}, data: 2, label: 1, baseline: 0,
+      conseq: 1, risk: {}, review: '' };
+  }
+  var EXAMPLE = {
+    name: 'Risposte sulle normative per l’ufficio progettazione',
+    who: 'I quattro ingegneri senior che oggi rispondono tutto il giorno alle domande sulle normative',
+    today: 'I colleghi chiedono direttamente a loro, oppure cercano in uno SharePoint di ~900 PDF. Le risposte richiedono 20–60 minuti e a volte citano una revisione superata.',
+    change: 'Un ingegnere ottiene in meno di due minuti una risposta con la clausola citata e referenziata, e gli ingegneri senior si riprendono i loro pomeriggi.',
+    freq: 240, mins: 35, task: { search: 1 }, data: 2, label: 1, baseline: 0,
+    conseq: 2, risk: { cert: 1 }, review: 'L’ingegnere che ha posto la domanda verifica la clausola citata prima di farci affidamento'
+  };
+
+  function load() {
+    try { LIST = JSON.parse(AI.readLS(KEY) || '[]'); } catch (e) { LIST = []; }
+    if (!Array.isArray(LIST)) LIST = [];
+  }
+  function persist() { AI.writeLS(KEY, JSON.stringify(LIST)); }
+
+  function readForm() {
+    CUR.name = document.getElementById('f_name').value;
+    CUR.who = document.getElementById('f_who').value;
+    CUR.today = document.getElementById('f_today').value;
+    CUR.change = document.getElementById('f_change').value;
+    CUR.freq = Math.max(1, parseFloat(document.getElementById('f_freq').value) || 1);
+    CUR.mins = Math.max(1, parseFloat(document.getElementById('f_mins').value) || 1);
+    CUR.data = parseInt(document.getElementById('f_data').value, 10);
+    CUR.label = parseInt(document.getElementById('f_label').value, 10);
+    CUR.baseline = parseInt(document.getElementById('f_baseline').value, 10);
+    CUR.conseq = parseInt(document.getElementById('f_conseq').value, 10);
+    CUR.review = document.getElementById('f_review').value;
+  }
+  function writeForm() {
+    document.getElementById('f_name').value = CUR.name;
+    document.getElementById('f_who').value = CUR.who;
+    document.getElementById('f_today').value = CUR.today;
+    document.getElementById('f_change').value = CUR.change;
+    document.getElementById('f_freq').value = CUR.freq;
+    document.getElementById('f_mins').value = CUR.mins;
+    document.getElementById('f_data').value = CUR.data;
+    document.getElementById('f_label').value = CUR.label;
+    document.getElementById('f_baseline').value = CUR.baseline;
+    document.getElementById('f_conseq').value = CUR.conseq;
+    document.getElementById('f_review').value = CUR.review;
+    paintChips();
+  }
+  function paintChips() {
+    AI.qsa('#taskChips button').forEach(function (b) {
+      b.classList.toggle('on', !!CUR.task[b.getAttribute('data-k')]);
+    });
+    AI.qsa('#riskChips button').forEach(function (b) {
+      var on = !!CUR.risk[b.getAttribute('data-k')];
+      b.classList.toggle('on', on);
+      b.classList.toggle('danger', on);
+    });
+  }
+
+  /* ---------------- scoring ---------------- */
+  var TASKINFO = {
+    search: { feas: 3, mat: 'high', llm: true, tok: 6000,
+      app: 'Retrieval-augmented generation (modulo 4.8)',
+      note: 'Il miglior primo progetto per la maggior parte delle organizzazioni: nessuna etichettatura, esposizione normativa minima, valore immediato, e fa emergere presto i tuoi problemi di governance documentale. Pretendi la citazione della clausola, così ogni risposta si verifica in pochi secondi.' },
+    extract: { feas: 3, mat: 'high', llm: true, tok: 9000,
+      app: 'Estrazione con LLM su uno schema fisso (modulo 12.1)',
+      note: 'Molto affidabile quando specifichi lo schema, vieti le inferenze e richiedi un riferimento a pagina o clausola per ogni riga. Confronta con la fonte cinque righe per lotto e registra il tasso di errore — è il tuo set di valutazione che si forma da solo.' },
+    summar: { feas: 3, mat: 'high', llm: true, tok: 8000,
+      app: 'Riassunto con LLM su una struttura di output fissa (modulo 12.2)',
+      note: 'Rischio basso, utilità immediata, e la modalità di guasto è la banalità, non il pericolo. Indica il lettore e fissa un limite di lunghezza, altrimenti otterrai un output generico.' },
+    draft: { feas: 3, mat: 'high', llm: true, tok: 7000,
+      app: 'Redazione con LLM da un modello di documento, con revisione umana (modulo 12.1)',
+      note: 'Funziona perché una persona lo revisiona. Richiedi un elenco delle ipotesi alla fine di ogni bozza — trasforma un documento plausibile in un documento revisionabile.' },
+    classify: { feas: 2, mat: 'high', llm: true, tok: 1200,
+      app: 'Classificazione con LLM a basso volume; un piccolo modello con fine-tuning o un modello classico ad alto volume',
+      note: 'Tutto il compito sta nelle definizioni delle categorie, che sono le definizioni scritte delle etichette del modulo 7.2. Se non riesci a scriverle, nessun modello sarà coerente — e non lo sono nemmeno le tue persone.' },
+    predict: { feas: 2, mat: 'high', llm: false, tok: 0,
+      app: 'Gradient boosting su feature tabellari (modulo 6.3)',
+      note: 'Non è un problema da modello linguistico. Qui gli alberi battono una rete neurale, si addestrano in pochi minuti, non richiedono GPU e ti dicono quali colonne hanno contato. Parti da una baseline logistica o lineare che devi battere.' },
+    vision: { feas: 1, mat: 'medium', llm: false, tok: 0,
+      app: 'Rete convoluzionale, o rilevamento delle anomalie sui pezzi buoni (moduli 3.5, 6.6)',
+      note: 'Alto valore e il progetto più grande di questo elenco, perché è l’etichettatura a dettare i tempi. Se i difetti sono rari o non etichettati, ribalta l’approccio: addestra sui pezzi sani e segnala gli scostamenti. Metti a budget l’etichettatura in modo esplicito (modulo 7.7).' },
+    signal: { feas: 2, mat: 'medium', llm: false, tok: 0,
+      app: 'Feature su finestre più gradient boosting, o rilevamento delle anomalie su run sane (moduli 15, 6.6)',
+      note: 'Dividi per tempo, mai a caso, e batti una baseline di persistenza prima di affermare qualunque cosa (modulo 15). Decidi presto se girerà nel cloud, su un banco prova o sul veicolo — modulo 19 — perché è questo che fissa la dimensione del modello.' },
+    optimise: { feas: 2, mat: 'medium', llm: false, tok: 0,
+      app: 'Modello surrogato più ottimizzazione con infill (modulo 11.3)',
+      note: 'Spesso l’applicazione ingegneristica con il ritorno più alto, e la meno discussa. Documenta l’inviluppo di validità e verifica ogni progetto proposto con un vero run del solver (modulo 11.5).' },
+    act: { feas: 0, mat: 'low', llm: true, tok: 25000,
+      app: 'Un agente — prima in sola lettura o solo proposta (modulo 9.8)',
+      note: 'La categoria più rischiosa di questo elenco. Parti in sola lettura per settimane, poi solo proposta, e automatizza solo il segmento ristretto che i dati dimostrano sicuro. Progetta i permessi prima del prompt, e leggi il modulo 9.4 prima di concedere qualunque strumento che scriva o invii.' }
+  };
+
+  function score() {
+    var s = {};
+    var hours = CUR.freq * 12 * CUR.mins / 60;
+    s.hours = hours;
+    s.saved = hours * 0.5;
+    s.value = s.saved * 65;
+    s.valueScore = Math.min(1, Math.log10(Math.max(1, s.value)) / 6);
+
+    var tasks = Object.keys(CUR.task).filter(function (k) { return CUR.task[k]; });
+    s.tasks = tasks;
+    var tf = tasks.length ? tasks.reduce(function (a, k) { return a + TASKINFO[k].feas; }, 0) / tasks.length : 1.5;
+    /* feasibility: data + written target + task maturity, penalised for many task types at once */
+    var feas = (CUR.data / 3) * 0.38 + (CUR.label / 2) * 0.28 + (tf / 3) * 0.28 + (CUR.baseline / 2) * 0.06;
+    if (tasks.length > 2) feas *= 0.85;
+    s.feas = Math.max(0.02, Math.min(1, feas));
+
+    var risk = CUR.conseq / 4 * 0.5;
+    if (CUR.risk.pers) risk += 0.1;
+    if (CUR.risk.emp) risk += 0.16;
+    if (CUR.risk.ext) risk += 0.08;
+    if (CUR.risk.cert) risk += 0.14;
+    if (CUR.risk.auto) risk += 0.12;
+    if (CUR.risk.untrusted) risk += 0.08;
+    if (CUR.risk.vehicle) risk += 0.2;
+    if (CUR.task.act) risk += 0.1;
+    if (!CUR.review.trim()) risk += 0.08;
+    s.risk = Math.max(0.02, Math.min(1, risk));
+
+    s.ready = Math.max(0.02, Math.min(1,
+      (CUR.data / 3) * 0.3 + (CUR.label / 2) * 0.3 + (CUR.baseline / 2) * 0.2 +
+      (CUR.review.trim() ? 0.1 : 0) + (CUR.who.trim() ? 0.1 : 0)));
+
+    var tok = tasks.reduce(function (a, k) { return Math.max(a, TASKINFO[k].tok); }, 0);
+    s.tok = tok * CUR.freq * 12;
+    s.run = tok ? s.tok / 1e6 * 3 : Math.max(2000, s.hours * 4);
+    s.tokPer = tok;
+    return s;
+  }
+
+  function draw() {
+    var s = score();
+    function bar(id, v, col) {
+      document.getElementById('bar_' + id).style.width = Math.round(v * 100) + '%';
+      document.getElementById('bar_' + id).style.background = C(col);
+    }
+    bar('value', s.valueScore, '--accent');
+    bar('feas', s.feas, s.feas > 0.66 ? '--good' : s.feas > 0.4 ? '--warn' : '--bad');
+    bar('risk', s.risk, s.risk > 0.6 ? '--bad' : s.risk > 0.35 ? '--warn' : '--good');
+    bar('ready', s.ready, s.ready > 0.66 ? '--good' : s.ready > 0.4 ? '--warn' : '--bad');
+    document.getElementById('v_value').textContent = Math.round(s.valueScore * 100);
+    document.getElementById('v_feas').textContent = Math.round(s.feas * 100);
+    document.getElementById('v_risk').textContent = Math.round(s.risk * 100);
+    document.getElementById('v_ready').textContent = Math.round(s.ready * 100);
+
+    document.getElementById('o_hours').textContent = F.c(s.hours);
+    document.getElementById('o_saved').textContent = F.c(s.saved);
+    document.getElementById('o_value').textContent = '€' + F.c(s.value);
+    document.getElementById('o_run').textContent = '€' + F.c(s.run);
+
+    /* verdict */
+    var v = document.getElementById('verdict');
+    var cls, lvl, txt;
+    if (!s.tasks.length) {
+      cls = 'info'; lvl = 'Scegli un tipo di compito';
+      txt = 'La raccomandazione dipende dal tipo di compito. Scegline uno — o al massimo due.';
+    } else if (s.risk > 0.62 && s.ready < 0.55) {
+      cls = 'hi'; lvl = 'Non ancora — rischio alto, prontezza bassa';
+      txt = 'Le conseguenze di un errore non rilevato sono serie e le fondamenta non ci sono. Non è un motivo per abbandonarlo: è un motivo per sistemare prima i dati e la definizione del target, e per tenere una persona nel ciclo (human-in-the-loop) quando partirai.';
+    } else if (s.risk > 0.62) {
+      cls = 'mid'; lvl = 'Procedi con human-in-the-loop';
+      txt = 'Fattibile, ma le conseguenze di un errore impongono la modalità solo proposta, con un revisore nominato e tempo di revisione dedicato. Controlla il livello normativo nel modulo 10.4 prima di progettare qualunque cosa.';
+    } else if (s.feas < 0.42) {
+      cls = 'mid'; lvl = 'Prima colma la lacuna';
+      txt = 'Il valore potrebbe benissimo esserci, le fondamenta no. L’ostacolo sono quasi certamente i dati o la definizione scritta del target — entrambi più economici da sistemare di un modello, ed entrambi riutilizzabili in ogni progetto futuro.';
+    } else if (s.valueScore < 0.4) {
+      cls = 'mid'; lvl = 'Fattibile, valore modesto';
+      txt = 'Vale la pena farlo come esercizio per costruire competenze, se ne hai bisogno, ma non vale un programma. Sii onesto su quale dei due è, nella relazione scritta.';
+    } else {
+      cls = 'ok'; lvl = 'Buon candidato — parti da qui';
+      txt = 'Valore significativo, fondamenta solide, rischio gestibile. Scrivi il set di valutazione prima di costruire qualunque cosa.';
+    }
+    v.className = 'verdict ' + cls;
+    v.innerHTML = '<span class="lvl">' + lvl + '</span><p class="small mb0">' + txt + '</p>';
+
+    /* approach */
+    var a = '<h4>Approccio consigliato</h4>';
+    if (!s.tasks.length) a += '<p class="small mb0">Seleziona un tipo di compito qui sopra.</p>';
+    else {
+      s.tasks.forEach(function (k) {
+        a += '<p class="small" style="margin-bottom:.4em"><b>' + TASKINFO[k].app + '</b><br>' + TASKINFO[k].note + '</p>';
+      });
+      if (s.tasks.length > 2) a += '<p class="small" style="color:var(--warn)"><b>Hai selezionato ' +
+        s.tasks.length + ' tipi di compito.</b> Questo è un programma, non un caso d’uso. Dividilo, e scegli quello con il responsabile più chiaro — il modulo 12.4 parla proprio di questo.</p>';
+      if (s.tokPer) a += '<p class="small muted mb0">Stima dei token: circa ' + F.c(s.tokPer) +
+        ' token per istanza, ' + F.c(s.tok) + ' all’anno. Il modulo 5.4 dà il quadro più ampio dei costi.</p>';
+      else a += '<p class="small muted mb0">Non è un compito da modello linguistico, quindi il costo è calcolo più manutenzione anziché token. Il costo di esercizio indicato qui accanto è solo una stima di massima.</p>';
+    }
+    document.getElementById('approach').innerHTML = a;
+
+    /* next steps */
+    var steps = [];
+    if (!CUR.who.trim()) steps.push(['Indica la persona', 'Vai a cercare il collega a cui questo migliora la settimana, e chiedigli se lo vuole. Se non salta fuori nessuno, fermati qui — modulo 13.6.']);
+    if (CUR.label < 2) steps.push(['Scrivi cos’è una risposta corretta', 'Una pagina, con tre esempi al limite, concordata da due esperti. È la settimana a più alta leva del progetto e blocca tutto ciò che viene dopo — modulo 7.2.']);
+    if (CUR.baseline < 2) steps.push(['Misura il processo attuale', 'Cronometra 20 istanze reali e registra quanto spesso la risposta attuale si rivela sbagliata. Senza questo non puoi rivendicare un miglioramento né difendere un business case — modulo 8.5.']);
+    if (CUR.data < 2) steps.push(['Assicurati l’accesso ai dati', 'Non “abbiamo i dati”, ma una pipeline che possa leggerli, legalmente e tecnicamente, oggi. Nella maggior parte delle organizzazioni è la voce con i tempi più lunghi — modulo 7.8.']);
+    steps.push(['Scrivi il set di valutazione', 'Trenta casi reali con le risposte attese, inclusi cinque in cui la risposta corretta è “non presente nelle fonti” e due casi spinosi su cui i tuoi esperti discutono. Un pomeriggio di lavoro, ed è l’artefatto su cui si regge l’intero progetto — modulo 8.7.']);
+    if (CUR.risk.vehicle) steps.push(['Coinvolgi subito la sicurezza funzionale', 'Qualunque cosa sul veicolo ha bisogno di un safety case, di un ODD (operational design domain) dichiarato e di un fallback deterministico prima ancora di aver bisogno di un modello. Parla con il team di sicurezza questa settimana, non al momento dell’approvazione finale — modulo 20.']);
+    if (s.risk > 0.5) steps.push(['Verifica il livello normativo e progetta la revisione', 'Passa questo caso d’uso al vaglio del modulo 10.4, e decidi adesso chi revisiona l’output, quando e con quanto tempo dedicato — modulo 13.3.']);
+    steps.push(['Costruisci la cosa più piccola che potrebbe superare la valutazione', 'Prompt e retrieval prima del fine-tuning; una baseline lineare o ad alberi prima di una rete neurale. Misura, poi decidi se qualcosa di più è giustificato.']);
+    document.getElementById('steps').innerHTML = steps.slice(0, 5).map(function (st, i) {
+      return '<div class="stepbox"><span class="n">Passo ' + (i + 1) + '</span><b>' + st[0] + '</b>' +
+        '<p class="small mb0" style="margin-top:.3em">' + st[1] + '</p></div>';
+    }).join('');
+
+    /* summary */
+    var DATAT = ['ancora nulla di utilizzabile', 'esistono ma sono disordinati o inaccessibili', 'accessibili e ragionevolmente puliti', 'già etichettati per questo compito'];
+    var LABT = ['non definito per iscritto', 'in parte — gli esperti sono per lo più d’accordo', 'scritto e non ambiguo'];
+    var BASET = ['non misurata', 'nota per sentito dire', 'misurata'];
+    var CONT = ['qualcuno lo rilegge', 'lavoro sprecato o da rifare', 'un costo reale o un impegno verso l’esterno', 'impatto sul cliente o sulla reputazione', 'conseguenze di sicurezza, di omologazione o normative'];
+    var sum = '';
+    sum += '<h3>' + (CUR.name || '(caso d’uso senza nome)') + '</h3>';
+    sum += '<p><b>Di chi è il problema:</b> ' + (CUR.who || '— non identificato —') + '<br>' +
+      '<b>Oggi:</b> ' + (CUR.today || '—') + '<br>' +
+      '<b>Cosa cambia:</b> ' + (CUR.change || '—') + '</p>';
+    sum += '<p><b>Dimensioni:</b> ' + F.c(CUR.freq) + ' volte al mese da ' + CUR.mins + ' minuti ciascuna — ' +
+      F.c(s.hours) + ' ore all’anno, di cui forse ' + F.c(s.saved) + ' recuperabili (≈€' +
+      F.c(s.value) + ' all’anno a €65/ora). Costo di esercizio stimato €' + F.c(s.run) + ' all’anno.</p>';
+    sum += '<p><b>Tipo di compito:</b> ' + (s.tasks.length ? s.tasks.map(function (k) {
+      return TASKK.filter(function (t) { return t[0] === k; })[0][1];
+    }).join(', ') : 'non specificato') + '<br>' +
+      '<b>Approccio consigliato:</b> ' + (s.tasks.length ? s.tasks.map(function (k) { return TASKINFO[k].app; }).join('; ') : '—') + '</p>';
+    sum += '<p><b>Dati:</b> ' + DATAT[CUR.data] + '. <b>Definizione del target:</b> ' + LABT[CUR.label] +
+      '. <b>Baseline umana:</b> ' + BASET[CUR.baseline] + '.</p>';
+    sum += '<p><b>Se sbaglia e nessuno se ne accorge:</b> ' + CONT[CUR.conseq] + '.';
+    var rl = RISKK.filter(function (r) { return CUR.risk[r[0]]; }).map(function (r) { return r[1].toLowerCase(); });
+    if (rl.length) sum += ' Inoltre: ' + rl.join('; ') + '.';
+    sum += '<br><b>Revisione:</b> ' + (CUR.review || '— non definita —') + '</p>';
+    sum += '<p><b>Valutazione:</b> ' + lvl + '. Fattibilità ' + Math.round(s.feas * 100) +
+      '/100, rischio ' + Math.round(s.risk * 100) + '/100, prontezza ' + Math.round(s.ready * 100) + '/100.</p>';
+    sum += '<p><b>Prossimi passi:</b></p><ol>' + steps.slice(0, 5).map(function (st) {
+      return '<li><b>' + st[0] + '</b> — ' + st[1] + '</li>';
+    }).join('') + '</ol>';
+    document.getElementById('summary').innerHTML = sum;
+    window.__sumtext = document.getElementById('summary').innerText || '';
+
+    drawPort();
+  }
+
+  /* ---------------- list ---------------- */
+  function drawList() {
+    var host = document.getElementById('caseList');
+    if (!LIST.length) {
+      host.innerHTML = '<p class="small muted mb0">Nessun caso d’uso ancora salvato. Compila il canvas qui sotto e premi <b>Salva</b>.</p>';
+      return;
+    }
+    host.innerHTML = LIST.map(function (c) {
+      var s2 = scoreOf(c);
+      return '<div class="caseitem' + (CUR && c.id === CUR.id ? ' sel' : '') + '" data-id="' + c.id + '">' +
+        '<span class="nm">' + (c.name || '(senza nome)') + '</span>' +
+        '<span class="small muted">F ' + Math.round(s2.feas * 100) + ' · R ' + Math.round(s2.risk * 100) +
+        ' · €' + F.c(s2.value) + '</span>' +
+        '<button data-del="' + c.id + '">elimina</button></div>';
+    }).join('');
+    host.querySelectorAll('[data-del]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var id = parseInt(b.getAttribute('data-del'), 10);
+        LIST = LIST.filter(function (x) { return x.id !== id; });
+        persist(); drawList(); draw();
+      });
+    });
+    AI.qsa('.caseitem .nm', host).forEach(function (n) {
+      n.addEventListener('click', function () {
+        var id = parseInt(n.parentNode.getAttribute('data-id'), 10);
+        var c = LIST.filter(function (x) { return x.id === id; })[0];
+        if (c) { CUR = JSON.parse(JSON.stringify(c)); writeForm(); drawList(); draw(); }
+      });
+    });
+  }
+  function scoreOf(c) {
+    var save = CUR;
+    CUR = c;
+    var s2 = score();
+    CUR = save;
+    return s2;
+  }
+
+  /* ---------------- portfolio ---------------- */
+  var portPlot;
+  function drawPort() {
+    portPlot.resize(); portPlot.clear();
+    portPlot.dom = [0, 100]; portPlot.ran = [0, 100];
+    var g = portPlot.ctx;
+    portPlot.clip(function (ctx) {
+      ctx.fillStyle = C('--good-soft');
+      ctx.fillRect(portPlot.X(50), portPlot.pad.t, portPlot.X(100) - portPlot.X(50), portPlot.Y(50) - portPlot.pad.t);
+      ctx.fillStyle = C('--warn-soft');
+      ctx.fillRect(portPlot.pad.l, portPlot.pad.t, portPlot.X(50) - portPlot.pad.l, portPlot.Y(50) - portPlot.pad.t);
+    });
+    portPlot.frame({ xticks: 4, yticks: 4, xlabel: 'fattibilità →', ylabel: 'valore in gioco →',
+      xfmt: function (x) { return x.toFixed(0); }, yfmt: function (y) { return y.toFixed(0); } });
+    portPlot.clip(function (ctx) {
+      portPlot.line([[50, 0], [50, 100]], C('--line'), 1.5, [5, 4]);
+      portPlot.line([[0, 50], [100, 50]], C('--line'), 1.5, [5, 4]);
+      var all = LIST.slice();
+      if (CUR && !LIST.some(function (x) { return x.id === CUR.id; })) all.push(CUR);
+      all.forEach(function (c) {
+        var s2 = scoreOf(c);
+        var x = s2.feas * 100, y = s2.valueScore * 100;
+        var r = 6 + s2.risk * 16;
+        ctx.beginPath();
+        ctx.arc(portPlot.X(x), portPlot.Y(y), r, 0, 6.2832);
+        ctx.fillStyle = (s2.risk > 0.6 ? C('--bad') : s2.risk > 0.35 ? C('--warn') : C('--accent')) + '55';
+        ctx.fill();
+        ctx.strokeStyle = s2.risk > 0.6 ? C('--bad') : s2.risk > 0.35 ? C('--warn') : C('--accent');
+        ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = C('--ink');
+        ctx.font = '600 11px system-ui, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        var nm = (c.name || '(senza nome)');
+        if (nm.length > 34) nm = nm.slice(0, 32) + '…';
+        ctx.fillText(nm, portPlot.X(x), portPlot.Y(y) + r + 4);
+      });
+      ctx.font = '700 11px system-ui, sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillStyle = C('--warn'); ctx.fillText('COLMA LA LACUNA', portPlot.X(2), portPlot.Y(98));
+      ctx.fillStyle = C('--good'); ctx.textAlign = 'right';
+      ctx.fillText('FALLI', portPlot.X(98), portPlot.Y(98));
+      ctx.fillStyle = C('--ink-3'); ctx.textAlign = 'left';
+      ctx.fillText('DI’ DI NO', portPlot.X(2), portPlot.Y(6));
+      ctx.textAlign = 'right';
+      ctx.fillText('VITTORIE RAPIDE', portPlot.X(98), portPlot.Y(6));
+    });
+    if (!LIST.length && (!CUR || !CUR.name)) {
+      g.fillStyle = C('--ink-3');
+      g.font = '600 13px system-ui, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('Salva un caso d’uso per vederlo qui', portPlot.X(50), portPlot.Y(50));
+    }
+  }
+
+  /* ---------------- agenda ---------------- */
+  var AGENDA = [
+    ['0:00', '<b>Inquadra.</b> Ogni squadra enuncia ad alta voce il proprio caso d’uso candidato in una frase. Ancora nessuna discussione. Già questo fa cadere una o due idee, a costo zero.'],
+    ['0:05', '<b>La metà del canvas sul problema.</b> Di chi è il problema, cosa fanno oggi, cosa cambia, quanto spesso, quanto tempo. Il facilitatore fa rispettare la regola: <i>per ora non si parla di soluzioni</i>.'],
+    ['0:20', '<b>La metà su dati e rischio.</b> È qui che contano le risposte oneste ed è qui che le squadre vorranno essere ottimiste. Ricorda che un punteggio di prontezza basso è un risultato, non un fallimento.'],
+    ['0:35', '<b>Leggi la scheda di valutazione e i prossimi passi.</b> Le squadre annotano quali dei cinque passi potrebbero avviare la settimana prossima senza l’approvazione di nessuno.'],
+    ['0:45', '<b>Presenta.</b> Tre minuti per squadra: il caso d’uso, il punteggio, la lacuna più grande. Dalla sala, una domanda ciascuno.'],
+    ['1:00', '<b>Costruisci il portafoglio.</b> Tutti i casi d’uso insieme sulla griglia. Discuti la forma, non i singoli casi — dove si colloca il gruppo dice di più sull’organizzazione che su qualunque singola idea.'],
+    ['1:10', '<b>Chiudi.</b> Il facilitatore dichiara cosa succederà a questi canvas, chi li leggerà e quando il gruppo riceverà un riscontro. Non saltare questo passaggio.']
+  ];
+
+  window.PAGE_INIT = function () {
+    load();
+    CUR = LIST.length ? JSON.parse(JSON.stringify(LIST[LIST.length - 1])) : blank();
+
+    document.getElementById('taskChips').innerHTML = TASKK.map(function (t) {
+      return '<button data-k="' + t[0] + '">' + t[1] + '</button>';
+    }).join('');
+    document.getElementById('riskChips').innerHTML = RISKK.map(function (t) {
+      return '<button data-k="' + t[0] + '">' + t[1] + '</button>';
+    }).join('');
+    document.getElementById('taskChips').addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      var k = e.target.getAttribute('data-k');
+      CUR.task[k] = !CUR.task[k];
+      paintChips(); draw();
+    });
+    document.getElementById('riskChips').addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      var k = e.target.getAttribute('data-k');
+      CUR.risk[k] = !CUR.risk[k];
+      paintChips(); draw();
+    });
+
+    ['f_name', 'f_who', 'f_today', 'f_change', 'f_freq', 'f_mins', 'f_review'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', function () { readForm(); draw(); });
+    });
+    ['f_data', 'f_label', 'f_baseline', 'f_conseq'].forEach(function (id) {
+      document.getElementById(id).addEventListener('change', function () { readForm(); draw(); });
+    });
+
+    AI.on(document.getElementById('cNew'), 'click', function () {
+      CUR = blank(); writeForm(); drawList(); draw();
+      document.getElementById('cStatus').textContent = 'Nuovo canvas vuoto.';
+    });
+    AI.on(document.getElementById('cSave'), 'click', function () {
+      readForm();
+      if (!CUR.name.trim()) { document.getElementById('cStatus').textContent = 'Prima dagli un nome.'; return; }
+      var i = -1;
+      LIST.forEach(function (x, k) { if (x.id === CUR.id) i = k; });
+      if (i >= 0) LIST[i] = JSON.parse(JSON.stringify(CUR));
+      else LIST.push(JSON.parse(JSON.stringify(CUR)));
+      persist(); drawList(); draw();
+      document.getElementById('cStatus').textContent = 'Salvato in questo browser.';
+      setTimeout(function () { document.getElementById('cStatus').textContent = ''; }, 2500);
+    });
+    AI.on(document.getElementById('cExample'), 'click', function () {
+      CUR = JSON.parse(JSON.stringify(EXAMPLE));
+      CUR.id = Date.now();
+      writeForm(); draw();
+      document.getElementById('cStatus').textContent = 'Esempio caricato — modificalo liberamente.';
+    });
+    AI.on(document.getElementById('cPrint'), 'click', function () { window.print(); });
+    AI.on(document.getElementById('sCopy'), 'click', function () {
+      try {
+        navigator.clipboard.writeText(window.__sumtext || '');
+        document.getElementById('sCopied').textContent = 'Copiata.';
+      } catch (e) {
+        document.getElementById('sCopied').textContent = 'Copia non riuscita — seleziona il testo qui sopra.';
+      }
+      setTimeout(function () { document.getElementById('sCopied').textContent = ''; }, 2500);
+    });
+
+    document.getElementById('agendaHost').innerHTML = AGENDA.map(function (a) {
+      return '<div class="row"><span class="tm">' + a[0] + '</span><span>' + a[1] + '</span></div>';
+    }).join('');
+
+    portPlot = new AI.Plot(document.getElementById('portCv'),
+      { dom: [0, 100], ran: [0, 100], pad: { l: 52, r: 20, t: 18, b: 44 } });
+    AI.onRedraw(drawPort);
+
+    writeForm();
+    drawList();
+    draw();
+  };
+})();
+</script>
+</body>
+</html>

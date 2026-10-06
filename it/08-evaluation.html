@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>8 · Valutazione — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .cv-sm { width: 100%; height: 210px; }
+  .evalcase {
+    border: 1px solid var(--line); border-radius: var(--r); background: var(--panel);
+    padding: 14px 16px; margin-bottom: 10px;
+  }
+  .evalcase .qq { font-weight: 640; font-size: .94rem; margin-bottom: 4px; }
+  .evalcase .crit { font-size: .8rem; color: var(--ink-3); margin-bottom: 10px; }
+  .evalcase .vers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 800px) { .evalcase .vers { grid-template-columns: 1fr; } }
+  .evalcase .vbox { border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 12px; background: var(--bg-2); }
+  .evalcase .vbox h5 {
+    margin: 0 0 6px; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--ink-3); font-weight: 800;
+  }
+  .evalcase .vbox p { font-size: .84rem; margin: 0 0 9px; }
+  .evalcase .vbox.pass { border-color: var(--good); background: var(--good-soft); }
+  .evalcase .vbox.fail { border-color: var(--bad); background: var(--bad-soft); }
+  .pf { display: flex; gap: 6px; }
+  .pf button {
+    font: inherit; font-size: .78rem; font-weight: 700; padding: 4px 12px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer; color: var(--ink-2);
+  }
+  .pf button.on.p { background: var(--good); border-color: var(--good); color: #fff; }
+  .pf button.on.f { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .regrow {
+    display: flex; gap: 10px; align-items: center; font-size: .86rem; padding: 7px 11px;
+    border-radius: 8px; margin-bottom: 5px; border: 1px solid var(--line);
+  }
+  .regrow.up { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 30%, transparent); }
+  .regrow.down { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 30%, transparent); }
+  .bigstat {
+    text-align: center; padding: 16px; border: 1px solid var(--line); border-radius: var(--r-lg);
+    background: var(--panel);
+  }
+  .bigstat .n { font-family: var(--mono); font-size: 1.9rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .74rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.warn .n { color: var(--warn); }
+</style>
+</head>
+<body data-page="p8">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 8 · Parte II — Progettarla</span>
+  <h1>Valutazione</h1>
+  <p class="lead">Questo è il modulo che trasforma una demo in ingegneria. Non “sembra buono?” ma:
+  quanto è buono, misurato come, rispetto a cosa, con quale incertezza e con quale costo quando sbaglia.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">La disciplina in una riga</span>
+  <p class="mb0">Un sistema di AI senza un insieme di valutazione non è un sistema: è un aneddoto.
+  <strong>Costruisci la valutazione prima di costruire il modello</strong>, tienila sigillata e rieseguila
+  a ogni modifica. Tutto il resto di questo modulo è il dettaglio su come farlo.</p>
+</div>
+
+<!-- ============================================= 8.1 -->
+<section class="chapter" id="dodges">
+  <h2>8.1 · I quattro modi per evitare di rispondere</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="color:var(--bad)">“Ci azzecca quasi sempre”</h4>
+      <p class="small mb0">Misurato su cosa? Di solito sugli esempi che lo sviluppatore guardava mentre
+      lo costruiva, che è la definizione stessa di dati di addestramento. Chiedi un numero, un denominatore e
+      una descrizione dei casi.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">“Accuratezza del 98%”</h4>
+      <p class="small mb0">Su un problema sbilanciato, come ha mostrato il modulo 7.3, può essere peggio che
+      non fare nulla. L’accuratezza è la metrica giusta solo quando le classi sono bilanciate e i due tipi
+      di errore costano lo stesso, il che non succede quasi mai.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">“Va bene sul benchmark”</h4>
+      <p class="small mb0">I benchmark pubblici misurano un compito diverso dal tuo e, nel 2026, molti sono
+      in parte contaminati: le domande di test sono finite nei dati di addestramento. Utili per una
+      classifica approssimativa dei modelli, quasi inutili come prova di come andrà sul tuo lavoro.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">“Agli utenti piace moltissimo”</h4>
+      <p class="small mb0">Vale la pena saperlo, ma non equivale a corretto. Le persone preferiscono
+      sistematicamente risposte sicure, fluide e accomodanti, che è esattamente la modalità di guasto di un
+      modello linguistico. Misura la soddisfazione <em>e</em> l’accuratezza, separatamente.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">La domanda da fare al loro posto</span>
+    <p class="mb0">“Su <strong>N</strong> casi che il sistema non ha mai visto, estratti dalla stessa
+    distribuzione del lavoro reale, ha prodotto <strong>X</strong> risposte corrette, <strong>Y</strong>
+    sbagliate in un senso e <strong>Z</strong> sbagliate nell’altro. Una persona che svolge questo compito
+    ottiene <strong>B</strong>. Ecco l’intervallo di confidenza.” Qualunque progetto in grado di produrre
+    questa frase è in buona salute, quali che siano i numeri.</p>
+  </div>
+</section>
+
+<!-- ============================================= 8.2 -->
+<section class="chapter" id="cost">
+  <h2>8.2 · La soglia è una decisione di business</h2>
+  <p>Un classificatore non produce una decisione: produce un punteggio. Per trasformare quel punteggio in
+  accetta/scarta serve una soglia, e sceglierla significa dare un prezzo ai due tipi di errore uno
+  rispetto all’altro. Non è una scelta da data scientist, e non dovrebbe essere presa in silenzio da un
+  valore di default pari a 0.5.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Dai un prezzo agli errori, poi ottimizza</h3><span class="tag try">Fai costare un guasto mancato 200× un falso allarme</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="costCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Costo atteso ogni 10&#8239;000 pezzi in funzione della soglia. La
+        linea verde è il punto di lavoro che minimizza il costo, dati i prezzi che hai impostato.</p>
+      </div>
+      <div>
+        <div class="grid g2" style="gap:12px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Tasso di difettosità</span><span class="val" id="pRateOut"></span></div>
+            <input type="range" id="pRate" min="0.002" max="0.2" step="0.002" value="0.02">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Separazione del modello</span><span class="val" id="pSepOut"></span></div>
+            <input type="range" id="pSep" min="0.5" max="4" step="0.05" value="2.2">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Costo di un falso allarme</span><span class="val" id="pFpOut"></span></div>
+            <input type="range" id="pFp" min="1" max="200" step="1" value="12">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Costo di un guasto mancato</span><span class="val" id="pFnOut"></span></div>
+            <input type="range" id="pFn" min="10" max="50000" step="10" value="4000">
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>La soglia che hai scelto</span><span class="val" id="pThOut"></span></div>
+          <input type="range" id="pTh" min="-2" max="5" step="0.02" value="1">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsYour"><span class="n" id="oYour">—</span><span class="l">costo alla tua soglia</span></div>
+          <div class="bigstat good"><span class="n" id="oBest">—</span><span class="l">costo all’ottimo</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">soglia ottima</span><span class="v" id="oOptTh">—</span></div>
+          <div class="m"><span class="k">recall all’ottimo</span><span class="v" id="oOptRec">—</span></div>
+          <div class="m"><span class="k">precision all’ottimo</span><span class="v" id="oOptPre">—</span></div>
+          <div class="m"><span class="k">soldi lasciati sul tavolo</span><span class="v" id="oGap">—</span></div>
+        </div>
+        <div class="card mt1" id="costNote" style="min-height:120px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Che cosa farne in pratica</span>
+    <p class="mb0">Metti quei due cursori dei costi davanti alla persona responsabile del processo, non a
+    quella responsabile del modello. Discuteranno sui numeri: quella discussione <em>è</em> il
+    requisito, e richiede un pomeriggio. A quel punto la soglia segue dall’aritmetica e può essere
+    documentata, revisionata e verificata. Una soglia che nessuno ha scelto è il guasto silenzioso più
+    comune nel machine learning in produzione.</p>
+  </div>
+</section>
+
+<!-- ============================================= 8.3 -->
+<section class="chapter" id="curves">
+  <h2>8.3 · ROC e precision–recall: lo stesso modello, due storie</h2>
+  <p>Invece di scegliere una sola soglia, provale tutte e traccia il compromesso. Due curve standard fanno
+  proprio questo e, su un problema a eventi rari, danno impressioni radicalmente diverse dello stesso
+  modello. Sapere quale chiedere è una competenza professionale davvero utile.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Prova tutte le soglie</h3><span class="tag try">Imposta il tasso di difettosità allo 0.5% e confronta le due curve</span></div>
+    <div class="split">
+      <div>
+        <canvas id="rocCv" class="cv"></canvas>
+        <div class="segmented mt1" id="curveSeg">
+          <button data-v="roc" class="on">Curva ROC</button>
+          <button data-v="pr">Precision–recall</button>
+          <button data-v="both">Entrambe</button>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Tasso di difettosità</span><span class="val" id="cRateOut"></span></div>
+          <input type="range" id="cRate" min="0.002" max="0.4" step="0.002" value="0.05">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Separazione del modello</span><span class="val" id="cSepOut"></span></div>
+          <input type="range" id="cSep" min="0.3" max="4" step="0.05" value="2">
+        </div>
+        <div class="metrics">
+          <div class="m"><span class="k">ROC AUC</span><span class="v" id="mAuc">—</span></div>
+          <div class="m"><span class="k">PR AUC (avg. prec.)</span><span class="v" id="mPrauc">—</span></div>
+          <div class="m"><span class="k">baseline PR</span><span class="v" id="mPrbase">—</span></div>
+        </div>
+        <div class="card mt1" id="curveNote" style="min-height:220px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Perché la ROC lusinga i modelli per eventi rari</span>
+      <p class="mb0">Il tasso di falsi positivi divide per il numero di pezzi sani, che è enorme.
+      Segnalare 500 pezzi sani su 99&#8239;500 significa un tasso di falsi positivi dello 0.5%, invisibile su
+      una curva ROC, ma anche 500 ispezioni inutili e una precision del 9%. <strong>Sui problemi
+      sbilanciati chiedi la curva precision–recall.</strong> La ROC AUC sembrerà comunque impressionante.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">E la difesa onesta dell’AUC</span>
+      <p class="mb0">La ROC AUC ha un pregio reale: è indipendente dalla prevalenza e dalla soglia, quindi
+      misura soltanto la capacità del modello di <em>ordinare</em> i casi. Questo la rende un modo corretto
+      per confrontare due modelli. È invece un pessimo modo per decidere se un sistema è pronto per il
+      deployment: per quello ti servono il punto di lavoro e i costi visti in 8.2.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 8.4 -->
+<section class="chapter" id="calibration">
+  <h2>8.4 · Le probabilità sono vere?</h2>
+  <p>Un modello che dice “sicuro all’87%” sta facendo un’affermazione verificabile: di tutti i casi in
+  cui ha detto 87%, circa l’87% dovrebbe essere davvero positivo. Un modello per cui questo vale è
+  <strong>calibrato</strong>. La maggior parte non lo è, e la cosa conta moltissimo, perché ogni decisione
+  a valle (soglie, regole di escalation, calcoli del costo atteso, “mostra all’utente solo le risposte
+  sopra il 90%”) presuppone in silenzio la calibrazione.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Diagramma di affidabilità</h3><span class="tag try">Spingi la confidenza verso l’eccesso di sicurezza</span></div>
+    <div class="split">
+      <div>
+        <canvas id="calCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Ogni punto è un intervallo di confidenza: dove il modello ha detto
+        <em>x</em>, la realtà è risultata <em>y</em>. La diagonale è la calibrazione perfetta. Calcolato su
+        4&#8239;000 casi simulati.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Distorsione della confidenza</span><span class="val" id="calTOut"></span></div>
+          <input type="range" id="calT" min="0.3" max="3.2" step="0.05" value="1">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsEce"><span class="n" id="mEce">—</span><span class="l">errore di calibrazione (ECE)</span></div>
+          <div class="bigstat"><span class="n" id="mAccc">—</span><span class="l">accuratezza</span></div>
+        </div>
+        <div class="card mt1" id="calNote" style="min-height:230px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">Le conseguenze pratiche</span>
+    <ul class="mb0">
+      <li><strong>Accuratezza e calibrazione sono indipendenti.</strong> Trascina il cursore: l’accuratezza
+      si muove appena mentre la calibrazione crolla. Un modello può ordinare i casi perfettamente e
+      mentire comunque sulla propria confidenza.</li>
+      <li><strong>Le reti profonde sono sistematicamente troppo sicure di sé</strong>, e il rimedio costa
+      poco: temperature scaling su un insieme tenuto da parte, un solo parametro stimato in pochi secondi.</li>
+      <li><strong>I modelli linguistici sono peggio.</strong> La fluidità di una risposta non porta alcuna
+      informazione sulla sua correttezza, e la confidenza dichiarata (“sono abbastanza sicuro che…”) è
+      testo generato, non una misura. Non trattarla mai come tale.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 8.5 -->
+<section class="chapter" id="baselines">
+  <h2>8.5 · Che cosa devi battere</h2>
+  <p>Un numero da solo non significa nulla. 92% è eccellente, mediocre o imbarazzante a seconda
+  esclusivamente di quanto ottengono le alternative, e le alternative sono spesso sorprendentemente forti.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Il tuo numero è buono?</h3><span class="tag try">Trascina il punteggio del tuo modello</span></div>
+    <div class="split">
+      <div><canvas id="baseCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Compito</span><span class="val" id="bTaskName">Rilevamento difetti</span></div>
+          <div class="segmented" id="bTaskSeg">
+            <button data-v="0" class="on">Rilevamento difetti</button>
+            <button data-v="1">Smistamento ticket</button>
+            <button data-v="2">Previsione della domanda</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Punteggio del tuo modello</span><span class="val" id="bMineOut"></span></div>
+          <input type="range" id="bMine" min="0.3" max="1" step="0.005" value="0.92">
+        </div>
+        <div class="card" id="baseNote" style="min-height:250px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Le quattro baseline da pretendere, ogni volta</span>
+    <ol class="mb0">
+      <li><strong>Caso</strong>: risposte casuali al tasso osservato delle classi.</li>
+      <li><strong>Classe maggioritaria</strong>: predici sempre la risposta più comune. Sugli eventi rari è
+      brutalmente alta (modulo 7.3).</li>
+      <li><strong>La regola più semplice che scriverebbe una persona</strong>: una soglia sulla feature più
+      ovvia. È sorprendente quanto spesso arrivi a pochi punti da una rete neurale, e costa una giornata.</li>
+      <li><strong>Una persona che svolge il compito</strong>: misurata, sugli stessi casi. È insieme
+      l’obiettivo e il tetto imposto dal rumore nelle etichette (modulo 7.2).</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============================================= 8.6 -->
+<section class="chapter" id="samplesize">
+  <h2>8.6 · Di quanti casi di test hai davvero bisogno?</h2>
+  <p>È la domanda che separa chi misura da chi va a sensazione. Hai testato 50 casi e ottenuto l’88%. È
+  meglio dell’82% della versione precedente? Molto spesso la risposta onesta è
+  <strong>non puoi saperlo</strong>.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Intervalli di confidenza e confronto tra versioni</h3><span class="tag try">Imposta n = 50 e confronta 82% con 88%</span></div>
+    <div class="split-wide">
+      <div><canvas id="ciCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Ampiezza dell’intervallo di confidenza al 95% in funzione del numero
+        di casi di test, per un’accuratezza osservata dell’85% (intervallo di Wilson). Nota l’andamento a
+        radice quadrata: quadruplicare il test set dimezza l’incertezza.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Numero di casi di test</span><span class="val" id="nCasesOut"></span></div>
+          <input type="range" id="nCases" min="10" max="2000" step="5" value="50">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Punteggio della versione A</span><span class="val" id="pAOut"></span></div>
+          <input type="range" id="pA" min="0.3" max="1" step="0.01" value="0.82">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Punteggio della versione B</span><span class="val" id="pBOut"></span></div>
+          <input type="range" id="pB" min="0.3" max="1" step="0.01" value="0.88">
+        </div>
+        <div class="card" id="ciA" style="margin-bottom:9px"></div>
+        <div class="verdict" id="ciVerdict"></div>
+        <div class="card mt1" id="ciNote" style="min-height:120px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Regole pratiche</span>
+      <p class="mb0">Circa <strong>30–50</strong> casi: bastano per trovare i guasti evidenti. <strong>200</strong>:
+      bastano per rilevare una differenza di 10 punti. <strong>1&#8239;000+</strong>: bastano per discutere di 2 punti.
+      Scegli la dimensione in base alla differenza che devi rilevare, non in base a ciò che è comodo.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Il trucco economico che aiuta</span>
+      <p class="mb0">Confronta le versioni <strong>sugli stessi casi</strong> e guarda i casi in cui
+      differiscono, non i due punteggi aggregati. Un confronto appaiato richiede molti meno esempi, e i
+      disaccordi sono anche la cosa più istruttiva che leggerai in tutta la settimana.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">E la trappola</span>
+      <p class="mb0">Se ritocchi il prompt, riesegui la valutazione, tieni il migliore e ripeti venti
+      volte, hai fatto tuning sul test set. Ora è un validation set e ti lusinga. Tieni un secondo insieme,
+      più piccolo, sigillato per il numero finale.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 8.7 -->
+<section class="chapter" id="llmeval">
+  <h2>8.7 · Valutare un sistema basato su LLM</h2>
+  <p>Non esiste un punteggio di accuratezza per “scrivi una buona risposta”. Ma il problema è molto più
+  trattabile di quanto sembri a prima vista, perché non stai valutando un modello linguistico in generale:
+  stai valutando <strong>il tuo sistema sul tuo compito</strong>, e per questo un elenco di casi reali con
+  criteri di superamento scritti fa la maggior parte del lavoro.</p>
+
+  <p>Qui sotto: l’assistente RAG del modulo 4, con otto casi presi da domande reali e due versioni del
+  sistema. Valutale.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Valuta due versioni</h3><span class="tag try">Promuovi o boccia ogni risposta</span></div>
+    <div class="btnrow">
+      <button class="btn sm" id="evFill">Compila con una valutazione suggerita</button>
+      <button class="btn sm" id="evClear">Azzera</button>
+      <span class="small muted">Usa la valutazione suggerita se stai presentando e hai poco tempo.</span>
+    </div>
+    <div class="grid g3" style="gap:10px">
+      <div class="bigstat"><span class="n" id="evA">—</span><span class="l">tasso di superamento versione 1</span></div>
+      <div class="bigstat"><span class="n" id="evB">—</span><span class="l">tasso di superamento versione 2</span></div>
+      <div class="bigstat" id="bsNet"><span class="n" id="evNet">—</span><span class="l">variazione netta</span></div>
+    </div>
+    <div id="evHost" class="mt1"></div>
+    <div class="card mt1" id="evSummary" style="min-height:120px"></div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">La lezione nascosta nei numeri</span>
+    <p class="mb0">La versione 2 è migliore nell’aggregato e <strong>peggiore su casi specifici</strong>.
+    È la situazione normale, e un punteggio aggregato la nasconde completamente. Se una delle regressioni
+    riguarda una domanda rilevante per la sicurezza, la versione “migliorata” non è rilasciabile, per
+    quanto buona sembri la media. <strong>Leggi sempre il confronto caso per caso, non solo i
+    totali</strong>: è il regression testing, ed è la singola pratica di ingegneria di maggior valore per
+    i sistemi basati su LLM.</p>
+  </div>
+
+  <h3 class="mt2">Come costruire l’insieme di valutazione</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Da dove vengono i casi</h4>
+      <ul class="small mb0">
+        <li>Domande reali di utenti reali: raccoglile dal primo giorno di qualunque pilota.</li>
+        <li>I casi scomodi su cui i tuoi esperti discutono.</li>
+        <li>Domande la cui risposta <em>non</em> è nei tuoi documenti: il modello deve dirlo.</li>
+        <li>Ogni guasto che qualcuno segnala. Un bug diventa un caso di test permanente.</li>
+        <li>Casi avversari: premesse false, istruzioni iniettate, richieste fuori ambito.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Com’è fatto un buon criterio di superamento</h4>
+      <p class="small">Non “la risposta è buona?” ma qualcosa che una seconda persona valuterebbe allo stesso modo:</p>
+      <ul class="small mb0">
+        <li>“Indica 92 Nm e cita ENG-STD-114 §4.2.”</li>
+        <li>“Si rifiuta di rispondere e dice che i documenti non trattano l’argomento.”</li>
+        <li>“Menziona sia il limite di 2.0 mm <em>sia</em> l’eccezione per le zone critiche per le sollecitazioni.”</li>
+        <li>“Non contiene alcun codice articolo che non compaia nei passaggi recuperati.”</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Chi valuta</h4>
+      <p class="small mb0">Persone, per la prima versione, e anche qui ti serve l’accordo tra valutatori del
+      modulo 7.2. Una volta che i criteri sono netti, gran parte del lavoro si può automatizzare: controlli
+      su stringhe e citazioni per le parti oggettive, e un secondo modello come valutatore per il resto.
+      Valida il valutatore automatico rispetto ai giudizi umani prima di fidarti, esattamente come faresti
+      con qualsiasi altro modello.</p>
+    </div>
+    <div class="card">
+      <h4>Quando eseguirla</h4>
+      <p class="small mb0">A ogni modifica del prompt, a ogni cambio di versione del modello, a ogni
+      re-indicizzazione dei documenti, prima di ogni release. Dovrebbe richiedere pochi minuti e girare in CI.
+      Un team che non riesce a rieseguire la propria valutazione in un pomeriggio smetterà di farlo entro un
+      mese.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 8.8 -->
+<section class="chapter" id="report">
+  <h2>8.8 · Il rapporto di valutazione</h2>
+  <p>Ecco com’è fatto un risultato difendibile quando lo si mette per iscritto. Spunta ciò che conteneva
+  davvero la tua ultima revisione di un modello.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Completezza del rapporto</h3><span class="tag try">Sii severo con te stesso</span></div>
+    <div class="split">
+      <div class="checklist" id="repList"></div>
+      <div>
+        <div class="verdict info" id="repVerdict"><span class="lvl">Nessuna voce spuntata</span>
+        Procedi lungo l’elenco.</div>
+        <div class="card mt1">
+          <h4>Perché c’è ciascuna voce</h4>
+          <p class="small mb0" id="repWhy">Passa sopra una voce o spuntala per vedere da cosa ti protegge.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Questa checklist è un artefatto di governance quanto tecnico: corrisponde quasi
+      uno a uno a ciò che, come mostra il modulo 10, l’AI Act richiede per i sistemi ad alto rischio.
+      Sottolinealo: una buona pratica di valutazione è gran parte della conformità, fatta presto e a basso costo.</li>
+      <li>Se la sala è composta da senior, le quattro baseline di 8.5 e l’intervallo di confidenza di 8.6 sono
+      le due cose su cui vale la pena insistere. Non costano nulla e fermano presto i progetti sbagliati.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo ora</h2>
+  <p>Ora sappiamo costruire un modello, alimentarlo correttamente e dimostrare che funziona. Il modulo 9
+  gli dà strumenti e il permesso di agire, e questo cambia completamente il quadro dei rischi.</p>
+  <p><a href="09-agents.html"><strong>Modulo 9 · Agenti e uso di strumenti →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+  function randn() {
+    var u = 0, v = 0;
+    while (!u) u = Math.random();
+    while (!v) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+  }
+  function normCdf(x) {
+    var t = 1 / (1 + 0.3275911 * Math.abs(x) / Math.SQRT2);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t
+      * Math.exp(-x * x / 2);
+    return x >= 0 ? 0.5 * (1 + y) : 0.5 * (1 - y);
+  }
+  /* TPR/FPR for healthy~N(0,1), faulty~N(sep,1), flag if score > th */
+  function tpr(th, sep) { return 1 - normCdf(th - sep); }
+  function fpr(th) { return 1 - normCdf(th); }
+
+  /* ================================================ 8.2 cost */
+  var CS = { rate: 0.02, sep: 2.2, cfp: 12, cfn: 4000, th: 1 }, costPlot;
+  var N10 = 10000;
+  function costAt(th) {
+    var nF = N10 * CS.rate, nH = N10 - nF;
+    var fn = nF * (1 - tpr(th, CS.sep));
+    var fp = nH * fpr(th);
+    return fp * CS.cfp + fn * CS.cfn;
+  }
+  function bestTh() {
+    var best = -2, bc = Infinity;
+    for (var t = -2; t <= 5.001; t += 0.02) {
+      var c = costAt(t);
+      if (c < bc) { bc = c; best = t; }
+    }
+    return { th: best, c: bc };
+  }
+  function drawCost() {
+    costPlot.resize(); costPlot.clear();
+    var pts = [], i, mx = 0;
+    for (i = 0; i <= 350; i++) {
+      var t = -2 + 7 * i / 350, c = costAt(t);
+      pts.push([t, c]); mx = Math.max(mx, c);
+    }
+    costPlot.dom = [-2, 5]; costPlot.ran = [0, mx * 1.08];
+    costPlot.frame({ xticks: 7, yticks: 4, xlabel: 'soglia', ylabel: '€ ogni 10 000 pezzi',
+      yfmt: function (y) { return F.c(y); } });
+    var b = bestTh(), mine = costAt(CS.th);
+    costPlot.clip(function (g) {
+      costPlot.line(pts, C('--accent'), 2.6);
+      costPlot.line([[b.th, 0], [b.th, mx * 1.08]], C('--good'), 2, [5, 4]);
+      costPlot.line([[CS.th, 0], [CS.th, mx * 1.08]], C('--warn'), 2);
+      costPlot.dot(b.th, b.c, 6, C('--good'), C('--panel'));
+      costPlot.dot(CS.th, mine, 6, C('--warn'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'center';
+      g.fillStyle = C('--good'); g.fillText('ottimo', costPlot.X(b.th), costPlot.Y(mx * 1.04));
+      g.fillStyle = C('--warn'); g.fillText('tua', costPlot.X(CS.th), costPlot.Y(mx * 0.96));
+    });
+    var nF = N10 * CS.rate, nH = N10 - nF;
+    var rec = tpr(b.th, CS.sep), tp = nF * rec, fp = nH * fpr(b.th);
+    document.getElementById('oYour').textContent = '€' + F.c(mine);
+    document.getElementById('oBest').textContent = '€' + F.c(b.c);
+    document.getElementById('oOptTh').textContent = b.th.toFixed(2);
+    document.getElementById('oOptRec').textContent = (rec * 100).toFixed(1) + '%';
+    document.getElementById('oOptPre').textContent = (tp / Math.max(1e-9, tp + fp) * 100).toFixed(1) + '%';
+    document.getElementById('oGap').textContent = '€' + F.c(mine - b.c);
+    document.getElementById('bsYour').className = 'bigstat ' + (mine > b.c * 1.6 ? 'bad' : mine > b.c * 1.15 ? 'warn' : 'good');
+
+    var ratio = CS.cfn / CS.cfp;
+    var n = '<h4>Che cosa dice l’aritmetica</h4>';
+    n += '<p class="small">Un guasto mancato costa ' + ratio.toFixed(0) + '× un falso allarme, quindi l’ottimo si trova a una soglia di <b>' +
+      b.th.toFixed(2) + '</b> — ' + (b.th < 0 ? 'ben al di sotto dello zero: significa <b>segnalare in modo aggressivo</b> e accettare molte ispezioni inutili.'
+      : b.th > 2 ? 'alta: significa <b>segnalare solo quando il modello è sicuro</b>, perché qui sono i falsi allarmi a fare davvero male.'
+      : 'moderata.') + '</p>';
+    n += '<p class="small mb0">Nota che cosa è successo al recall: l’impostazione a costo minimo intercetta il <b>' +
+      (rec * 100).toFixed(0) + '%</b> dei guasti. Nessuno ha scelto quel numero: è venuto fuori dai due prezzi. ' +
+      (mine > b.c * 1.15 ? 'La tua soglia lascia sul tavolo <b>€' + F.c(mine - b.c) + ' ogni 10 000 pezzi</b>.' : 'La tua soglia è vicina all’ottimo.') + '</p>';
+    document.getElementById('costNote').innerHTML = n;
+  }
+
+  /* ================================================ 8.3 curves */
+  var CV = { rate: 0.05, sep: 2, mode: 'roc' }, rocPlot;
+  function drawCurves() {
+    rocPlot.resize(); rocPlot.clear();
+    rocPlot.dom = [0, 1]; rocPlot.ran = [0, 1];
+    var isPR = CV.mode === 'pr';
+    rocPlot.frame({ xticks: 5, yticks: 5,
+      xlabel: CV.mode === 'both' ? 'FPR (ROC) / recall (PR)' : (isPR ? 'recall' : 'tasso di falsi positivi'),
+      ylabel: CV.mode === 'both' ? 'TPR / precision' : (isPR ? 'precision' : 'tasso di veri positivi') });
+    var roc = [], pr = [], i;
+    for (i = 0; i <= 400; i++) {
+      var th = 6 - 10 * i / 400;
+      var t = tpr(th, CV.sep), f = fpr(th);
+      roc.push([f, t]);
+      var tp = CV.rate * t, fp = (1 - CV.rate) * f;
+      pr.push([t, tp / Math.max(1e-12, tp + fp)]);
+    }
+    /* AUCs by trapezoid */
+    function auc(p) {
+      var s = 0;
+      for (var k = 1; k < p.length; k++) s += (p[k][0] - p[k - 1][0]) * (p[k][1] + p[k - 1][1]) / 2;
+      return Math.abs(s);
+    }
+    var aRoc = normCdf(CV.sep / Math.SQRT2), aPr = auc(pr);
+    rocPlot.clip(function (g) {
+      rocPlot.line([[0, 0], [1, 1]], C('--line'), 1.4, [5, 4]);
+      if (CV.mode !== 'pr') rocPlot.line(roc, C('--accent'), 3);
+      if (CV.mode !== 'roc') {
+        rocPlot.line([[0, CV.rate], [1, CV.rate]], C('--ink-3'), 1.4, [4, 4]);
+        rocPlot.line(pr, C('--warn'), 3);
+      }
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      if (CV.mode !== 'pr') { g.fillStyle = C('--accent'); g.fillText('ROC', rocPlot.X(0.62), rocPlot.Y(0.55)); }
+      if (CV.mode !== 'roc') { g.fillStyle = C('--warn'); g.fillText('precision–recall', rocPlot.X(0.3), rocPlot.Y(Math.min(0.92, CV.rate + 0.12))); }
+    });
+    document.getElementById('mAuc').textContent = aRoc.toFixed(3);
+    document.getElementById('mPrauc').textContent = aPr.toFixed(3);
+    document.getElementById('mPrbase').textContent = CV.rate.toFixed(3);
+
+    var n = '<h4>Lo stesso modello, due impressioni</h4>';
+    n += '<p class="small">La ROC AUC è <b>' + aRoc.toFixed(3) + '</b> — ' +
+      (aRoc > 0.9 ? 'il tipo di numero che fa approvare un progetto.' : aRoc > 0.75 ? 'rispettabile.' : 'debole.') +
+      ' La PR AUC è <b>' + aPr.toFixed(3) + '</b>, contro una baseline senza capacità predittiva di appena <b>' + CV.rate.toFixed(3) + '</b>.</p>';
+    if (CV.rate < 0.03) {
+      n += '<p class="small" style="color:var(--warn)">Con un tasso di difettosità pari a ' + (CV.rate * 100).toFixed(1) +
+        '% la curva precision–recall crolla verso l’angolo in basso a sinistra, mentre la curva ROC quasi non se ne accorge. Per intercettare l’80% dei guasti dovresti accettare una precision di circa il <b>' +
+        (function () {
+          var best = 0;
+          pr.forEach(function (p) { if (p[0] >= 0.8 && p[1] > best) best = p[1]; });
+          return (best * 100).toFixed(0);
+        })() + '%</b>: quattro segnalazioni su cinque sarebbero false.</p>';
+    }
+    n += '<p class="small mb0"><b>Leggi la ROC AUC come</b> la probabilità che il modello assegni a un pezzo difettoso scelto a caso un punteggio più alto che a un pezzo sano scelto a caso. È un’informazione davvero utile, e <i>non</i> equivale a “funzionerà”.</p>';
+    document.getElementById('curveNote').innerHTML = n;
+  }
+
+  /* ================================================ 8.4 calibration */
+  var CAL = { t: 1, data: [] }, calPlot;
+  function calData() {
+    CAL.data = [];
+    for (var i = 0; i < 4000; i++) {
+      /* true probability of being positive for this case */
+      var p = 1 / (1 + Math.exp(-randn() * 1.7));
+      CAL.data.push({ p: p, y: Math.random() < p ? 1 : 0 });
+    }
+  }
+  function distort(p, t) {
+    /* temperature on the logit: t<1 sharpens (overconfident), t>1 flattens */
+    var z = Math.log(Math.max(1e-9, p) / Math.max(1e-9, 1 - p));
+    return 1 / (1 + Math.exp(-z / t));
+  }
+  function drawCal() {
+    calPlot.resize(); calPlot.clear();
+    calPlot.dom = [0, 1]; calPlot.ran = [0, 1];
+    calPlot.frame({ xticks: 5, yticks: 5, xlabel: 'confidenza dichiarata dal modello', ylabel: 'frazione davvero positiva' });
+    var bins = 12, sum = new Array(bins).fill(0), cnt = new Array(bins).fill(0), pos = new Array(bins).fill(0);
+    var ok = 0;
+    CAL.data.forEach(function (d) {
+      var q = distort(d.p, CAL.t);
+      var b = Math.max(0, Math.min(bins - 1, Math.floor(q * bins)));
+      sum[b] += q; cnt[b]++; pos[b] += d.y;
+      if ((q >= 0.5 ? 1 : 0) === d.y) ok++;
+    });
+    var pts = [], ece = 0, i;
+    for (i = 0; i < bins; i++) {
+      if (cnt[i] < 8) continue;
+      var conf = sum[i] / cnt[i], acc = pos[i] / cnt[i];
+      pts.push([conf, acc, cnt[i]]);
+      ece += cnt[i] / CAL.data.length * Math.abs(conf - acc);
+    }
+    calPlot.clip(function (g) {
+      calPlot.line([[0, 0], [1, 1]], C('--ink-3'), 1.6, [5, 4]);
+      calPlot.line(pts.map(function (p) { return [p[0], p[1]]; }), C('--accent'), 2.6);
+      pts.forEach(function (p) {
+        calPlot.dot(p[0], p[1], 3 + Math.sqrt(p[2]) / 7, C('--accent'), C('--panel'));
+      });
+      g.font = '600 11px system-ui,sans-serif';
+      g.fillStyle = C('--ink-3'); g.textAlign = 'left';
+      g.fillText('calibrazione perfetta', calPlot.X(0.04), calPlot.Y(0.13));
+    });
+    document.getElementById('mEce').textContent = ece.toFixed(3);
+    document.getElementById('mAccc').textContent = (ok / CAL.data.length * 100).toFixed(1) + '%';
+    document.getElementById('bsEce').className = 'bigstat ' + (ece < 0.03 ? 'good' : ece < 0.08 ? 'warn' : 'bad');
+
+    var n = '<h4>Come leggere la curva</h4>';
+    if (CAL.t < 0.85) n += '<p class="small"><b style="color:var(--bad)">Troppo sicuro di sé.</b> La curva sta sotto la diagonale: quando dichiara 90% ha ragione molto meno spesso. È il comportamento predefinito di una rete profonda addestrata a minimizzare la cross-entropy, e significa che ogni regola del tipo “approva automaticamente sopra il 95% di confidenza” sta approvando cose che non dovrebbe.</p>';
+    else if (CAL.t > 1.3) n += '<p class="small"><b style="color:var(--warn)">Troppo poco sicuro di sé.</b> Sopra la diagonale: ha ragione più spesso di quanto dichiari. Meno pericoloso, ma spreca capacità: casi che si sarebbero potuti gestire automaticamente vengono passati alle persone.</p>';
+    else n += '<p class="small"><b style="color:var(--good)">Ben calibrato.</b> I punti seguono la diagonale, quindi la confidenza dichiarata si può usare direttamente in una regola di decisione o in un calcolo del costo atteso.</p>';
+    n += '<p class="small mb0">Osserva il valore dell’accuratezza mentre trascini: si sposta di una frazione di punto mentre l’errore di calibrazione cambia di un ordine di grandezza. <b>Sono proprietà diverse e devi misurarle entrambe.</b> Il rimedio alla cattiva calibrazione è un solo parametro stimato su dati tenuti da parte: quasi gratis, e regolarmente saltato.</p>';
+    document.getElementById('calNote').innerHTML = n;
+  }
+
+  /* ================================================ 8.5 baselines */
+  var TASKS = [
+    { name: 'Rilevamento difetti', unit: 'recall a precision fissata',
+      bars: [['Caso', 0.05], ['Sempre “conforme”', 0.0], ['Una soglia sulla luminosità', 0.62], ['Ispettore esperto', 0.93]],
+      note: 'Nota che “sempre conforme” ha recall zero pur avendo un’accuratezza del 95%. Scegli la metrica prima di confrontare.' },
+    { name: 'Smistamento ticket', unit: 'accuratezza su 12 categorie',
+      bars: [['Caso', 0.083], ['Categoria più comune', 0.31], ['Regole a parole chiave', 0.68], ['Smistatore esperto', 0.89]],
+      note: 'Le regole a parole chiave sono la baseline che tutti saltano, e nei compiti di smistamento arrivano spesso a dieci punti da un modello, a una frazione del costo e con spiegabilità completa.' },
+    { name: 'Previsione della domanda', unit: '1 − errore normalizzato',
+      bars: [['Caso', 0.0], ['Anno scorso, stessa settimana', 0.71], ['Media mobile', 0.78], ['Pianificatore con foglio di calcolo', 0.84]],
+      note: 'Sulle serie temporali, “ripeti quello che è successo nel periodo precedente” è una baseline notoriamente difficile da battere. Qualunque proposta di previsione che non la riporti va rimandata indietro.' }
+  ];
+  var BS = { t: 0, mine: 0.92 }, basePlot;
+  function drawBase() {
+    basePlot.resize(); basePlot.clear();
+    var T = TASKS[BS.t], g = basePlot.ctx;
+    var rows = T.bars.concat([['Il tuo modello', BS.mine]]);
+    basePlot.dom = [0, 1]; basePlot.ran = [0, rows.length];
+    basePlot.frame({ xticks: 5, yticks: 1, xlabel: T.unit, yfmt: function () { return ''; },
+      xfmt: function (x) { return (x * 100).toFixed(0) + '%'; } });
+    var h = basePlot.ph / rows.length;
+    rows.forEach(function (r, i) {
+      var y = basePlot.pad.t + i * h + 5;
+      var isMine = i === rows.length - 1, isHuman = r[0].match(/Ispettore|Smistatore|Pianificatore/);
+      g.fillStyle = isMine ? C('--accent') : isHuman ? C('--violet') : C('--ink-3');
+      g.globalAlpha = isMine ? 1 : isHuman ? 0.8 : 0.45;
+      g.fillRect(basePlot.pad.l, y, Math.max(1, r[1] * basePlot.pw), h - 10);
+      g.globalAlpha = 1;
+      g.fillStyle = C('--ink'); g.font = (isMine ? '700 ' : '600 ') + '12px system-ui, sans-serif';
+      g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText(r[0], basePlot.pad.l + 8, y + (h - 10) / 2);
+      g.fillStyle = isMine ? C('--accent') : C('--ink-3');
+      g.font = '700 12px ui-monospace, monospace';
+      g.fillText((r[1] * 100).toFixed(1) + '%', basePlot.pad.l + Math.max(1, r[1] * basePlot.pw) + 8, y + (h - 10) / 2);
+    });
+    var human = 0, simple = 0;
+    T.bars.forEach(function (b) {
+      if (b[0].match(/Ispettore|Smistatore|Pianificatore/)) human = b[1];
+      else simple = Math.max(simple, b[1]);
+    });
+    var n = '<h4>Verdetto su ' + (BS.mine * 100).toFixed(1) + '%</h4>';
+    if (BS.mine < simple) n += '<p class="small" style="color:var(--bad)"><b>Peggio della regola semplice.</b> Un’euristica di una riga ottiene il ' +
+      (simple * 100).toFixed(1) + '%. Qualunque altra cosa sia vera, questo modello non merita ancora il deployment, e vale la pena capire perché la regola semplice fa meglio.</p>';
+    else if (BS.mine < human * 0.95) n += '<p class="small" style="color:var(--warn)"><b>Batte la regola semplice, ma resta sotto la persona.</b> Può comunque avere valore: se è veloce, economico e coerente, o se fa da triage così che le persone dedichino il loro tempo a ciò che conta. Ma non presentarlo come sostituto della persona.</p>';
+    else if (BS.mine < human * 1.02) n += '<p class="small" style="color:var(--good)"><b>Più o meno a livello umano.</b> Nota il tetto implicato dal modulo 7.2: se due esperti concordano solo nel ' +
+      (human * 100).toFixed(0) + '% dei casi, questo è vicino al massimo misurabile. Ulteriori miglioramenti potrebbero essere non misurabili, più che irraggiungibili.</p>';
+    else n += '<p class="small" style="color:var(--good)"><b>Sopra la baseline umana misurata.</b> Per prima cosa trattalo con un sospetto benevolo: verifica che non ci sia leakage (modulo 7.4), che i casi di test siano rappresentativi e che la baseline umana sia stata misurata sugli stessi casi e nelle stesse condizioni.</p>';
+    n += '<p class="small mb0">' + T.note + '</p>';
+    document.getElementById('baseNote').innerHTML = n;
+  }
+
+  /* ================================================ 8.6 sample size */
+  var SS = { n: 50, pA: 0.82, pB: 0.88 }, ciPlot;
+  function wilson(p, n, z) {
+    z = z || 1.96;
+    var d = 1 + z * z / n;
+    var c = (p + z * z / (2 * n)) / d;
+    var hw = z / d * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n));
+    return { lo: Math.max(0, c - hw), hi: Math.min(1, c + hw), w: 2 * hw };
+  }
+  function drawCi() {
+    ciPlot.resize(); ciPlot.clear();
+    var pts = [], i;
+    for (i = 10; i <= 2000; i += 10) pts.push([i, wilson(0.85, i).w]);
+    ciPlot.dom = [0, 2000]; ciPlot.ran = [0, 0.45];
+    ciPlot.frame({ xticks: 4, yticks: 4, xlabel: 'casi di test', ylabel: 'ampiezza intervallo 95%',
+      yfmt: function (y) { return (y * 100).toFixed(0) + ' pt'; } });
+    var cur = wilson(0.85, SS.n);
+    ciPlot.clip(function (g) {
+      ciPlot.line(pts, C('--accent'), 2.6);
+      ciPlot.line([[SS.n, 0], [SS.n, 0.45]], C('--warn'), 1.8, [4, 4]);
+      ciPlot.dot(SS.n, cur.w, 6, C('--warn'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--warn');
+      g.fillText('n = ' + SS.n + ' → ±' + (cur.w / 2 * 100).toFixed(1) + ' punti', ciPlot.X(SS.n) + 8, ciPlot.Y(cur.w + 0.03));
+    });
+
+    var a = wilson(SS.pA, SS.n), b = wilson(SS.pB, SS.n);
+    document.getElementById('ciA').innerHTML =
+      '<h4>Che cosa puoi affermare onestamente</h4>' +
+      '<p class="small" style="margin-bottom:.3em"><b>Versione A:</b> ' + (SS.pA * 100).toFixed(0) + '% osservato: valore vero plausibilmente tra <b>' +
+      (a.lo * 100).toFixed(1) + '%</b> e <b>' + (a.hi * 100).toFixed(1) + '%</b></p>' +
+      '<p class="small mb0"><b>Versione B:</b> ' + (SS.pB * 100).toFixed(0) + '% osservato: valore vero plausibilmente tra <b>' +
+      (b.lo * 100).toFixed(1) + '%</b> e <b>' + (b.hi * 100).toFixed(1) + '%</b></p>';
+
+    /* two-proportion z test, independent samples */
+    var pooled = (SS.pA + SS.pB) / 2;
+    var se = Math.sqrt(2 * pooled * (1 - pooled) / SS.n);
+    var z = se > 0 ? (SS.pB - SS.pA) / se : 0;
+    var pval = 2 * (1 - normCdf(Math.abs(z)));
+    var v = document.getElementById('ciVerdict');
+    if (Math.abs(SS.pB - SS.pA) < 1e-9) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Punteggi identici</span>Non c’è nulla da testare.';
+    } else if (pval < 0.05) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">La differenza è rilevabile</span>' +
+        'p ≈ ' + pval.toFixed(3) + ' su ' + SS.n + ' casi indipendenti. Puoi dire che la versione ' +
+        (SS.pB > SS.pA ? 'B' : 'A') + ' è migliore e difenderlo.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Non puoi distinguerle</span>' +
+        'p ≈ ' + pval.toFixed(2) + '. Gli intervalli si sovrappongono molto. Una differenza di ' +
+        Math.abs((SS.pB - SS.pA) * 100).toFixed(0) + ' punti su ' + SS.n +
+        ' casi rientra ampiamente in ciò che produrrebbe il lancio di una moneta. <b>Dichiarare vincitrice la versione ' + (SS.pB > SS.pA ? 'B' : 'A') +
+        ' sarebbe un errore.</b>';
+    }
+    /* required n for this difference */
+    var need = null;
+    for (i = 10; i <= 40000; i += 10) {
+      var se2 = Math.sqrt(2 * pooled * (1 - pooled) / i);
+      if (se2 > 0 && 2 * (1 - normCdf(Math.abs((SS.pB - SS.pA) / se2))) < 0.05) { need = i; break; }
+    }
+    document.getElementById('ciNote').innerHTML =
+      '<p class="small mb0">Per rilevare una differenza di <b>' + Math.abs((SS.pB - SS.pA) * 100).toFixed(0) +
+      ' punti</b> a questo livello di accuratezza ti servono circa <b>' + (need ? F.c(need) : '—') +
+      ' casi di test indipendenti</b> per versione. Se ti sembra impossibile, confronta le due versioni <b>sugli stessi casi</b> e analizza solo i disaccordi: un test appaiato richiede in genere da tre a cinque volte meno esempi.</p>';
+  }
+
+  /* ================================================ 8.7 LLM eval */
+  var EVC = [
+    { q: 'Qual è la coppia di serraggio dei bulloni della sospensione posteriore?',
+      crit: 'Indica 92 Nm ±4 e cita ENG-STD-114 §4.2',
+      a: { t: '“Bulloni di fissaggio della sospensione posteriore: 92 Nm ±4 Nm, serrati in due fasi.” (ENG-STD-114 §4.2)', s: 1 },
+      b: { t: '“92 Nm ±4 Nm, in due fasi: 50% in sequenza diagonale, poi 100%. I bulloni non devono essere riutilizzati.” (ENG-STD-114 §4.2)', s: 1 } },
+    { q: 'Qual è il periodo di garanzia del cambio?',
+      crit: 'Si rifiuta: i documenti non trattano la garanzia',
+      a: { t: '“I documenti forniti non contengono informazioni sui periodi di garanzia.”', s: 1 },
+      b: { t: '“Le norme non trattano la garanzia. Di solito la garanzia di un cambio è di 3 anni, ma dovresti verificare con il team commerciale.”', s: 0 } },
+    { q: 'Ciclo di cura per i pannelli in composito?',
+      crit: 'Indica 125 °C, 90 min, 6 bar e il limite di rampa di 2 °C/min',
+      a: { t: '“Cura a 125 °C per 90 minuti a 6 bar.”', s: 0 },
+      b: { t: '“125 °C per 90 minuti a 6 bar, con una velocità di rampa non superiore a 2 °C al minuto; uno scostamento oltre 5 °C invalida il ciclo.” (MAT-STD-208 §2.1)', s: 1 } },
+    { q: 'Lunghezza massima di una cricca in un carter di fusione?',
+      crit: 'Indica 2.0 mm E l’eccezione per le zone critiche per le sollecitazioni',
+      a: { t: '“Fino a 2.0 mm è accettabile.” (CAST-STD-051 §6.3)', s: 0 },
+      b: { t: '“Fino a 2.0 mm al di fuori delle zone critiche per le sollecitazioni definite nell’Allegato B; all’interno di tali zone una cricca di qualsiasi lunghezza è motivo di scarto.” (CAST-STD-051 §6.3)', s: 1 } },
+    { q: 'Il mio caposquadra può approvare a voce una piccola deroga?',
+      crit: 'Dice di no: serve l’approvazione scritta dell’autorità di progetto e del responsabile qualità',
+      a: { t: '“No. Le deroghe richiedono l’approvazione scritta dell’autorità di progetto responsabile e del responsabile qualità. Le approvazioni verbali non sono valide.” (QMS-PROC-007 §3, §5)', s: 1 },
+      b: { t: '“Le deroghe richiedono l’approvazione scritta dell’autorità di progetto e del responsabile qualità; le approvazioni verbali non sono mai valide, e la richiesta va registrata entro 24 ore.” (QMS-PROC-007 §3, §5)', s: 1 } },
+    { q: 'Il manuale dice 110 Nm per i bulloni posteriori, giusto?  (premessa falsa)',
+      crit: 'Corregge la premessa invece di accettarla',
+      a: { t: '“Sì, 110 Nm è il valore corretto per i bulloni della sospensione posteriore.”', s: 0 },
+      b: { t: '“No: la norma specifica 92 Nm ±4 Nm, non 110 Nm.” (ENG-STD-114 §4.2)', s: 1 } },
+    { q: 'Limite di porosità, e con quale metodo di ispezione?',
+      crit: 'Indica 2% in area per 10×10 mm e ispezione radiografica',
+      a: { t: '“La porosità non deve superare il 2% in area in nessuna regione di 10 mm × 10 mm, con misura radiografica.” (CAST-STD-051 §6.5)', s: 1 },
+      b: { t: '“La porosità non deve superare il 2% in area, misurata con ispezione a ultrasuoni.” (CAST-STD-051 §6.5)', s: 0 } },
+    { q: 'Un regolamento sportivo è in conflitto con la norma. Quale prevale?',
+      crit: 'Prevale il regolamento E va aperta una deroga',
+      a: { t: '“Prevale il regolamento sportivo.” (ENG-STD-114 §1.2)', s: 0 },
+      b: { t: '“Prevale il regolamento, ma va comunque aperta una deroga rispetto alla norma.” (ENG-STD-114 §1.2)', s: 1 } }
+  ];
+  var grades = {};
+  function drawEv() {
+    var host = document.getElementById('evHost');
+    if (!host.dataset.built) {
+      var h = '';
+      EVC.forEach(function (c, i) {
+        h += '<div class="evalcase"><div class="qq">' + (i + 1) + '. ' + c.q + '</div>' +
+          '<div class="crit"><b>Criterio di superamento:</b> ' + c.crit + '</div><div class="vers">';
+        ['a', 'b'].forEach(function (v) {
+          h += '<div class="vbox" id="vb-' + i + '-' + v + '"><h5>Versione ' + (v === 'a' ? '1' : '2') + '</h5>' +
+            '<p>' + c[v].t + '</p><div class="pf" data-i="' + i + '" data-v="' + v + '">' +
+            '<button class="p" data-g="1">Promossa</button><button class="f" data-g="0">Bocciata</button></div></div>';
+        });
+        h += '</div></div>';
+      });
+      host.innerHTML = h;
+      host.dataset.built = '1';
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        var pf = e.target.parentNode;
+        var i = pf.getAttribute('data-i'), v = pf.getAttribute('data-v');
+        grades[i + v] = parseInt(e.target.getAttribute('data-g'), 10);
+        drawEv();
+      });
+    }
+    EVC.forEach(function (c, i) {
+      ['a', 'b'].forEach(function (v) {
+        var g = grades[i + v];
+        var box = document.getElementById('vb-' + i + '-' + v);
+        box.className = 'vbox' + (g === 1 ? ' pass' : g === 0 ? ' fail' : '');
+        AI.qsa('button', box).forEach(function (b) {
+          b.classList.toggle('on', g !== undefined && parseInt(b.getAttribute('data-g'), 10) === g);
+        });
+      });
+    });
+    var aP = 0, bP = 0, aN = 0, bN = 0, regs = [];
+    EVC.forEach(function (c, i) {
+      if (grades[i + 'a'] !== undefined) { aN++; aP += grades[i + 'a']; }
+      if (grades[i + 'b'] !== undefined) { bN++; bP += grades[i + 'b']; }
+      if (grades[i + 'a'] !== undefined && grades[i + 'b'] !== undefined && grades[i + 'a'] !== grades[i + 'b']) {
+        regs.push({ i: i, up: grades[i + 'b'] > grades[i + 'a'], q: c.q });
+      }
+    });
+    document.getElementById('evA').textContent = aN ? aP + '/' + aN : '—';
+    document.getElementById('evB').textContent = bN ? bP + '/' + bN : '—';
+    var net = bP - aP;
+    document.getElementById('evNet').textContent = (aN && bN) ? (net > 0 ? '+' : '') + net : '—';
+    document.getElementById('bsNet').className = 'bigstat ' + (net > 0 ? 'good' : net < 0 ? 'bad' : '');
+
+    var s = '';
+    if (aN < EVC.length || bN < EVC.length) {
+      s = '<p class="small mb0">Valutate ' + (aN + bN) + ' risposte su ' + (EVC.length * 2) +
+        '. Continua: la parte interessante è il confronto caso per caso, che richiede di valutare entrambe le versioni.</p>';
+    } else {
+      s = '<h4>Confronto caso per caso: la parte che conta</h4>';
+      if (!regs.length) s += '<p class="small mb0">Nessun caso ha cambiato esito. È un risultato sospettosamente pulito: verifica che i tuoi criteri siano abbastanza netti da discriminare.</p>';
+      else {
+        regs.forEach(function (r) {
+          s += '<div class="regrow ' + (r.up ? 'up' : 'down') + '"><b>' + (r.up ? 'CORRETTO' : 'REGRESSIONE') +
+            '</b><span>Caso ' + (r.i + 1) + ' — ' + r.q + '</span></div>';
+        });
+        var down = regs.filter(function (r) { return !r.up; }).length;
+        s += '<p class="small mt1 mb0">Variazione netta <b>' + (net > 0 ? '+' : '') + net + '</b>, da ' +
+          (regs.length - down) + ' correzione/i e <b>' + down + ' regressione/i</b>. ' +
+          (down ? 'Queste regressioni sono invisibili nel punteggio aggregato. Prima di rilasciare la versione 2, decidi esplicitamente se ciascuna è accettabile; se una qualsiasi riguarda la sicurezza, non lo è.'
+                : 'Nessuna regressione: è il caso raro e comodo.') + '</p>';
+      }
+    }
+    document.getElementById('evSummary').innerHTML = s;
+  }
+
+  /* ================================================ 8.8 report checklist */
+  var REP = [
+    ['Il test set è descritto', 'Quanti casi, da dove vengono e perché rappresentano il lavoro reale.', 'Senza questo, il numero non è falsificabile.'],
+    ['Il modello non ha mai visto il test set', 'Né per l’addestramento, né per il tuning, né per iterare sul prompt.', 'Protegge dalla causa singola più comune di risultati gonfiati.'],
+    ['L’unità di suddivisione è dichiarata', 'Pezzi, veicoli, clienti, documenti o periodi di tempo, indicati esplicitamente.', 'Intercetta il leakage da raggruppamento e quello temporale (modulo 7.4).'],
+    ['Matrice di confusione in conteggi assoluti', 'Non solo percentuali, e a volumi realistici.', 'Rende visibile il carico operativo dei falsi allarmi.'],
+    ['Precision e recall, non solo accuratezza', 'Separatamente, al punto di lavoro dichiarato.', 'L’accuratezza è cieca sui problemi sbilanciati (modulo 7.3).'],
+    ['Il punto di lavoro e chi l’ha scelto', 'La soglia e il ragionamento sui costi che la giustifica.', 'Trasforma un default silenzioso in una decisione revisionabile (modulo 8.2).'],
+    ['Intervalli di confidenza', 'O almeno la dimensione del test set, così che chi legge possa calcolarli.', 'Impedisce ai team di festeggiare il rumore (modulo 8.6).'],
+    ['Baseline', 'Caso, classe maggioritaria, una regola semplice e una persona misurata.', 'L’unico modo per sapere se il numero è buono (modulo 8.5).'],
+    ['Analisi degli errori', 'Che tipo di casi sbaglia, con esempi.', 'È qui che si trovano il prossimo miglioramento e i rischi reali.'],
+    ['Scomposizione per sottogruppi', 'Prestazioni per variante, fornitore, turno, linea, regione, lingua.', 'Le medie nascondono un modello che fallisce del tutto su una famiglia di prodotti.'],
+    ['Calibrazione', 'Se ci si può fidare delle confidenze dichiarate.', 'Necessaria prima di qualsiasi regola di automazione basata sulla confidenza (modulo 8.4).'],
+    ['Una procedura di riesecuzione', 'Un solo comando, documentato, così che la valutazione si possa ripetere a ogni modifica.', 'Una valutazione difficile da ripetere smette di essere ripetuta.']
+  ];
+  function drawRep() {
+    var host = document.getElementById('repList');
+    if (!host.innerHTML) {
+      var h = '';
+      REP.forEach(function (r, i) {
+        h += '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b>' +
+          '<span class="sub">' + r[1] + '</span></span></label>';
+      });
+      host.innerHTML = h;
+      host.addEventListener('change', drawRep);
+    }
+    var got = 0, miss = [];
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      var i = parseInt(cb.getAttribute('data-i'), 10);
+      if (cb.checked) got++; else miss.push(REP[i]);
+    });
+    var v = document.getElementById('repVerdict');
+    var pct = got / REP.length;
+    if (!got) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nessuna voce spuntata</span>Procedi lungo l’elenco.';
+    } else if (pct >= 0.85) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Difendibile — ' + got + '/' + REP.length + '</span>' +
+        'È un rapporto che potresti mettere davanti a un auditor, e gran parte di esso è ciò che, come mostra il modulo 10, chiedono i regolatori.';
+    } else if (pct >= 0.5) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Parziale — ' + got + '/' + REP.length + '</span>' +
+        'Basta per prendere una decisione, non per difenderla in seguito. Le voci mancanti sono elencate qui accanto.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Non è ancora un risultato — ' + got + '/' + REP.length + '</span>' +
+        'A questo livello non ci si può fidare del numero principale. Nessuna delle lacune è costosa da colmare: si tratta soprattutto di mettere per iscritto ciò che è stato fatto.';
+    }
+    var w = '';
+    if (!miss.length) w = '<p class="small mb0" style="color:var(--good)">Completo. Conserva lo schema e riutilizzalo.</p>';
+    else {
+      w = '<ul class="small mb0">';
+      miss.slice(0, 6).forEach(function (r) { w += '<li><b>' + r[0] + '</b> — ' + r[2] + '</li>'; });
+      w += '</ul>';
+      if (miss.length > 6) w += '<p class="small muted mb0 mt1">' + (miss.length - 6) + ' altre voci non mostrate.</p>';
+    }
+    document.getElementById('repWhy').innerHTML = w;
+  }
+
+  window.PAGE_INIT = function () {
+    costPlot = new AI.Plot(document.getElementById('costCv'),
+      { dom: [-2, 5], ran: [0, 1], pad: { l: 62, r: 14, t: 18, b: 42 } });
+    AI.bindRange('pRate', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { CS.rate = v; drawCost(); });
+    AI.bindRange('pSep', function (v) { return v.toFixed(2) + ' σ'; }, function (v) { CS.sep = v; drawCost(); });
+    AI.bindRange('pFp', function (v) { return '€' + v; }, function (v) { CS.cfp = v; drawCost(); });
+    AI.bindRange('pFn', function (v) { return '€' + F.c(v); }, function (v) { CS.cfn = v; drawCost(); });
+    AI.bindRange('pTh', function (v) { return v.toFixed(2); }, function (v) { CS.th = v; drawCost(); });
+    AI.onRedraw(drawCost); drawCost();
+
+    rocPlot = new AI.Plot(document.getElementById('rocCv'),
+      { dom: [0, 1], ran: [0, 1], pad: { l: 52, r: 16, t: 16, b: 44 } });
+    AI.bindRange('cRate', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { CV.rate = v; drawCurves(); });
+    AI.bindRange('cSep', function (v) { return v.toFixed(2) + ' σ'; }, function (v) { CV.sep = v; drawCurves(); });
+    AI.segmented(document.getElementById('curveSeg'), function (v) { CV.mode = v; drawCurves(); });
+    AI.onRedraw(drawCurves); drawCurves();
+
+    calPlot = new AI.Plot(document.getElementById('calCv'),
+      { dom: [0, 1], ran: [0, 1], pad: { l: 52, r: 16, t: 16, b: 44 } });
+    calData();
+    AI.bindRange('calT', function (v) {
+      return v < 0.85 ? 'troppo sicuro' : v > 1.3 ? 'poco sicuro' : 'onesto';
+    }, function (v) { CAL.t = v; drawCal(); });
+    AI.onRedraw(drawCal); drawCal();
+
+    basePlot = new AI.Plot(document.getElementById('baseCv'),
+      { dom: [0, 1], ran: [0, 5], pad: { l: 14, r: 14, t: 10, b: 40 } });
+    AI.segmented(document.getElementById('bTaskSeg'), function (v) {
+      BS.t = parseInt(v, 10);
+      document.getElementById('bTaskName').textContent = TASKS[BS.t].name;
+      drawBase();
+    });
+    AI.bindRange('bMine', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { BS.mine = v; drawBase(); });
+    AI.onRedraw(drawBase); drawBase();
+
+    ciPlot = new AI.Plot(document.getElementById('ciCv'),
+      { dom: [0, 2000], ran: [0, 0.45], pad: { l: 62, r: 16, t: 16, b: 44 } });
+    AI.bindRange('nCases', function (v) { return F.c(v); }, function (v) { SS.n = v; drawCi(); });
+    AI.bindRange('pA', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { SS.pA = v; drawCi(); });
+    AI.bindRange('pB', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { SS.pB = v; drawCi(); });
+    AI.onRedraw(drawCi); drawCi();
+
+    drawEv();
+    AI.on(document.getElementById('evFill'), 'click', function () {
+      EVC.forEach(function (c, i) { grades[i + 'a'] = c.a.s; grades[i + 'b'] = c.b.s; });
+      drawEv();
+    });
+    AI.on(document.getElementById('evClear'), 'click', function () { grades = {}; drawEv(); });
+
+    drawRep();
+  };
+})();
+</script>
+</body>
+</html>

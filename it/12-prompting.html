@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>12 · Prompting — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .promptout {
+    font-family: var(--mono); font-size: .84rem; line-height: 1.75; white-space: pre-wrap;
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r);
+    padding: 14px 16px; max-height: 480px; overflow-y: auto;
+  }
+  .promptout .sect { color: var(--accent); font-weight: 700; }
+  .promptout .ph { color: var(--ink-3); font-style: italic; }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 860px) { .ba { grid-template-columns: 1fr; } }
+  .bacard { border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; background: var(--panel); }
+  .bacard.bad { border-left: 3px solid var(--bad); }
+  .bacard.good { border-left: 3px solid var(--good); }
+  .bacard h5 { margin: 0 0 8px; font-size: .68rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 800; color: var(--ink-3); }
+  .bacard .pr {
+    font-family: var(--mono); font-size: .8rem; background: var(--bg-3); border-radius: 7px;
+    padding: 9px 11px; white-space: pre-wrap; margin-bottom: 9px; line-height: 1.6;
+  }
+  .bacard .rs { font-size: .85rem; color: var(--ink-2); }
+  .bacard .rs em { color: var(--ink-3); }
+  .steplist { display: grid; gap: 6px; }
+  .steplist button {
+    font: inherit; font-size: .86rem; text-align: left; padding: 9px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer; color: var(--ink);
+  }
+  .steplist button:hover { border-color: var(--accent); }
+  .steplist button.on { background: var(--accent-soft); border-color: var(--accent); }
+  .steplist button.on::before { content: attr(data-ord) ". "; font-weight: 800; color: var(--accent); }
+  .myth { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start;
+    border: 1px solid var(--line); border-radius: var(--r); padding: 13px 15px; margin-bottom: 8px; background: var(--panel); }
+  .myth .verd { font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
+    padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .myth .verd.no { background: var(--bad-soft); color: var(--bad); }
+  .myth .verd.yes { background: var(--good-soft); color: var(--good); }
+  .myth .verd.part { background: var(--warn-soft); color: var(--warn); }
+  .ex { border-left: 3px solid var(--accent); background: var(--bg-2); border-radius: 0 var(--r) var(--r) 0;
+    padding: 13px 16px; margin-bottom: 10px; }
+  .ex .t { font-weight: 660; font-size: .95rem; }
+  .ex .m { font-size: .74rem; color: var(--ink-3); font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+  /* 12.7 coding assistants */
+  #coding .split-wide > div { min-width: 0; }
+  .codeask { font-size: .86rem; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+    padding: 10px 13px; margin-bottom: 10px; }
+  .codeask b { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); display: block; }
+  .codeview { font-family: var(--mono); font-size: .8rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 6px 0; overflow-x: auto; }
+  .codeview .cl { display: flex; width: 100%; min-width: max-content; text-align: left; font: inherit;
+    background: none; border: none; border-left: 3px solid transparent; padding: 1px 14px 1px 0;
+    color: var(--ink); cursor: pointer; white-space: pre; line-height: 1.65; }
+  .codeview .cl .ln { width: 3em; flex: none; text-align: right; padding-right: 1em; color: var(--ink-3); user-select: none; }
+  .codeview .cl .cm { color: var(--ink-3); }
+  .codeview .cl:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+  .codeview .cl:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .codeview .cl.flag { background: var(--warn-soft); border-left-color: var(--warn); }
+  .codeview .cl.hit { background: var(--good-soft); border-left-color: var(--good); }
+  .codeview .cl.miss { background: var(--bad-soft); border-left-color: var(--bad); }
+  .codeview .cl.wrong { background: var(--bg-2); border-left-color: var(--warn); }
+  .codeview.done .cl { cursor: default; }
+  .rvlist { display: grid; gap: 7px; }
+  .rvlist .ri { border: 1px solid var(--line); border-left-width: 3px; border-radius: 0 8px 8px 0; padding: 9px 12px;
+    background: var(--panel); font-size: .86rem; }
+  .rvlist .ri.hit { border-left-color: var(--good); }
+  .rvlist .ri.miss { border-left-color: var(--bad); }
+  .rvlist .ri.wrong { border-left-color: var(--warn); }
+  .rvlist .ri .lb { font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; display: block; margin-bottom: 2px; }
+  .rvlist .ri.hit .lb { color: var(--good); } .rvlist .ri.miss .lb { color: var(--bad); } .rvlist .ri.wrong .lb { color: var(--warn); }
+</style>
+</head>
+<body data-page="p12">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 12 · Parte III — Applicarla</span>
+  <h1>Prompting</h1>
+  <p class="lead">Un workshop più che una lezione. È la competenza che il maggior numero di persone
+  nella tua azienda userà davvero, si insegna in circa un’ora, e la differenza tra farlo male e farlo
+  bene è più o meno la differenza tra una curiosità e uno strumento.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">La cornice che fa scattare tutto</span>
+  <p class="mb0">Il modulo 4 ha mostrato che il modello predice la continuazione più plausibile del testo che
+  ha davanti. Quindi un prompt non è un comando: è <strong>la descrizione di una situazione in cui la
+  risposta che vuoi sarebbe la cosa plausibile da dire</strong>. Tutto quello che segue discende da qui. Non
+  stai convincendo il modello; stai restringendo lo spazio delle continuazioni plausibili.</p>
+</div>
+
+<!-- ============================================= 12.1 -->
+<section class="chapter" id="builder">
+  <h2>12.1 · Anatomia di un prompt che funziona</h2>
+  <p>Scegli il compito, attiva i componenti e leggi il prompt che si compone qui sotto. È testo
+  vero: copialo e usalo.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Costruttore di prompt</h3><span class="tag try">Parti con tutto disattivato</span></div>
+    <div class="btnrow">
+      <span class="small muted" style="min-width:56px">Compito</span>
+      <div class="segmented" id="taskSeg">
+        <button data-v="extract" class="on">Estrarre dati</button>
+        <button data-v="summarise">Riassumere</button>
+        <button data-v="draft">Redigere un documento</button>
+        <button data-v="classify">Classificare</button>
+        <button data-v="analyse">Analizzare / consigliare</button>
+        <button data-v="code">Scrivere codice</button>
+      </div>
+    </div>
+    <div class="split-wide">
+      <div>
+        <h4>Componenti</h4>
+        <div class="chips" id="compChips"></div>
+        <h4 class="mt1">Prompt assemblato</h4>
+        <div class="promptout" id="promptOut"></div>
+        <div class="btnrow">
+          <button class="btn sm" id="pCopy">Copia il prompt</button>
+          <button class="btn sm" id="pAll">Attiva tutto</button>
+          <button class="btn sm" id="pNone">Disattiva tutto</button>
+          <span class="small muted" id="pCopied"></span>
+        </div>
+      </div>
+      <div>
+        <div class="verdict" id="pVerdict"></div>
+        <div class="card mt1" id="pAdvice" style="min-height:320px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">L’80/20</span>
+    <p class="mb0">Se aggiungi ai tuoi prompt solo tre cose, aggiungi queste:
+    <strong>il contesto che il modello non può conoscere</strong>, <strong>il formato di output esatto che vuoi</strong>
+    e <strong>il permesso di dire che non lo sa</strong>. Queste tre risolvono la maggior parte di ciò di cui la gente
+    si lamenta, e ciascuna richiede una frase.</p>
+  </div>
+</section>
+
+<!-- ============================================= 12.2 -->
+<section class="chapter" id="beforeafter">
+  <h2>12.2 · Prima e dopo</h2>
+  <p>Quattro richieste dalla forma realistica. A sinistra c’è quello che la gente scrive; a destra quello che
+  lo rende utile. La differenza non è mai l’astuzia: è la specificità.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Galleria di riscritture</h3><span class="tag try">Guardale tutte e quattro</span></div>
+    <div class="btnrow">
+      <div class="segmented" id="baSeg">
+        <button data-v="0" class="on">Verbale di riunione</button>
+        <button data-v="1">Valutazione fornitore</button>
+        <button data-v="2">Estrazione dati di prova</button>
+        <button data-v="3">Spiegazione tecnica</button>
+      </div>
+    </div>
+    <div class="ba" id="baHost"></div>
+    <div class="card mt1" id="baNote" style="min-height:100px"></div>
+  </div>
+</section>
+
+<!-- ============================================= 12.3 -->
+<section class="chapter" id="techniques">
+  <h2>12.3 · Sei tecniche, in ordine di resa</h2>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="color:var(--accent)">1 · Dagli il contesto che non può avere</h4>
+      <p class="small">Il modello non conosce la tua azienda, i tuoi vincoli, il tuo lettore né i tuoi
+      standard. Quasi ogni risposta deludente è un problema di contesto mancante più che un problema del
+      modello.</p>
+      <p class="small mb0"><b>Fai così:</b> incolla il documento rilevante, di’ chi è il lettore, indica cosa è
+      già stato deciso e cosa è fuori ambito. <b>Il miglioramento più comune in assoluto</b> è semplicemente
+      incollare una parte maggiore del materiale vero.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">2 · Specifica l’output con esattezza</h4>
+      <p class="small">“Riassumi questo” ti dà un riassunto di lunghezza ignota in una forma ignota. Dichiara
+      la forma: quanti elementi, quali campi, in che ordine, quanto lungo, cosa lasciare fuori.</p>
+      <p class="small mb0"><b>Fai così:</b> “Una tabella markdown con le colonne Particolare, Rilievo, Gravità (1–5),
+      Azione. Una riga per rilievo. Nessun preambolo.” Essere così prescrittivi sembra scortese e funziona
+      benissimo.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">3 · Mostra due o tre esempi</h4>
+      <p class="small">Il few-shot prompting. Un esempio svolto comunica su tono, granularità e formato più
+      di un paragrafo di descrizione, perché <em>è</em> il formato.</p>
+      <p class="small mb0"><b>Fai così:</b> includi un input reale e l’output esatto che avresti scritto tu.
+      È la tecnica migliore per la coerenza su molte esecuzioni, e quella che la gente usa meno.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">4 · Lascialo ragionare prima di rispondere</h4>
+      <p class="small">“Svolgi il calcolo passo per passo prima di dare la risposta” migliora in modo misurabile
+      il ragionamento in più passaggi, perché ogni passaggio intermedio diventa contesto per il successivo
+      (modulo 4.3).</p>
+      <p class="small mb0"><b>Nota per il 2026:</b> i modelli di ragionamento lo fanno internamente, quindi con loro
+      l’istruzione esplicita aggiunge poco, mentre con i modelli ordinari aiuta ancora. Chiedi i passaggi quando
+      ti serve <em>verificarli</em>, il che, per qualsiasi cosa numerica, è sempre.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">5 · Permetti il “non lo so”</h4>
+      <p class="small">Lasciato a sé stesso, il modello produce la risposta più plausibile, e una risposta
+      plausibile a una domanda senza risposta è un’invenzione (modulo 4.3). Rendi la risposta onesta un’opzione
+      esplicitamente disponibile.</p>
+      <p class="small mb0"><b>Fai così:</b> “Se i documenti non contengono la risposta, rispondi esattamente: NON PRESENTE
+      NELLE FONTI. Non usare conoscenze esterne.” È la riduzione delle allucinazioni più economica che esista.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">6 · Spezza il compito</h4>
+      <p class="small">Un prompt che chiede sei cose insieme le fa tutte e sei in modo appena sufficiente. Tre prompt
+      che chiedono una cosa ciascuno la fanno bene, e puoi ispezionare i risultati intermedi.</p>
+      <p class="small mb0"><b>Fai così:</b> prima estrai, poi analizza, poi scrivi. La sezione 12.4 ha un esercizio.
+      È anche la differenza tra una demo fragile e un processo affidabile.</p>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Un’altra ancora, per tutto ciò che conta</span>
+    <p class="mb0"><strong>Chiedi le fonti e controllale.</strong> “Cita la frase esatta su cui ti basi,
+    con il numero della clausola” trasforma un’affermazione scorrevole in qualcosa di verificabile in dieci secondi.
+    Se non riesce a produrre la citazione, hai imparato qualcosa di importante.</p>
+  </div>
+</section>
+
+<!-- ============================================= 12.4 -->
+<section class="chapter" id="decompose">
+  <h2>12.4 · Esercizio: spezza un compito reale</h2>
+  <p>La richiesta: <em>“Prepara un documento di rischio di due pagine sul fornitore Rossi Componenti per il
+  comitato acquisti.”</em> Consegnarla a un modello in un solo prompt produce qualcosa di generico e inutilizzabile.
+  Costruisci invece la pipeline: clicca i passi che useresti, nell’ordine.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Scomposizione</h3><span class="tag try">Scegli da quattro a sei passi</span></div>
+    <div class="split">
+      <div>
+        <div class="steplist" id="stepHost"></div>
+        <div class="btnrow">
+          <button class="btn sm" id="stReset">Azzera</button>
+          <button class="btn primary" id="stReveal">Confronta con una soluzione svolta</button>
+        </div>
+      </div>
+      <div>
+        <div class="card" id="stNote" style="min-height:340px"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 12.5 -->
+<section class="chapter" id="debug">
+  <h2>12.5 · Quando non funziona</h2>
+  <p>Una tabella diagnostica. Scegli il sintomo.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Risoluzione dei problemi dei prompt</h3><span class="tag try">Scegli cosa non va</span></div>
+    <div class="chips" id="symChips"></div>
+    <div class="card mt1" id="symNote" style="min-height:230px">
+      <p class="small muted mb0">Seleziona un sintomo.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 12.6 -->
+<section class="chapter" id="myths">
+  <h2>12.6 · Cosa non aiuta</h2>
+  <p>Circola molto folklore sui prompt. In parte è reale, in parte è culto del cargo. Verdetti onesti,
+  con le motivazioni.</p>
+
+  <div id="mythHost"></div>
+
+  <div class="callout">
+    <span class="ctitle">Come distinguere il folklore dalla tecnica</span>
+    <p class="mb0">Una tecnica vera <strong>dà al modello informazioni o struttura che non aveva</strong>.
+    Il folklore cerca di cambiarne l’atteggiamento. Contesto, esempi, specifiche di formato e scomposizione sono
+    informazione. Lusinghe, minacce, urgenza e formule magiche sono atteggiamento: e anche se alcune di esse
+    producevano effetti misurabili sui modelli più vecchi, nessuna è una pratica ingegneristica affidabile. Se
+    vuoi sapere se qualcosa funziona per il tuo compito, ora sai come scoprirlo: il set di valutazione
+    del modulo 8.</p>
+  </div>
+</section>
+
+<!-- ============================================= 12.7 -->
+<section class="chapter" id="coding">
+  <h2>12.7 · Assistenti AI per la programmazione</h2>
+  <p>Lo strumento di AI più usato nella maggior parte dei reparti di ingegneria non è una finestra di chat: è
+  l’assistente dentro l’editor di codice. Si va dall’autocompletamento che finisce la riga, alla chat
+  che scrive una funzione, fino agli agenti che modificano più file ed eseguono comandi. Tutto ciò che la 12.1
+  dice su contesto e formato vale anche qui. La differenza è che l’output <em>viene eseguito</em>, e finisce in
+  posti dove nessuno lo rilegge.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="color:var(--good)">Dove fanno davvero risparmiare tempo</h4>
+      <ul class="small mb0">
+        <li><b>Codice boilerplate</b>: parsing degli argomenti, I/O su file, grafici, gestione della configurazione,
+        la quarantesima data class.</li>
+        <li><b>Test</b>: soprattutto i noiosi casi limite, una volta che hai detto cosa la funzione dovrebbe
+        fare.</li>
+        <li><b>Refactoring meccanici</b>: rinominare, spezzare una funzione lunga, passare a un’API più recente, con
+        i test esistenti come rete di sicurezza.</li>
+        <li><b>Spiegare codice sconosciuto</b>: uno script legacy, una libreria che non hai mai usato, un linguaggio
+        che leggi una volta l’anno.</li>
+        <li><b>Script di manipolazione dati</b>: rimodellare un export del banco prova, unire due fogli di calcolo, una
+        conversione una tantum. Piccoli, verificabili, buttati via dopo.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--bad)">Dove sbagliano con sicurezza</h4>
+      <ul class="small mb0">
+        <li><b>Logica di dominio sottile</b>: le tue convenzioni di segno, i tuoi sistemi di riferimento, il motivo per cui
+        quell’offset è lì. L’assistente non ha mai visto il tuo sistema.</li>
+        <li><b>Calcolo numerico</b>: unità di misura, bordi dei filtri, overflow degli interi, errore accumulato in virgola mobile,
+        finestre sfasate di uno. Il codice sembra giusto ed è sbagliato di poco.</li>
+        <li><b>Codice embedded rilevante per la sicurezza</b>: temporizzazione, memoria, concorrenza, controlli difensivi, standard
+        di codifica. È generato a partire da codice pubblico, che per lo più non è scritto a quel livello.</li>
+        <li><b>Sicurezza informatica</b>: riproduce i pattern insicuri comuni nei suoi dati di addestramento, e lo fa
+        con disinvoltura.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid g2 mt1">
+    <div class="card">
+      <h3>Come lavorarci</h3>
+      <ol class="small mb0">
+        <li><b>Compiti piccoli.</b> Una funzione, un file di test, un refactoring alla volta. Una risposta di 400 righe è
+        una revisione di 400 righe.</li>
+        <li><b>Dai contesto e vincoli.</b> L’interfaccia in cui deve inserirsi, le versioni di linguaggio e
+        librerie, un campione reale dei dati di input, e cosa non deve fare (12.1, “Scrivere codice”).</li>
+        <li><b>Chiedi prima i test.</b> Leggili e verifica che codifichino ciò che intendi <em>tu</em>, con un
+        valore noto calcolato a mano. Un test scritto a partire dallo stesso equivoco del codice
+        passerà.</li>
+        <li><b>Leggi ogni riga.</b> Soprattutto quelle che sembrano boilerplate: è lì che si nasconde il
+        <code>verify=False</code>.</li>
+        <li><b>Eseguilo,</b> su input reale e su input di cui conosci la risposta. Il codice che non è stato eseguito
+        non è stato revisionato.</li>
+      </ol>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">L’obbligo di revisione</span>
+      <p><strong>Il codice generato è codice tuo.</strong> Il tuo nome è sul commit, e “l’ha scritto
+      l’assistente” non è una difesa in una code review, in un rapporto di incidente o in un audit. Revisionalo come
+      faresti con la prima pull request di un nuovo collega capace, anzi con più attenzione, perché è scorrevole,
+      formattato in modo coerente e mai esitante, e nessuna di queste cose è correlata con
+      l’essere corretto.</p>
+      <p class="mb0">Il tempo risparmiato a scrivere codice viene in parte speso a leggerlo. I risultati misurati variano molto:
+      grandi guadagni su compiti piccoli e ben definiti, e almeno uno studio controllato in cui sviluppatori esperti
+      erano più lenti sulle proprie codebase mature pur credendo di essere più veloci. Misuralo
+      sul tuo lavoro prima di pianificare su questa base.</p>
+    </div>
+  </div>
+
+  <h3 class="mt2">I rischi specifici del codice</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Segreti e codice proprietario nel prompt</h4>
+      <p class="small mb0">L’assistente invia i file che hai aperti (e un agente può inviare gran parte del
+      repository) ovunque giri il modello. Le chiavi in un file <code>.env</code>, le credenziali in una fixture
+      di test e il codice di controllo non ancora rilasciato viaggiano tutti insieme. Il modulo 10.5 è la regola su
+      cosa può andare dove; le liste di esclusione nelle impostazioni dello strumento sono il modo per farla rispettare.</p>
+    </div>
+    <div class="card">
+      <h4>Contaminazione di licenza</h4>
+      <p class="small mb0">Un modello può riprodurre alla lettera codice di addestramento, incluso codice copyleft, che
+      finisce così in un prodotto commerciale senza la sua licenza. Attiva il filtro del fornitore per le corrispondenze
+      letterali ed esegui la scansione delle licenze in CI (modulo 10.7).</p>
+    </div>
+    <div class="card">
+      <h4>Pacchetti allucinati e typosquatting</h4>
+      <p class="small mb0">Gli assistenti inventano nomi di pacchetti plausibili. Gli attaccanti registrano i nomi che
+      i modelli inventano più spesso, e quelli a un errore di battitura dai pacchetti popolari, e li riempiono di
+      malware. Un solo <code>pip install</code> di un nome suggerito è esecuzione di codice sulla tua macchina
+      (modulo 10.6, supply chain). Installa solo dal tuo mirror interno, e verifica che un pacchetto esista,
+      chi lo pubblica e da quanto tempo esiste.</p>
+    </div>
+    <div class="card">
+      <h4>Pattern insicuri</h4>
+      <p class="small mb0"><code>eval</code> sull’input, SQL costruito concatenando stringhe, verifica
+      TLS disattivata, credenziali scritte nel codice, crittografia obsoleta, permessi sui file troppo
+      larghi. Tutti comuni nel codice pubblico, quindi tutti comuni nel codice generato. L’analisi statica e la scansione
+      dei segreti in CI ne intercettano la maggior parte; un revisore che sa dove guardare intercetta il resto.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Revisiona il codice dell’assistente</h3><span class="tag warn">Frammenti scritti apposta, con difetti voluti</span></div>
+    <p class="small">Quattro brevi frammenti del tipo che un assistente produce in pochi secondi. Ciascuno è stato scritto per
+    questo esercizio con uno o più difetti piazzati apposta, e ciascuno contiene anche righe corrette che sembrano
+    sospette. Clicca ogni riga che respingeresti in revisione, poi premi <b>Verifica la mia revisione</b>. I nomi di pacchetti,
+    host e token sono inventati.</p>
+    <div class="btnrow">
+      <div class="segmented" id="rvSeg">
+        <button data-v="0" class="on">Conversione di unità</button>
+        <button data-v="1">Media mobile (C)</button>
+        <button data-v="2">Parser log del banco</button>
+        <button data-v="3">Script di upload</button>
+      </div>
+    </div>
+    <div class="split-wide">
+      <div>
+        <div class="codeask" id="rvAsk"></div>
+        <div class="codeview" id="rvCode"></div>
+        <div class="btnrow">
+          <button class="btn primary" id="rvCheck">Verifica la mia revisione</button>
+          <button class="btn sm" id="rvReset">Azzera questo frammento</button>
+          <span class="small muted" id="rvCount"></span>
+        </div>
+      </div>
+      <div>
+        <div class="verdict info" id="rvVerdict"><span class="lvl">Clicca le righe che respingeresti</span>Poi verifica la tua revisione.</div>
+        <div class="metrics mt1" id="rvTotals"></div>
+        <div class="rvlist mt1" id="rvOut"></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Policy di team: cosa decidere prima che serva</h3>
+  <div class="grid g2">
+    <div class="card">
+      <ul class="small mb0">
+        <li><b>Quali strumenti sono approvati</b>, su quale tenant, con clausole di non addestramento, e quali account
+        personali e plug-in del browser non lo sono. Se non c’è uno strumento approvato, la gente ne userà uno
+        non approvato (modulo 10.5, shadow AI).</li>
+        <li><b>Quale codice può essere inviato</b>: per repository o per classificazione, non per giudizio individuale.
+        Le esclusioni tipiche sono i dati di calibrazione, il software di controllo non rilasciato, i dati dei clienti e il codice
+        ricevuto da terze parti sotto NDA.</li>
+        <li><b>Permessi degli agenti</b>: se un agente può eseguire comandi, installare pacchetti o fare push, e su
+        quali macchine (modulo 9.5).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <ul class="small mb0">
+        <li><b>Software legato alla sicurezza.</b> Dove il codice è sviluppato secondo la ISO 26262, gli strumenti usati per
+        svilupparlo ricadono nei requisiti di affidabilità degli strumenti (tool confidence) della norma (parte 8), e il codice deve rispettare
+        le tue linee guida di codifica, tipicamente MISRA, con una revisione tracciabile. Un assistente non è ammesso in
+        quel flusso di lavoro finché il tuo processo di sicurezza funzionale non dice come viene qualificato e revisionato. In molte
+        organizzazioni oggi la risposta è semplicemente no.</li>
+        <li><b>Controlli in CI</b>: scansione dei segreti, scansione delle licenze, analisi statica e una allow-list delle
+        dipendenze. Intercettano ciò che sfugge alla revisione, chiunque abbia scritto il codice.</li>
+        <li><b>Trasparenza</b>: se le modifiche assistite dall’AI vanno segnalate nei commit o nelle pull request. Costa poco
+        deciderlo presto, ed è un’evidenza utile in seguito.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Posso usare un assistente per questo compito?</h3><span class="tag try">Prova un compito ECU, poi uno script dati</span></div>
+    <div class="btnrow">
+      <span class="small muted">Carica un esempio:</span>
+      <button class="btn sm" data-ua="script">Grafico di un export del banco</button>
+      <button class="btn sm" data-ua="ecu">Monitor di coppia ASIL-B</button>
+      <button class="btn sm" data-ua="tool">Tool interno, account personale</button>
+      <button class="btn sm" data-ua="key">Debug di uno script con la chiave API dentro</button>
+      <button class="btn sm" id="uaClear">Azzera</button>
+    </div>
+    <div class="split-wide">
+      <div id="uaHost"></div>
+      <div>
+        <div class="verdict info" id="uaVerdict"><span class="lvl">Rispondi alle domande</span>Qui compariranno un verdetto e le condizioni associate.</div>
+        <div class="card mt1" id="uaWhy" style="min-height:220px"></div>
+      </div>
+    </div>
+    <p class="srcnote">Orientamento costruito dai punti precedenti. La policy scritta del tuo team e il tuo
+    processo di sicurezza funzionale prevalgono su questo strumento.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Fai il laboratorio di revisione sul proiettore, con la sala che chiama i numeri di riga. Aspettati che la conversione
+      di unità vada veloce e che la media mobile divida la sala: è proprio questo il punto, perché l’errore di uno
+      nella finestra di un filtro è esattamente il difetto che sopravvive alla revisione, dato che il codice sembra idiomatico.</li>
+      <li>Sulla riga della potenza nel frammento 1, qualcuno segnalerà 9549. Lascialo fare, poi mostra la spiegazione.
+      Anche segnalare codice corretto costa tempo di revisione, ed è questo il vero compromesso: revisionare bene il codice
+      generato è una competenza, e richiede il tempo che richiede.</li>
+      <li>Se in sala c’è qualcuno dell’embedded o della sicurezza funzionale, chiedigli cosa dice oggi il loro processo
+      sugli assistenti. Di solito la risposta onesta è “ancora niente”, e questa è già di per sé l’azione
+      da intraprendere.</li>
+      <li>Non presentarlo come un discorso contro gli assistenti. Gli ingegneri che ottengono di più da questi strumenti sono
+      quelli che revisionano più a fondo, danno più contesto e tengono i compiti piccoli.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 12.8 -->
+<section class="chapter" id="workshop">
+  <h2>12.8 · Conduci il workshop</h2>
+  <p>Cinque esercizi, una cinquantina di minuti. Le persone lavorano sul proprio portatile con lo strumento approvato
+  che avete; il valore sta nel confrontare i risultati ad alta voce dopo ciascun esercizio.</p>
+
+  <div id="exHost"></div>
+
+  <div class="callout key">
+    <span class="ctitle">Come condurlo perché lasci il segno</span>
+    <p class="mb0">Dopo ogni esercizio, chiedi a due persone di leggere ad alta voce il loro prompt, non il risultato. La
+    sala impara molto di più sentendo quanto diversamente due persone hanno impostato la stessa richiesta che
+    vedendo un buon output. E tieni l’esercizio 5 per la fine: scoprire che il modello inventa con sicurezza
+    un numero di clausola è la lezione che le persone si riportano alla scrivania.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Questo è il modulo più facile da vendere dei quindici, e quello che la gente richiede. Sfruttalo: è una
+      buona prima sessione per un reparto scettico, insieme al modulo 1 e alla demo RAG del modulo 4.8.</li>
+      <li>Non lasciare che diventi una sessione di trucchi e consigli. Riconduci ogni tecnica al “restringere lo
+      spazio delle continuazioni plausibili” dell’inizio di questa pagina, altrimenti fra sei mesi la gente
+      ripeterà formule magiche che non capisce.</li>
+      <li>Tieni pronta un’opinione netta sulla sezione dei miti. La gente ha letto moltissime sciocchezze
+      e sarà sollevata di sentirsi dire quali cose può smettere di fare.</li>
+      <li>Raccogli i prompt che le persone scrivono. Sono l’inizio della libreria di prompt della tua organizzazione
+      e, cosa più utile, del set di valutazione del modulo 8.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo adesso</h2>
+  <p>Le persone ora sanno ottenere un buon output. La domanda successiva è se lo useranno bene, e questa è una
+  domanda sulle persone, non sui modelli.</p>
+  <p><a href="13-human.html"><strong>Modulo 13 · Fattore umano e adozione →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  /* ============================================ 12.1 prompt builder */
+  var TASKS = {
+    extract: {
+      name: 'Estrarre dati',
+      role: 'Sei un assistente scrupoloso per l’estrazione di dati da documenti di ingegneria.',
+      task: 'Estrai tutte le specifiche di coppia di serraggio citate nel documento qui sotto.',
+      ctx: '<<< incolla qui il documento >>>',
+      fmt: 'Restituisci una tabella markdown con esattamente queste colonne: Elemento di fissaggio, Coppia (Nm), Tolleranza, Clausola.\nUna riga per specifica. Nessun preambolo, nessuna osservazione finale.',
+      ex: 'Esempio\nInput:  "I bulloni di fissaggio della sospensione posteriore devono essere serrati a 92 Nm ±4 Nm. (§4.2)"\nOutput: | Bulloni di fissaggio sospensione posteriore | 92 | ±4 | §4.2 |',
+      cons: 'Usa solo il documento qui sopra. Non convertire le unità di misura. Non dedurre valori che non sono dichiarati.',
+      idk: 'Se il documento non contiene specifiche di coppia, rispondi esattamente: NESSUNA TROVATA.',
+      think: '',
+      aud: '',
+      check: 'Prima di rispondere, verifica che ogni riga che produci compaia alla lettera nel documento.',
+      must: ['ctx', 'fmt', 'cons', 'idk'],
+      why: 'L’estrazione è il compito in cui formato e vincoli contano di più e la creatività conta di meno. Tieni la temperatura vicina a zero, vieta le deduzioni e richiedi il riferimento alla clausola, così ogni riga si verifica in pochi secondi.'
+    },
+    summarise: {
+      name: 'Riassumere',
+      role: 'Sei un assistente al servizio di un responsabile di ingegneria molto impegnato.',
+      task: 'Riassumi il verbale di riunione qui sotto.',
+      ctx: '<<< incolla qui il verbale >>>',
+      fmt: 'Produci esattamente tre sezioni:\n1. Decisioni prese (elenco puntato, max 5)\n2. Questioni aperte, ciascuna con un responsabile indicato (elenco puntato, max 5)\n3. Azioni con responsabile e data (tabella: Azione, Responsabile, Scadenza)\nLunghezza totale sotto le 250 parole.',
+      ex: '',
+      cons: 'Non includere il contesto e non ripetere l’ordine del giorno. Se nel verbale un responsabile non è indicato, scrivi "NON ASSEGNATO" invece di tirare a indovinare.',
+      idk: 'Se una sezione non ha contenuto, scrivi "Nulla di registrato" invece di inventare voci.',
+      think: '',
+      aud: 'Il lettore è il capo reparto, che non era alla riunione e ha due minuti.',
+      check: '',
+      must: ['ctx', 'fmt', 'aud', 'idk'],
+      why: 'Un riassunto fallisce quando è generico. Nominare il lettore e fissare un tetto alla lunghezza obbliga a selezionare, che è il lavoro vero. La regola del "NON ASSEGNATO" blocca l’errore silenzioso più comune: inventare un responsabile.'
+    },
+    draft: {
+      name: 'Redigere un documento',
+      role: 'Stai redigendo una bozza per un ingegnere che rivedrà e firmerà il testo finale.',
+      task: 'Redigi una richiesta di deroga per il problema descritto qui sotto.',
+      ctx: '<<< descrivi il problema, il componente interessato e la clausola della norma >>>',
+      fmt: 'Segui il nostro modello di deroga: Titolo, Elemento interessato, Norma e clausola, Descrizione della deroga, Giustificazione tecnica, Valutazione del rischio, Proposta di disposizione, Approvazioni richieste.',
+      ex: '',
+      cons: 'Usa un registro tecnico neutro. Niente superlativi. Non affermare risultati di prova che non ti sono stati forniti. Segna tutto ciò che non hai potuto determinare come [DA COMPLETARE].',
+      idk: '',
+      think: '',
+      aud: 'Lo leggeranno l’ente di progettazione responsabile e il responsabile qualità, che sono scettici e hanno poco tempo.',
+      check: 'Concludi con un elenco dei fatti che hai dovuto presumere, così il revisore può verificarli.',
+      must: ['ctx', 'fmt', 'cons', 'check'],
+      why: 'La redazione funziona bene perché l’output viene rivisto da una persona. Le aggiunte decisive sono il modello di documento (perché arrivi nella forma giusta) e l’elenco delle ipotesi alla fine, che trasforma un documento plausibile in uno revisionabile.'
+    },
+    classify: {
+      name: 'Classificare',
+      role: 'Stai classificando le segnalazioni di qualità in arrivo.',
+      task: 'Assegna ciascuna segnalazione qui sotto a esattamente una categoria.',
+      ctx: '<<< incolla le segnalazioni, una per riga >>>',
+      fmt: 'Restituisci JSON: [{"id": "...", "categoria": "...", "confidenza": "alta|media|bassa"}]\nNient’altro.',
+      ex: 'Categorie e relative definizioni:\n- SUPERFICIALE: segni estetici, nessun impatto dimensionale\n- DIMENSIONALE: fuori dalla tolleranza a disegno\n- MATERIALE: porosità, inclusioni, lega sbagliata\n- ASSEMBLAGGIO: accoppiamento, coppia di serraggio, componente mancante\n- ALTRO: nessuna delle precedenti\n\nEsempio: "piccolo graffio sulla faccia a vista, 3 mm" → SUPERFICIALE',
+      cons: 'Usa solo queste cinque categorie. Non inventare mai una categoria. Non restituire mai più di una categoria per segnalazione.',
+      idk: 'Se una segnalazione è troppo vaga per essere classificata, usa ALTRO con confidenza "bassa".',
+      think: '',
+      aud: '',
+      check: '',
+      must: ['ctx', 'fmt', 'ex', 'cons'],
+      why: 'La classificazione vive o muore sulle definizioni delle categorie, che sono le stesse definizioni scritte delle etichette del modulo 7.2. Nota che questo prompt è per lo più una linea guida di etichettatura. Se non sai scriverla tu, nessun modello può svolgere il compito in modo coerente, e nemmeno le tue persone.'
+    },
+    analyse: {
+      name: 'Analizzare / consigliare',
+      role: 'Sei un revisore tecnico critico, non un entusiasta.',
+      task: 'Valuta la proposta qui sotto e individua le sue ipotesi più deboli.',
+      ctx: '<<< incolla la proposta >>>',
+      fmt: 'Produci: (a) le tre obiezioni più forti, ciascuna con l’evidenza che la risolverebbe; (b) cosa avresti bisogno di vedere prima di approvarla; (c) una cosa che la proposta fa bene.',
+      ex: '',
+      cons: 'Non riassumermi la proposta. Sii specifico su questo documento, non generico. Se non sei d’accordo con il modo in cui ho impostato la domanda, dillo per prima cosa.',
+      idk: 'Dove ti mancano informazioni per giudicare qualcosa, dillo esplicitamente invece di restare sul vago.',
+      think: 'Ragiona sull’argomentazione prima di concludere.',
+      aud: '',
+      check: '',
+      must: ['ctx', 'cons', 'idk', 'think'],
+      why: 'È il compito più esposto alla piaggeria (sycophancy, modulo 4.11). Chiedere obiezioni invece di un parere, e invitare esplicitamente a contestare la tua impostazione, è il modo per ottenere qualcosa di diverso da un assenso. Non chiedere mai "è una buona idea?": chiedi "cosa c’è di sbagliato?"'
+    },
+    code: {
+      name: 'Scrivere codice',
+      role: 'Stai scrivendo codice che un collega revisionerà e manterrà.',
+      task: 'Scrivi una funzione che legga l’export CSV del nostro banco prova e restituisca un dataframe di statistiche per canale.',
+      ctx: '<<< incolla un campione rappresentativo del file, comprese le righe di intestazione e una riga di dati >>>',
+      fmt: 'Python 3.11, pandas, type hint, docstring. Restituisci solo la funzione e i suoi import.',
+      ex: '',
+      cons: 'Nessuna dipendenza esterna oltre a pandas e numpy. Gestisci il caso in cui il file abbia un numero variabile di righe di metadati prima dell’intestazione. Solleva un’eccezione chiara invece di restituire dati parziali.',
+      idk: 'Se il campione è ambiguo sul formato, elenca le tue domande invece di tirare a indovinare.',
+      think: '',
+      aud: '',
+      check: 'Includi tre casi di test pytest, uno dei quali usa un file malformato.',
+      must: ['ctx', 'fmt', 'cons', 'check'],
+      why: 'Le due cose che trasformano l’output in codice: un <b>campione reale dei dati veri</b> (non una loro descrizione) e i test. Chiedere i test obbliga anche il modello a dichiarare le sue ipotesi sui casi limite, che è proprio dove il codice generato di solito si rompe.'
+    }
+  };
+  var COMPS = [
+    ['role', 'Ruolo / atteggiamento'],
+    ['task', 'Il compito'],
+    ['ctx', 'Contesto e materiale di riferimento'],
+    ['aud', 'Chi è il lettore'],
+    ['fmt', 'Formato di output esatto'],
+    ['ex', 'Esempio/i svolto/i'],
+    ['cons', 'Vincoli e cosa non fare'],
+    ['idk', 'Permesso di dire “non lo so”'],
+    ['think', 'Ragionare prima di rispondere'],
+    ['check', 'Autoverifica / ipotesi']
+  ];
+  var PB = { task: 'extract', on: { task: true } };
+  function buildPrompt() {
+    var T = TASKS[PB.task], out = '', i;
+    var order = ['role', 'task', 'aud', 'ctx', 'ex', 'fmt', 'cons', 'idk', 'think', 'check'];
+    var LABEL = {
+      role: 'RUOLO', task: 'COMPITO', aud: 'LETTORE', ctx: 'MATERIALE DI RIFERIMENTO', ex: 'ESEMPIO',
+      fmt: 'FORMATO DI OUTPUT', cons: 'VINCOLI', idk: 'IN CASO DI INCERTEZZA', think: 'METODO', check: 'PRIMA DI CONCLUDERE'
+    };
+    order.forEach(function (k) {
+      if (!PB.on[k] || !T[k]) return;
+      out += '<span class="sect">' + LABEL[k] + '</span>\n' + esc(T[k]).replace(/&lt;&lt;&lt;([^&]*)&gt;&gt;&gt;/g,
+        '<span class="ph">&lt;&lt;&lt;$1&gt;&gt;&gt;</span>') + '\n\n';
+    });
+    document.getElementById('promptOut').innerHTML = out || '<span class="ph">Nessun componente selezionato. Attiva “Il compito” per cominciare.</span>';
+
+    /* plain text for copying */
+    var plain = '';
+    order.forEach(function (k) {
+      if (!PB.on[k] || !T[k]) return;
+      plain += LABEL[k] + '\n' + T[k] + '\n\n';
+    });
+    window.__prompt = plain;
+
+    /* scoring */
+    var have = T.must.filter(function (k) { return PB.on[k]; }).length;
+    var score = T.must.length ? have / T.must.length : 0;
+    var extras = COMPS.filter(function (c) { return PB.on[c[0]] && T.must.indexOf(c[0]) < 0 && c[0] !== 'task'; }).length;
+    var v = document.getElementById('pVerdict');
+    if (!PB.on.task) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nessun compito indicato</span>Tutto il resto è decorazione finché il prompt non dice cosa fare.';
+    } else if (score >= 1) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Prompt solido per questo compito</span>' +
+        'Ci sono tutti i componenti che contano per <b>' + T.name.toLowerCase() + '</b>' +
+        (extras ? ', più ' + extras + (extras > 1 ? ' extra utili' : ' extra utile') : '') + '.';
+    } else if (score >= 0.5) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Utilizzabile, con delle lacune</span>' +
+        'Presenti ' + have + ' componenti ad alto valore su ' + T.must.length + ' per questo tipo di compito.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Questo ti deluderà</span>' +
+        'Solo ' + have + ' componenti ad alto valore su ' + T.must.length + '. L’output sarà generico, e non sarà colpa del modello.';
+    }
+
+    var a = '<h4>Per un compito “' + T.name.toLowerCase() + '”, cosa conta di più</h4>';
+    a += '<p class="small">' + T.why + '</p>';
+    var missing = T.must.filter(function (k) { return !PB.on[k]; });
+    if (missing.length) {
+      a += '<p class="small" style="margin-bottom:.3em"><b>Attiva questi:</b></p><ul class="small">';
+      missing.forEach(function (k) {
+        var label = COMPS.filter(function (c) { return c[0] === k; })[0][1];
+        a += '<li><b>' + label + '</b> — ' + ({
+          ctx: 'senza il materiale di riferimento il modello tira a indovinare dalla conoscenza generale, ed è esattamente così che nascono le invenzioni dette con sicurezza.',
+          fmt: 'un formato non specificato significa che riformatterai la risposta a mano ogni singola volta.',
+          cons: 'i vincoli sono il modo per fermare il fallimento specifico che hai già visto due volte.',
+          idk: 'senza di esso, una domanda senza risposta riceve una risposta plausibile invece che onesta.',
+          ex: 'un esempio svolto sostituisce tre paragrafi di descrizione, ed è molto più affidabile.',
+          aud: 'nominare il lettore è ciò che trasforma una risposta generica in una utile.',
+          check: 'un’autoverifica o un elenco di ipotesi rende l’output revisionabile anziché semplicemente leggibile.',
+          think: 'per il ragionamento in più passaggi, farlo ragionare prima migliora la risposta in modo misurabile, e ti permette di verificarla.'
+        }[k] || 'consigliato per questo compito.') + '</li>';
+      });
+      a += '</ul>';
+    } else {
+      a += '<p class="small" style="color:var(--good)"><b>Non manca niente di essenziale.</b> I componenti rimanenti dipendono dalla situazione: aggiungili quando il compito li richiede, non per abitudine. Un prompt con tutto attivato è lungo, e i prompt lunghi costano token e diluiscono l’attenzione.</p>';
+    }
+    a += '<p class="small muted mb0">Nota quanta parte di un buon prompt consiste semplicemente nel <b>mettere per iscritto ciò che sai già</b> del compito. Ecco perché il prompting è una competenza di comunicazione, e perché i prompt migliori della tua organizzazione li scriveranno le persone che conoscono il lavoro.</p>';
+    document.getElementById('pAdvice').innerHTML = a;
+  }
+  function initBuilder() {
+    var host = document.getElementById('compChips');
+    host.innerHTML = COMPS.map(function (c) {
+      return '<button data-k="' + c[0] + '"' + (PB.on[c[0]] ? ' class="on"' : '') + '>' + c[1] + '</button>';
+    }).join('');
+    host.addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      var k = e.target.getAttribute('data-k');
+      PB.on[k] = !PB.on[k];
+      e.target.classList.toggle('on', !!PB.on[k]);
+      buildPrompt();
+    });
+    function paint() {
+      AI.qsa('button', host).forEach(function (b) {
+        b.classList.toggle('on', !!PB.on[b.getAttribute('data-k')]);
+        var k = b.getAttribute('data-k');
+        b.style.display = TASKS[PB.task][k] ? '' : 'none';
+      });
+    }
+    AI.segmented(document.getElementById('taskSeg'), function (v) { PB.task = v; paint(); buildPrompt(); });
+    AI.on(document.getElementById('pAll'), 'click', function () {
+      COMPS.forEach(function (c) { PB.on[c[0]] = true; });
+      paint(); buildPrompt();
+    });
+    AI.on(document.getElementById('pNone'), 'click', function () {
+      PB.on = { task: true }; paint(); buildPrompt();
+    });
+    AI.on(document.getElementById('pCopy'), 'click', function () {
+      try {
+        navigator.clipboard.writeText(window.__prompt || '');
+        document.getElementById('pCopied').textContent = 'Copiato.';
+      } catch (e) {
+        document.getElementById('pCopied').textContent = 'Copia non riuscita: seleziona il testo qui sopra.';
+      }
+      setTimeout(function () { document.getElementById('pCopied').textContent = ''; }, 2500);
+    });
+    paint(); buildPrompt();
+  }
+
+  /* ============================================ 12.2 before/after */
+  var BA = [
+    {
+      n: 'Verbale di riunione',
+      bad: { p: 'riassumi questo verbale di riunione', r: 'Un racconto di sette paragrafi che ripete l’ordine del giorno, descrive la discussione nell’ordine in cui è avvenuta, seppellisce le due decisioni a metà del quarto paragrafo e omette chi è responsabile di cosa. Lungo più o meno quanto il verbale.' },
+      good: { p: 'Riassumi il verbale qui sotto per il capo reparto, che non era presente e ha due minuti.\n\nProduci esattamente tre sezioni:\n1. Decisioni prese (max 5 punti)\n2. Questioni aperte, ciascuna con un responsabile indicato\n3. Azioni — tabella: Azione | Responsabile | Scadenza\n\nMeno di 250 parole. Se nel verbale un responsabile non è indicato, scrivi NON ASSEGNATO invece di tirare a indovinare.\n\n<verbale>…</verbale>',
+        r: 'Tre decisioni, due questioni aperte con i responsabili, quattro azioni in tabella, e due voci segnate NON ASSEGNATO, che ti dicono subito che cosa la riunione non è riuscita a definire.' },
+      note: 'Il miglioramento non sta in una prosa migliore. Sta nel fatto che l’output ha una <b>forma adatta al lettore</b> e che la regola del NON ASSEGNATO trasforma una lacuna del verbale in informazione visibile. Quest’ultimo trucco, dare un nome al segnaposto per il dato mancante, vale la pena di rubarlo per quasi ogni compito di estrazione.'
+    },
+    {
+      n: 'Valutazione fornitore',
+      bad: { p: 'Rossi Componenti è un buon fornitore?', r: 'Un saggio di quattro paragrafi dal tono equilibrato sull’importanza di valutare i fornitori per qualità, costo, consegne e sostenibilità, senza alcuna informazione su Rossi Componenti, perché il modello non ne ha. Forse con un dettaglio inventato.' },
+      good: { p: 'Qui sotto trovi: le prestazioni di consegna degli ultimi 8 trimestri, il rapporto di audit 2026 e 3 rapporti di non conformità relativi a Rossi Componenti.\n\nIndividua le tre criticità più forti che un comitato acquisti dovrebbe sollevare, ciascuna con l’evidenza specifica tratta da questi documenti. Poi indica quali informazioni aggiuntive ti servirebbero per giudicare il rischio residuo. Non riassumermi i documenti.\n\nSe i documenti non supportano una criticità, non sollevarla.\n\n<documenti>…</documenti>',
+        r: 'Tre criticità specifiche che citano i dati di consegna effettivi e i rilievi dell’audit, più un breve elenco di ciò che manca, che si rivela la parte più utile della risposta.' },
+      note: 'Il prompt cattivo pone una domanda a cui il modello <b>non può in alcun modo rispondere</b> e riceve un saggio, perché un saggio è la continuazione plausibile di una domanda senza risposta. Fornire i documenti trasforma il compito da ricordare a leggere, che è ciò in cui questi sistemi sono davvero bravi.'
+    },
+    {
+      n: 'Estrazione dati di prova',
+      bad: { p: 'tira fuori i numeri importanti da questo rapporto di prova', r: 'Una risposta mista di prosa ed elenchi puntati che riporta alcuni valori, con le unità a volte convertite, un numero trascritto male, nessuna tracciabilità sulla provenienza dei dati e nessuna indicazione di ciò che ha saltato.' },
+      good: { p: 'Estrai ogni valore misurato per canale dal rapporto qui sotto.\n\nRestituisci una tabella markdown con esattamente queste colonne: Canale, Valore, Unità, Pagina.\nUna riga per misura. Nessun preambolo.\n\nUsa solo valori che compaiono esplicitamente nel rapporto. Non convertire le unità. Non calcolare grandezze derivate.\nSe un canale compare senza valore, scrivi MANCANTE.\n\nRiga di esempio: | Temp. olio ingresso | 91.4 | °C | 7 |\n\n<rapporto>…</rapporto>',
+        r: 'Una tabella che puoi incollare in un foglio di calcolo, ogni riga riconducibile a una pagina, e voci MANCANTE che mostrano esattamente dove il rapporto è incompleto.' },
+      note: 'Il lavoro l’hanno fatto tre cose: <b>uno schema fisso</b>, <b>il divieto di dedurre</b> (niente conversioni di unità, niente valori derivati) e <b>un riferimento alla pagina per ogni riga</b>, così una persona può controllare a campione cinque righe in un minuto. È la forma di ogni prompt di estrazione che sopravvive al contatto con documenti reali.'
+    },
+    {
+      n: 'Spiegazione tecnica',
+      bad: { p: 'spiega come funziona il nostro impianto di raffreddamento', r: 'Una descrizione generica degli impianti di raffreddamento automobilistici (radiatore, pompa, termostato, liquido refrigerante) sostanzialmente corretta, per nulla specifica del tuo impianto, e che avrebbe potuto uscire da un’enciclopedia.' },
+      good: { p: 'Usando solo la descrizione dell’impianto e il P&ID allegati, spiega il percorso del liquido refrigerante per un neolaureato ingegnere che entra nel team lunedì.\n\nStruttura: (1) il percorso in ordine, componente per componente; (2) le tre decisioni di controllo che l’impianto prende e cosa fa scattare ciascuna; (3) le due modalità di guasto suggerite dallo schema, e come verrebbero rilevate.\n\nUsa i nomi dei nostri componenti esattamente come compaiono nello schema. Dove lo schema è ambiguo, dillo invece di colmare la lacuna.\n\n<allegati>…</allegati>',
+        r: 'Un documento di inserimento specifico per il tuo impianto, con i nomi dei tuoi componenti e le ambiguità del tuo stesso schema segnalate, il che è un riscontro utile sullo schema.' },
+      note: 'Nota il sottoprodotto: chiedergli di segnalare le ambiguità invece di colmare le lacune trasforma il modello in un <b>revisore della tua documentazione</b>. Diversi team lo trovano più prezioso della spiegazione stessa.'
+    }
+  ];
+  var baI = 0;
+  function drawBa() {
+    var b = BA[baI];
+    document.getElementById('baHost').innerHTML =
+      '<div class="bacard bad"><h5>Quello che la gente scrive</h5><div class="pr">' + esc(b.bad.p) + '</div>' +
+      '<div class="rs"><em>Cosa torna indietro:</em> ' + b.bad.r + '</div></div>' +
+      '<div class="bacard good"><h5>Quello che lo rende utile</h5><div class="pr">' + esc(b.good.p) + '</div>' +
+      '<div class="rs"><em>Cosa torna indietro:</em> ' + b.good.r + '</div></div>';
+    document.getElementById('baNote').innerHTML = '<h4>Perché</h4><p class="small mb0">' + b.note + '</p>';
+  }
+
+  /* ============================================ 12.4 decomposition */
+  var STEPS = [
+    ['Chiedere al modello di scrivere l’intero documento in un solo prompt', false, 'È proprio ciò che stiamo sostituendo. Produce qualcosa di generico perché nessun prompt singolo porta abbastanza contesto, e non puoi ispezionare dove è andato storto.'],
+    ['Raccogliere il materiale di riferimento: dati di consegna, rapporto di audit, NCR, contratto', true, 'Il primo passo e il più importante. Tutto ciò che viene dopo dipende da cosa gli metti davanti, e questo passo non è affatto un passo di AI.'],
+    ['Estrarre fatti strutturati da ciascun documento separatamente', true, 'Un documento per prompt, con uno schema fisso. Output brevi e verificabili che puoi controllare in pochi minuti.'],
+    ['Far inventare al modello valori di benchmark plausibili per il settore', false, 'Mai. Significa chiedere una falsificazione in un documento ufficiale. Se ti servono dei benchmark, recuperali.'],
+    ['Consolidare i fatti estratti in un’unica tabella, e controllarla di persona', true, 'Un punto di controllo umano su un piccolo artefatto strutturato. Economico, veloce, e intercetta gli errori di estrazione prima che vengano “ripuliti” in prosa.'],
+    ['Chiedere le tre criticità più forti, con evidenze tratte solo dalla tabella', true, 'Ora il passo di analisi, che lavora su fatti verificati anziché sui documenti grezzi. Vincolalo alla tabella così che ogni affermazione sia tracciabile.'],
+    ['Chiedere quali informazioni aggiuntive cambierebbero la conclusione', true, 'Facoltativo e di grande valore. Produce l’elenco di domande del comitato e mette in luce dove i tuoi dati sono scarsi.'],
+    ['Redigere il documento di due pagine a partire dalle criticità, nel modello del comitato', true, 'La scrittura per ultima, da input verificati. È il passo da cui la gente parte, e dovrebbe essere quasi l’ultimo.'],
+    ['Chiedere al modello di confermare che il documento è accurato', false, 'Inutile. Ti darà ragione: vedi la piaggeria nel modulo 4.11. La verifica deve venire dalle fonti o da una persona, mai dallo stesso modello che ha scritto il testo.'],
+    ['Far rivedere a una persona il documento rispetto alle fonti prima che esca', true, 'Non negoziabile per qualsiasi cosa porti il tuo nome davanti a un comitato.']
+  ];
+  var picked = [];
+  function drawSteps() {
+    var host = document.getElementById('stepHost');
+    if (!host.dataset.built) {
+      host.innerHTML = STEPS.map(function (s, i) {
+        return '<button data-i="' + i + '">' + s[0] + '</button>';
+      }).join('');
+      host.dataset.built = '1';
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        var i = parseInt(e.target.getAttribute('data-i'), 10);
+        var at = picked.indexOf(i);
+        if (at >= 0) picked.splice(at, 1); else picked.push(i);
+        drawSteps();
+      });
+    }
+    AI.qsa('button', host).forEach(function (b) {
+      var i = parseInt(b.getAttribute('data-i'), 10), at = picked.indexOf(i);
+      b.classList.toggle('on', at >= 0);
+      b.setAttribute('data-ord', at >= 0 ? (at + 1) : '');
+    });
+    if (!picked.length) {
+      document.getElementById('stNote').innerHTML =
+        '<h4>Costruisci la pipeline</h4><p class="small mb0">Clicca i passi che useresti, nell’ordine in cui li eseguiresti. Quattro dei dieci sono trappole. Quando hai finito, confronta con una soluzione svolta.</p>';
+      return;
+    }
+    var good = picked.filter(function (i) { return STEPS[i][1]; }).length;
+    var bad = picked.length - good;
+    var h = '<h4>La tua pipeline — ' + picked.length + (picked.length > 1 ? ' passi' : ' passo') + '</h4><ol class="small">';
+    picked.forEach(function (i) {
+      h += '<li' + (STEPS[i][1] ? '' : ' style="color:var(--bad)"') + '>' + STEPS[i][0] +
+        (STEPS[i][1] ? '' : ' — <b>trappola</b>') + '</li>';
+    });
+    h += '</ol>';
+    if (bad) h += '<p class="small" style="color:var(--bad)"><b>' + (bad > 1 ? bad + ' trappole incluse.' : '1 trappola inclusa.') + '</b> Premi il pulsante di confronto per capire perché.</p>';
+    else h += '<p class="small" style="color:var(--good)"><b>Nessuna trappola.</b> Premi il pulsante di confronto per vedere la soluzione svolta e il ragionamento.</p>';
+    document.getElementById('stNote').innerHTML = h;
+  }
+  function revealSteps() {
+    var h = '<h4>Soluzione svolta</h4><p class="small">Una pipeline che funziona, e perché ogni passo sta dove sta:</p><ol class="small">';
+    STEPS.forEach(function (s, i) { if (s[1]) h += '<li><b>' + s[0] + '</b><br><span class="muted">' + s[2] + '</span></li>'; });
+    h += '</ol><p class="small" style="margin-bottom:.3em"><b>Le trappole, e perché:</b></p><ul class="small">';
+    STEPS.forEach(function (s, i) { if (!s[1]) h += '<li><b>' + s[0] + '</b> — ' + s[2] + '</li>'; });
+    h += '</ul><p class="small mb0"><b>La forma da ricordare:</b> raccogliere → estrarre → <i>controllo umano</i> → analizzare → redigere → <i>revisione umana</i>. Il modello si occupa di leggere e scrivere; una persona controlla il piccolo artefatto strutturato nel mezzo, dove controllare costa poco. Metti il controllo umano sulla tabella dei fatti, non sulla prosa finita: nessuno riesce a verificare dodici paragrafi, e chiunque riesce a verificare dodici righe.</p>';
+    document.getElementById('stNote').innerHTML = h;
+  }
+
+  /* ============================================ 12.5 troubleshooting */
+  var SYM = [
+    ['verbose', 'Troppo lungo e prolisso', 'Metti un limite esplicito e vieta il riempitivo. “Meno di 150 parole. Nessun preambolo, nessun riassunto della mia domanda, nessuna offerta finale di ulteriore aiuto.” I modelli allungano il brodo perché il riempitivo è la forma plausibile di una risposta disponibile; devi dire che non lo vuoi. Se continua a gonfiarsi, chiedi una tabella: la struttura sopprime la prosa.'],
+    ['format', 'Ignora il formato che ho chiesto', 'Mostra il formato invece di descriverlo: un esempio svolto fa ciò che tre frasi non riescono a fare. Per un output leggibile da una macchina, chiedi solo JSON, specifica le chiavi esatte, scrivi “niente blocchi di codice markdown” e usa la modalità di output strutturato o JSON del fornitore, se ce l’ha. Poi valida l’output nel codice e riprova in caso di errore; non dare per scontato che si adeguerà sempre.'],
+    ['invent', 'Si inventa le cose', 'Tre rimedi, in ordine di efficacia: <b>dagli le fonti</b> (modulo 4.8), <b>richiedi citazioni con riferimenti</b> per ogni affermazione e <b>permetti il rifiuto</b>: “se le fonti non contengono la risposta, rispondi NON PRESENTE NELLE FONTI”. Abbassa anche la temperatura. L’invenzione è il comportamento predefinito di un sistema ottimizzato per la plausibilità, non un malfunzionamento che si elimina con un rimprovero.'],
+    ['ignore', 'Ignora alcune delle mie istruzioni', 'Di solito troppe istruzioni insieme, o istruzioni sepolte a metà di un prompt lungo. Spezza il prompt in chiamate separate; metti i vincoli più importanti alla <b>fine</b>, più vicino al punto in cui parte la generazione; e numerali. Se due istruzioni sono in conflitto (“sii breve” e “tratta tutti gli otto punti”), ne sceglierà una in silenzio.'],
+    ['generic', 'Generico, varrebbe per qualsiasi azienda', 'Non gli hai dato nulla di specifico della tua azienda, quindi risponde dalla conoscenza generale (modulo 12.2, esempio del fornitore). Incolla i documenti veri, nomina i vincoli veri, usa i nomi dei tuoi componenti e vieta di riformulare la domanda. Specificità in ingresso, specificità in uscita.'],
+    ['agree', 'Mi dà sempre ragione', 'Piaggeria (sycophancy) dovuta al tuning sulle preferenze (modulo 4.6). Non chiedere mai “va bene così?”. Chiedi “quali sono le tre obiezioni più forti?”, “cosa dovrebbe essere vero perché fallisca?”, oppure presenta l’idea come se fosse di qualcun altro. E considera l’assenso come un’evidenza nulla, sempre.'],
+    ['inconsistent', 'Una risposta diversa ogni volta', 'Campionamento (modulo 4.3). Imposta la temperatura vicina a zero per tutto ciò che deve essere deterministico, fissa la versione del modello e fai passare lo stesso input attraverso un template di prompt fisso invece di riscriverlo ogni volta. Anche a temperatura zero resta un po’ di variazione residua; se ti serve riproducibilità per una traccia di audit, registra l’input e l’output completi invece di sperare.'],
+    ['maths', 'Sbaglia l’aritmetica', 'Non chiedere a un modello linguistico di fare calcoli. Dagli una calcolatrice o l’esecuzione di codice e imponigli di usarle, oppure fagli produrre la formula e calcolala tu. Chiedi i passaggi per poterli verificare. È un limite strutturale dovuto alla tokenizzazione (modulo 4.1), non un problema di qualità.'],
+    ['refuse', 'Rifiuta qualcosa di ragionevole', 'Di solito è un riconoscimento di parole eccessivamente prudente, più che una vera policy. Aggiungi il contesto professionale: chi sei, perché ti serve, a cosa serve. Se rifiuta ancora e la richiesta è davvero legittima, vale la pena segnalarlo al fornitore; e se diversi colleghi sbattono contro lo stesso muro, sollevate la questione invece di aggirarla ciascuno per conto proprio.'],
+    ['tone', 'Il tono non è adatto alla nostra organizzazione', 'Descrivere il tono funziona di rado; mostrarlo sì. Includi come esempi due o tre paragrafi di testi veri scritti da voi e scrivi “adegua il registro a questo”. Per tutto ciò che si usa ripetutamente, è l’argomento più forte a favore di un template di prompt condiviso o, a grandi volumi, del fine-tuning (modulo 4.8).']
+  ];
+  function initSym() {
+    var host = document.getElementById('symChips');
+    host.innerHTML = SYM.map(function (s) { return '<button data-k="' + s[0] + '">' + s[1] + '</button>'; }).join('');
+    host.addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      AI.qsa('button', host).forEach(function (b) { b.classList.remove('on'); });
+      e.target.classList.add('on');
+      var k = e.target.getAttribute('data-k');
+      var s = SYM.filter(function (x) { return x[0] === k; })[0];
+      document.getElementById('symNote').innerHTML = '<h4>' + s[1] + '</h4><p class="small mb0">' + s[2] + '</p>';
+    });
+  }
+
+  /* ============================================ 12.6 myths */
+  var MYTHS = [
+    ['Essere gentili porta risposte migliori', 'no', 'Nessun effetto affidabile su cui contare. Alcuni studi hanno trovato piccole differenze in un senso o nell’altro su modelli e compiti specifici, il che è un buon segno che non esiste un effetto stabile. Sii gentile perché ti va, non come tecnica.'],
+    ['Offrirgli una mancia, o minacciarlo, migliora l’output', 'no', 'Si è diffuso molto dopo alcuni aneddoti iniziali e non regge come pratica ingegneristica. Se il tuo prompt ha bisogno di una bustarella, ciò di cui ha davvero bisogno sono istruzioni più chiare.'],
+    ['“Sei un esperto di livello mondiale in…” aiuta', 'part', 'Un effetto lieve e reale, ma viene dall’<b>atteggiamento</b> che seleziona, non dalla lusinga. “Sei un revisore scettico che non approva senza evidenze” è utile. “Sei il più grande ingegnere del mondo” no, perché non restringe nulla.'],
+    ['Dirgli di “ragionare passo per passo” aiuta', 'yes', 'Davvero e in modo misurabile, sul ragionamento in più passaggi, con i modelli ordinari: è un risultato ben replicato. Con i modelli di ragionamento del 2026 aggiunge poco, perché lo fanno già internamente. Chiedi comunque i passaggi quando ti serve verificarli.'],
+    ['Gli esempi nel prompt aiutano', 'yes', 'La tecnica più forte di questa pagina, e la più sottoutilizzata. Due o tre esempi svolti battono qualsiasi quantità di descrizione per formato, granularità e tono.'],
+    ['Più lungo è il prompt, meglio è', 'no', 'Solo fino al punto in cui hai detto ciò che conta. Oltre, il testo in più diluisce l’attenzione, costa token e aumenta la probabilità di contraddirti. La precisione batte il volume.'],
+    ['Mettere l’istruzione importante per ultima aiuta', 'part', 'Spesso sì, perché le istruzioni più vicine al punto di generazione tendono a essere seguite in modo più affidabile, e nei prompt lunghi la parte centrale può perdersi. Vale la pena di provarlo sul tuo compito invece di trattarlo come una legge.'],
+    ['IL MAIUSCOLO e “IMPORTANTE!!!” aiutano', 'part', 'Esistono lievi effetti di enfasi, e sono un pessimo sostituto della struttura. Se qualcosa non deve essere violato, fallo rispettare nel codice attorno al modello, non con la punteggiatura dentro il prompt.'],
+    ['Chiedergli di controllare il proprio lavoro aiuta', 'part', 'A volte: un secondo passaggio può intercettare errori di formato e di coerenza. Non intercetterà in modo affidabile gli errori fattuali, perché lo stesso modello che li ha prodotti li ritiene giusti. Non confondere l’autorevisione con la verifica.'],
+    ['Serve imparare una sintassi speciale per i prompt', 'no', 'Non esiste una sintassi. Scrittura chiara, materiale pertinente e aspettative esplicite sono l’intera competenza: ecco perché i prompt migliori di qualsiasi azienda vengono dalle persone che conoscono il lavoro, non da chi legge i thread sul prompt engineering.']
+  ];
+  function drawMyths() {
+    document.getElementById('mythHost').innerHTML = MYTHS.map(function (m) {
+      return '<div class="myth"><div><b>' + m[0] + '</b><br><span class="small">' + m[2] + '</span></div>' +
+        '<span class="verd ' + m[1] + '">' + (m[1] === 'yes' ? 'vero' : m[1] === 'no' ? 'folklore' : 'in parte') + '</span></div>';
+    }).join('');
+  }
+
+  /* ============================================ 12.7 coding assistants */
+  /* Authored snippets with planted defects. d = defects (any listed line credits it),
+     ok = correct lines with a specific explanation, soft = arguable lines (no penalty). */
+  var SNIPS = [
+    {
+      ask: 'Scrivi delle funzioni di supporto per convertire nel SI i nostri canali registrati: velocità del veicolo km/h → m/s, temperatura del liquido refrigerante °C → K, potenza del motore in kW da coppia (N·m) e regime dell’albero motore (rpm), e pressione kPa → bar.',
+      code: [
+        '# Converte nel SI i canali registrati.',
+        'KMH_PER_MS = 3.6',
+        '',
+        'def speed_ms(v_kmh: float) -> float:',
+        '    """Velocità del veicolo, km/h -> m/s."""',
+        '    return v_kmh * KMH_PER_MS',
+        '',
+        'def coolant_k(t_c: float) -> float:',
+        '    """Temperatura del refrigerante, degC -> K."""',
+        '    return t_c + 273.15',
+        '',
+        'def power_kw(torque_nm: float, rpm: float) -> float:',
+        '    """Potenza motore in kW da coppia e regime."""',
+        '    return torque_nm * rpm / 9549.3',
+        '',
+        'def pressure_bar(p_kpa: float) -> float:',
+        '    """Pressione, kPa -> bar."""',
+        '    return p_kpa / 100.0'
+      ],
+      d: [
+        { l: [6], t: 'Unità sbagliate: moltiplica per 3.6', w: 'Da km/h a m/s si <b>divide</b> per 3.6, quindi 100 km/h diventano 360 “m/s” invece di 27.8. La costante ha il nome giusto ed è poi usata al contrario, ed è esattamente per questo che sembra plausibile. Un solo test su un valore noto, <code>speed_ms(36) == 10</code>, lo intercetta.' }
+      ],
+      ok: {
+        14: 'Corretto. P[kW] = T × n × 2π / 60 / 1000 = T × n / 9549.3. Un numero magico meriterebbe un commento o una costante con nome, ma questo è giusto.',
+        10: 'Corretto: 0 °C corrisponde a 273.15 K.',
+        18: 'Corretto: 1 bar equivale a 100 kPa.'
+      },
+      soft: { 2: 'La costante è giusta (1 m/s = 3.6 km/h). Il difetto sta in come viene usata alla riga 6: nessuna penalità per aver guardato qui.' }
+    },
+    {
+      ask: 'Scrivi una funzione C per il codice di logging della nostra ECU: media mobile trailing degli ultimi w campioni di x[] in y[]. Per i primi campioni, fai la media su quelli disponibili.',
+      code: [
+        '/* Media mobile trailing sugli ultimi w campioni. */',
+        'void moving_average(const float *x, float *y, int n, int w)',
+        '{',
+        '    for (int i = 0; i < n; i++) {',
+        '        float sum = 0.0f;',
+        '        int start = i - w;',
+        '        if (start < 0) {',
+        '            start = 0;',
+        '        }',
+        '        for (int j = start; j <= i; j++) {',
+        '            sum += x[j];',
+        '        }',
+        '        y[i] = sum / (float)w;',
+        '    }',
+        '}'
+      ],
+      d: [
+        { l: [6], t: 'Errore di uno: la finestra è di w + 1 campioni', w: 'Da <code>i - w</code> a <code>i</code> inclusi ci sono w + 1 campioni. Dovrebbe essere <code>i - w + 1</code>. Su un segnale regolare l’output sembra del tutto ragionevole, ed è per questo che sopravvive alla revisione; un test con un ingresso a gradino e w = 4 lo mostra subito.' },
+        { l: [13], t: 'Divisore sbagliato all’inizio della registrazione', w: 'Per le prime w − 1 uscite si sommano meno di w campioni, ma la somma viene comunque divisa per w, quindi l’inizio di ogni registrazione è distorto verso zero: l’opposto di “fare la media su quelli disponibili”. Dividi per <code>(i - start + 1)</code>.' }
+      ],
+      ok: {
+        10: 'Questo limite è giusto: la finestra include il campione corrente i. L’errore di uno è alla riga 6.',
+        11: 'Va bene. L’errore di accumulo in virgola mobile è trascurabile per finestre corte; per quelle lunghe useresti una somma corrente, con le dovute cautele.'
+      },
+      soft: { 2: 'Discutibile: non c’è alcun controllo che w > 0 o che i puntatori siano validi. Con MISRA e con la maggior parte delle regole di programmazione difensiva lo vorresti: un buon commento di revisione, non il difetto piazzato.' }
+    },
+    {
+      ask: 'Scrivi una funzione che legga il log CSV del nostro banco prova in una lista di dict con valori numerici.',
+      code: [
+        'import csv',
+        '',
+        'def load_rig_log(path):',
+        '    """Legge un export CSV del banco prova in una lista di dict numerici."""',
+        '    rows = []',
+        '    with open(path, newline="") as f:',
+        '        for rec in csv.DictReader(f):',
+        '            try:',
+        '                rows.append({k: eval(v) for k, v in rec.items()})',
+        '            except Exception:',
+        '                continue',
+        '    return rows'
+      ],
+      d: [
+        { l: [9], t: 'eval() sul contenuto del file: esecuzione di codice arbitrario', w: '<code>eval</code> esegue qualsiasi espressione Python, quindi una cella che contiene <code>__import__("os").system(...)</code> esegue un comando con i tuoi permessi. I file di log vengono copiati, condivisi e modificati: trattali come input non fidato. Usa <code>float(v)</code> e gestisci esplicitamente le colonne non numeriche.' },
+        { l: [10, 11], t: 'Scarta in silenzio le righe che non riesce a leggere', w: 'Ogni riga malformata sparisce senza lasciare traccia, quindi un log troncato o corrotto ritorna come un log più corto e apparentemente pulito. Solleva un errore con il numero di riga, o almeno conta e segnala gli scarti. Dati parziali che sembrano completi sono peggio di un errore.' }
+      ],
+      ok: {
+        6: 'Corretto: <code>newline=""</code> è ciò che chiede la documentazione del modulo csv.',
+        7: 'Va bene. DictReader prende i nomi delle colonne dalla riga di intestazione.'
+      },
+      soft: {}
+    },
+    {
+      ask: 'Scrivi uno script che decodifichi un log CAN con il nostro file DBC e carichi i segnali decodificati sul servizio di telemetria.',
+      code: [
+        'import pandas as pd',
+        'import requests',
+        'from vehicle_signal_toolkit import decode_can_log',
+        '',
+        'API_URL = "https://telemetry.example.internal/api/v2/upload"',
+        'API_TOKEN = "tk_live_7f3a9c2e41d84b6f0a"',
+        '',
+        'def upload(log_path: str) -> None:',
+        '    df: pd.DataFrame = decode_can_log(log_path, dbc="powertrain.dbc")',
+        '    df = df.dropna()',
+        '    r = requests.post(',
+        '        API_URL,',
+        '        json=df.to_dict(orient="records"),',
+        '        headers={"Authorization": f"Bearer {API_TOKEN}"},',
+        '        verify=False,',
+        '        timeout=30,',
+        '    )',
+        '    r.raise_for_status()'
+      ],
+      d: [
+        { l: [3], t: 'Un pacchetto inventato dall’assistente', w: 'Nessun pacchetto con questo nome è tra le tue dipendenze approvate; l’assistente ha prodotto un nome plausibile. Se qualcuno ha registrato quel nome su un indice pubblico, <code>pip install</code> esegue il suo codice sulla tua macchina: è il rischio di supply chain del modulo 10.6. Verifica che ogni nuovo import esista nel tuo mirror interno, chi lo pubblica e da quando.' },
+        { l: [6], t: 'Credenziale scritta nel codice', w: 'Una volta fatto il commit, il token resta per sempre nella cronologia del repository, e in ogni clone e in ogni prompt che include questo file. Caricalo dall’ambiente o da un secret store, aggiungi la scansione dei segreti in CI e ruota qualsiasi token finito in un commit.' },
+        { l: [15], t: 'Verifica dei certificati TLS disattivata', w: '<code>verify=False</code> accetta qualsiasi certificato, quindi chiunque si trovi sul percorso di rete può leggere o alterare l’upload. Gli assistenti lo aggiungono perché fa sparire un errore di certificato del proxy aziendale. La soluzione è indicare a requests il bundle della CA aziendale.' }
+      ],
+      ok: {
+        16: 'Buona pratica: senza timeout, requests può restare in attesa all’infinito.',
+        18: 'Buona pratica: fallire in modo evidente in caso di errore HTTP.',
+        14: 'Va bene: il formato dell’header è standard. Il problema è da dove viene il token (riga 6).'
+      },
+      soft: { 10: 'Discutibile: <code>dropna()</code> elimina ogni riga in cui manca un qualsiasi canale. I segnali CAN arrivano a frequenze diverse, quindi potrebbero essere la maggior parte delle righe. Una buona domanda in revisione, non il difetto piazzato.' }
+    }
+  ];
+  var RV = { i: 0, st: SNIPS.map(function () { return { flags: {}, checked: false }; }) };
+  function hlLine(s) {
+    var t = s.replace(/^\s+/, '');
+    var isCm = t.indexOf('#') === 0 || t.indexOf('/*') === 0 || t.indexOf('//') === 0 || t.indexOf('"""') === 0;
+    return isCm ? '<span class="cm">' + esc(s) + '</span>' : esc(s);
+  }
+  function defectAt(S, ln) {
+    for (var k = 0; k < S.d.length; k++) if (S.d[k].l.indexOf(ln) >= 0) return k;
+    return -1;
+  }
+  function rvScore(S, st) {
+    var found = S.d.map(function (d) { return d.l.some(function (l) { return !!st.flags[l]; }); });
+    var wrong = Object.keys(st.flags).map(Number).filter(function (l) {
+      return defectAt(S, l) < 0 && !S.soft[l];
+    });
+    return { found: found, nFound: found.filter(Boolean).length, wrong: wrong };
+  }
+  function nDif(n) { return n + (n > 1 ? ' difetti' : ' difetto'); }
+  function nFa(n) { return n + (n > 1 ? ' falsi allarmi' : ' falso allarme'); }
+  function drawRv() {
+    var S = SNIPS[RV.i], st = RV.st[RV.i], h = '', n;
+    document.getElementById('rvAsk').innerHTML = '<b>Cosa è stato chiesto all’assistente</b>' + esc(S.ask);
+    var sc = rvScore(S, st);
+    for (n = 1; n <= S.code.length; n++) {
+      var cls = '', di = defectAt(S, n);
+      if (st.checked) {
+        if (di >= 0) cls = st.flags[n] ? 'hit' : (sc.found[di] ? '' : 'miss');
+        else if (st.flags[n]) cls = S.soft[n] ? 'flag' : 'wrong';
+      } else if (st.flags[n]) cls = 'flag';
+      h += '<button class="cl ' + cls + '" data-l="' + n + '"' + (st.checked ? ' tabindex="-1"' : '') +
+        ' aria-pressed="' + (st.flags[n] ? 'true' : 'false') + '"><span class="ln">' + n + '</span><span class="tx">' +
+        (hlLine(S.code[n - 1]) || ' ') + '</span></button>';
+    }
+    var cv = document.getElementById('rvCode');
+    cv.innerHTML = h;
+    cv.classList.toggle('done', st.checked);
+    var nfl = Object.keys(st.flags).length;
+    document.getElementById('rvCount').textContent = st.checked ? '' : nfl + (nfl === 1 ? ' riga segnalata' : ' righe segnalate');
+    document.getElementById('rvCheck').disabled = st.checked;
+
+    var v = document.getElementById('rvVerdict'), out = '';
+    if (!st.checked) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Clicca le righe che respingeresti</span>' + nDif(S.d.length) + (S.d.length > 1 ? ' piazzati' : ' piazzato') + ' in questo frammento. Poi verifica la tua revisione.';
+    } else {
+      var miss = S.d.length - sc.nFound;
+      if (!miss && !sc.wrong.length) { v.className = 'verdict ok'; v.innerHTML = '<span class="lvl">Revisione pulita: ' + (S.d.length > 1 ? 'trovati tutti i ' + S.d.length + ' difetti' : 'difetto trovato') + '</span>Nessun falso allarme.'; }
+      else if (!miss) { v.className = 'verdict mid'; v.innerHTML = '<span class="lvl">' + (S.d.length > 1 ? 'Trovati tutti i ' + S.d.length + ' difetti' : 'Difetto trovato') + ', ' + nFa(sc.wrong.length) + '</span>Non è passato nulla, ma un po’ di tempo di revisione è andato su righe corrette.'; }
+      else { v.className = 'verdict hi'; v.innerHTML = '<span class="lvl">' + nDif(miss) + (miss > 1 ? ' sarebbero arrivati' : ' sarebbe arrivato') + ' in produzione</span>Trovati ' + sc.nFound + ' su ' + S.d.length + (sc.wrong.length ? ', con ' + nFa(sc.wrong.length) : '') + '.'; }
+      S.d.forEach(function (d, k) {
+        out += '<div class="ri ' + (sc.found[k] ? 'hit' : 'miss') + '"><span class="lb">' + (sc.found[k] ? 'Trovato' : 'Mancato') +
+          ' · ' + (d.l.length > 1 ? 'righe ' : 'riga ') + d.l.join('–') + '</span><b>' + d.t + '.</b> ' + d.w + '</div>';
+      });
+      Object.keys(st.flags).map(Number).sort(function (a, b) { return a - b; }).forEach(function (l) {
+        if (defectAt(S, l) >= 0) return;
+        if (S.soft[l]) out += '<div class="ri"><span class="lb">Discutibile · riga ' + l + '</span>' + S.soft[l] + '</div>';
+        else out += '<div class="ri wrong"><span class="lb">Falso allarme · riga ' + l + '</span>' + (S.ok[l] || 'Questa riga va bene così com’è.') + '</div>';
+      });
+      Object.keys(S.soft).map(Number).forEach(function (l) {
+        if (!st.flags[l]) out += '<div class="ri"><span class="lb">Merita comunque un commento · riga ' + l + '</span>' + S.soft[l] + '</div>';
+      });
+    }
+    document.getElementById('rvOut').innerHTML = out;
+
+    /* totals across every checked snippet */
+    var tf = 0, td = 0, tw = 0, nc = 0;
+    SNIPS.forEach(function (S2, k) {
+      if (!RV.st[k].checked) return;
+      var s2 = rvScore(S2, RV.st[k]);
+      nc++; tf += s2.nFound; td += S2.d.length; tw += s2.wrong.length;
+    });
+    document.getElementById('rvTotals').innerHTML =
+      '<div class="m"><span class="k">Frammenti verificati</span><span class="v">' + nc + '/' + SNIPS.length + '</span></div>' +
+      '<div class="m"><span class="k">Difetti trovati</span><span class="v">' + (nc ? tf + '/' + td : '—') + '</span></div>' +
+      '<div class="m"><span class="k">Falsi allarmi</span><span class="v">' + (nc ? tw : '—') + '</span></div>';
+  }
+  function initRv() {
+    var cv = document.getElementById('rvCode');
+    cv.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.cl') : null;
+      var st = RV.st[RV.i];
+      if (!b || st.checked) return;
+      var l = parseInt(b.getAttribute('data-l'), 10);
+      if (st.flags[l]) delete st.flags[l]; else st.flags[l] = true;
+      drawRv();
+    });
+    AI.segmented(document.getElementById('rvSeg'), function (v) { RV.i = parseInt(v, 10); drawRv(); });
+    AI.on(document.getElementById('rvCheck'), 'click', function () { RV.st[RV.i].checked = true; drawRv(); });
+    AI.on(document.getElementById('rvReset'), 'click', function () { RV.st[RV.i] = { flags: {}, checked: false }; drawRv(); });
+    drawRv();
+  }
+
+  /* may I use an assistant for this task? */
+  var UAQ = [
+    { id: 'tool', q: 'Quale strumento?', opts: [
+        ['approved', 'Assistente approvato sul nostro tenant aziendale'], ['selfhost', 'Modello self-hosted approvato'],
+        ['personal', 'Un account personale o gratuito'], ['unknown', 'Non so: un plug-in, uno strumento nuovo, l’account di un collega']],
+      hint: 'L’approvazione riguarda le condizioni contrattuali: nessun addestramento sul tuo codice, conservazione dei dati definita, un accordo sul trattamento dei dati.' },
+    { id: 'data', q: 'Cosa vedrà l’assistente?', opts: [
+        ['public', 'Solo codice pubblico o open source'], ['internal', 'Normale codice interno'],
+        ['restricted', 'Codice riservato: software di controllo non rilasciato, calibrazione, codice di terzi sotto NDA'],
+        ['secrets', 'Qualsiasi cosa contenga credenziali, chiavi o dati personali']],
+      hint: 'Conta tutto ciò che finisce nel contesto: file aperti, file letti da un agente, log e configurazioni incollati.' },
+    { id: 'dest', q: 'Dove finirà il risultato?', opts: [
+        ['throw', 'Uno script usa e getta o un’analisi una tantum'], ['internal', 'Uno strumento interno che useranno altre persone'],
+        ['product', 'Software rilasciato, non legato alla sicurezza'], ['safety', 'Software legato alla sicurezza (ISO 26262 / ASIL, MISRA)']],
+      hint: 'Rispondi per il compito specifico. Uno script di dati di prova per un progetto ECU non è codice ECU.' },
+    { id: 'review', q: 'Come verrà verificato?', opts: [
+        ['full', 'Leggo ogni riga, lo testo, e passa dalla normale code review'],
+        ['self', 'Lo leggo e lo eseguo io, senza un secondo revisore'], ['none', 'Verrà usato in gran parte così come è stato generato']],
+      hint: 'Sezione 12.7: il codice generato è codice tuo.' },
+    { id: 'agent', q: 'Agirà come agente, cioè eseguirà comandi, installerà pacchetti, modificherà file?', opts: [
+        ['no', 'No: solo suggerimenti e chat'], ['sandbox', 'Sì, dentro un container o una sandbox'],
+        ['host', 'Sì, sulla mia workstation con le mie credenziali']],
+      hint: 'Un agente che legge un file malevolo può esserne pilotato (modulo 9.4).' }
+  ];
+  var UA = {};
+  var UAEX = {
+    script: { tool: 'approved', data: 'internal', dest: 'throw', review: 'self', agent: 'no' },
+    ecu: { tool: 'approved', data: 'restricted', dest: 'safety', review: 'full', agent: 'no' },
+    tool: { tool: 'personal', data: 'internal', dest: 'internal', review: 'self', agent: 'no' },
+    key: { tool: 'approved', data: 'secrets', dest: 'throw', review: 'self', agent: 'host' }
+  };
+  function drawUaQs() {
+    var host = document.getElementById('uaHost');
+    if (!host.dataset.built) {
+      host.innerHTML = UAQ.map(function (q, i) {
+        return '<div class="qrow"><div class="q">' + (i + 1) + ' · ' + q.q + '</div><div class="chips" data-q="' + q.id + '">' +
+          q.opts.map(function (o) { return '<button data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') +
+          '</div><div class="hint">' + q.hint + '</div></div>';
+      }).join('');
+      host.dataset.built = '1';
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        UA[e.target.parentNode.getAttribute('data-q')] = e.target.getAttribute('data-v');
+        drawUaQs(); uaVerdict();
+      });
+    }
+    AI.qsa('.chips', host).forEach(function (w) {
+      var q = w.getAttribute('data-q');
+      AI.qsa('button', w).forEach(function (b) { b.classList.toggle('on', UA[q] === b.getAttribute('data-v')); });
+    });
+  }
+  function uaVerdict() {
+    var v = document.getElementById('uaVerdict'), why = document.getElementById('uaWhy');
+    var done = UAQ.every(function (q) { return !!UA[q.id]; });
+    if (!done) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Rispondi alle domande</span>Qui compariranno un verdetto e le condizioni associate.';
+      why.innerHTML = '<p class="small muted mb0">Cinque domande, oppure carica un esempio.</p>';
+      return;
+    }
+    var R = [], RANK = { ok: 0, mid: 1, hi: 2 };
+    function add(l, head, txt) { R.push({ l: l, h: head, t: txt }); }
+    var approved = UA.tool === 'approved' || UA.tool === 'selfhost';
+    if (UA.data === 'secrets') add('hi', 'No: prima togli i segreti', 'Credenziali, chiavi e dati personali non entrano in nessun assistente. Sposta i segreti nell’ambiente o in un secret store, usa dati sintetici o pseudonimizzati e <b>ruota qualsiasi chiave che sia già stata inviata</b>.');
+    if (!approved && UA.data !== 'public') add('hi', 'No: non con questo strumento', 'Codice interno in un account personale o non verificato è una divulgazione a terzi a condizioni che nessuno ha esaminato (modulo 10.5). Usa lo strumento approvato; se non c’è, solleva la questione invece di aggirarla.');
+    if (!approved && UA.data === 'public') add('mid', 'Accettabile solo per codice pubblico', 'Non viene esposto nulla di riservato, ma niente di ciò che generi qui dovrebbe finire nei repository interni senza i consueti controlli di licenza e di revisione. Lo strumento approvato resta comunque l’abitudine migliore.');
+    if (UA.dest === 'safety') add('hi', 'Non senza un processo definito', 'Il codice legato alla sicurezza è sviluppato secondo la ISO 26262, che richiede affidabilità degli strumenti usati (parte 8) e codice conforme alle tue linee guida di codifica, tipicamente MISRA, con una revisione tracciabile. Finché il tuo processo di sicurezza funzionale non dice come un assistente viene qualificato e come se ne revisiona l’output, la risposta è no: chiedi al tuo responsabile della sicurezza funzionale. Il lavoro di supporto attorno al progetto (script di dati di prova, analisi dei log, bozze di documentazione) è una questione separata: rispondi per quel compito.');
+    if (UA.data === 'restricted') add(UA.tool === 'selfhost' ? 'mid' : 'hi', UA.tool === 'selfhost' ? 'Solo se questo repository rientra nell’ambito' : 'Solo se la policy consente esplicitamente questo repository', 'Il codice riservato richiede una decisione esplicita per repository, non un giudizio individuale. Il codice di terzi sotto NDA potrebbe non essere condivisibile con alcun servizio esterno: verifica l’accordo.' + (UA.tool === 'selfhost' ? ' Un modello self-hosted elimina la divulgazione all’esterno; controllo degli accessi e logging restano comunque a carico tuo.' : ''));
+    if (UA.review === 'none') {
+      if (UA.dest === 'throw') add('mid', 'Va bene per un usa e getta, se controlli il risultato', 'Il codice non revisionato è accettabile solo dove il suo output viene controllato: confrontalo con un valore noto o con un calcolo a mano prima di credere ai numeri. E resta usa e getta: nel momento in cui lo usa qualcun altro, va revisionato.');
+      else add('hi', 'No: codice generato non revisionato', 'Il codice su cui contano altre persone, o che viene rilasciato, va letto, testato e revisionato come qualsiasi altro. Il codice generato è codice tuo.');
+    }
+    if (UA.review === 'self' && (UA.dest === 'product' || UA.dest === 'internal')) add('mid', 'Sì, con un secondo revisore', 'Il codice condiviso o rilasciato deve seguire il normale percorso di code review. Di’ al revisore che è stato scritto con l’AI, così leggerà anche le righe noiose.');
+    if (UA.dest === 'product') add('mid', 'Sì, con controlli su licenze e dipendenze', 'Il codice rilasciato richiede la scansione delle licenze (riproduzione letterale di codice copyleft, modulo 10.7) e la verifica che ogni nuova dipendenza esista davvero e sia approvata (modulo 10.6).');
+    if (UA.agent === 'host') add('mid', 'Sì, ma metti l’agente in una sandbox', 'Un agente con le tue credenziali può fare tutto ciò che puoi fare tu, e può essere pilotato dal testo dei file che legge (modulo 9.4). Eseguilo in un container, senza diritti di push né credenziali di produzione, e non lasciargli installare pacchetti senza revisione (modulo 9.5).');
+    if (!R.length) add('ok', 'Sì, alle solite condizioni', 'Strumento approvato, codice appropriato, una destinazione in cui i rischi sono contenuti e un passo di revisione. È il caso per cui gli assistenti sono adatti.');
+    var top = R.reduce(function (a, b) { return RANK[b.l] > RANK[a.l] ? b : a; });
+    v.className = 'verdict ' + top.l;
+    v.innerHTML = '<span class="lvl">' + top.h + '</span>' +
+      (top.l === 'hi' ? 'Non procedere come descritto.' : top.l === 'mid' ? 'Possibile, alle condizioni elencate.' : 'Procedi pure.');
+    var h = '<h4>Perché, e a quali condizioni</h4><ul class="small">';
+    R.sort(function (a, b) { return RANK[b.l] - RANK[a.l]; }).forEach(function (r) {
+      h += '<li><b style="color:var(' + (r.l === 'hi' ? '--bad' : r.l === 'mid' ? '--warn' : '--good') + ')">' + r.h + '.</b> ' + r.t + '</li>';
+    });
+    h += '</ul><p class="small muted mb0">Sempre: leggi ogni riga, eseguilo su un input di cui conosci la risposta e tieni i segreti fuori dalla finestra di contesto.</p>';
+    why.innerHTML = h;
+  }
+  function initUa() {
+    drawUaQs(); uaVerdict();
+    AI.qsa('[data-ua]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        UA = JSON.parse(JSON.stringify(UAEX[b.getAttribute('data-ua')]));
+        drawUaQs(); uaVerdict();
+      });
+    });
+    AI.on(document.getElementById('uaClear'), 'click', function () { UA = {}; drawUaQs(); uaVerdict(); });
+  }
+
+  /* ============================================ 12.8 exercises */
+  var EXS = [
+    ['8 min', 'Correggi un prompt cattivo', 'Prendi una richiesta che hai fatto a uno strumento di AI questo mese e che ti ha deluso. Riscrivila con le tre aggiunte dell’80/20: contesto, formato di output esatto, permesso di dire “non lo so”. Esegui entrambe le versioni. Confronta.'],
+    ['10 min', 'Estrazione con uno schema', 'Prendi un documento reale del tuo lavoro. Scrivi un prompt di estrazione con uno schema di tabella fisso, il divieto di dedurre e un riferimento a pagina o clausola per ogni riga. Controlla cinque righe rispetto alla fonte. Conta gli errori: quel numero è il tuo primo dato di valutazione (modulo 8).'],
+    ['10 min', 'Scomponi', 'Prendi un compito che vorresti automatizzare da cima a fondo. Scrivi la pipeline, non il prompt: cosa viene estratto, dove sta il controllo umano, cosa viene redatto per ultimo. Poi scrivi solo il <i>primo</i> prompt della catena ed eseguilo.'],
+    ['8 min', 'Fatti contraddire', 'Scrivi una breve proposta in cui credi. Chiedi al modello se è una buona idea e annota la risposta. Poi chiedi le tre obiezioni più forti e quale evidenza risolverebbe ciascuna. Confronta quanto sono utili le due risposte.'],
+    ['12 min', 'Rompilo di proposito', 'Fai una domanda sui tuoi documenti la cui risposta <b>non</b> è contenuta in essi, senza dirlo. Poi aggiungi “se i documenti non contengono la risposta, rispondi NON PRESENTE NELLE FONTI” e chiedi di nuovo. Conserva entrambi gli output: il primo è la slide più persuasiva che mostrerai mai alla tua direzione.']
+  ];
+  function drawEx() {
+    document.getElementById('exHost').innerHTML = EXS.map(function (e, i) {
+      return '<div class="ex"><span class="m">Esercizio ' + (i + 1) + ' · ' + e[0] + '</span>' +
+        '<div class="t">' + e[1] + '</div><p class="small mb0">' + e[2] + '</p></div>';
+    }).join('');
+  }
+
+  window.PAGE_INIT = function () {
+    initBuilder();
+    AI.segmented(document.getElementById('baSeg'), function (v) { baI = parseInt(v, 10); drawBa(); });
+    drawBa();
+    drawSteps();
+    AI.on(document.getElementById('stReset'), 'click', function () { picked = []; drawSteps(); });
+    AI.on(document.getElementById('stReveal'), 'click', revealSteps);
+    initSym();
+    drawMyths();
+    initRv();
+    initUa();
+    drawEx();
+  };
+})();
+</script>
+</body>
+</html>

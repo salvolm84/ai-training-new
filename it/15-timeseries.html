@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>15 · Serie temporali e telemetria — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 300px; }
+  .cv-md { width: 100%; height: 240px; }
+  .cv-sm { width: 100%; height: 170px; }
+  .bigstat { text-align: center; padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.55rem; font-weight: 700; display: block; line-height: 1.15; }
+  .bigstat .l { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.warn .n { color: var(--warn); }
+  .bigstat.acc .n { color: var(--accent); }
+  .bs-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .ratebox { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+  @media (max-width: 760px) { .ratebox { grid-template-columns: 1fr; } }
+  .ratebox .card { padding: 16px; }
+  .ratebox .hz { font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--accent); display: block; }
+  .faultlist { display: grid; gap: 6px; font-size: .86rem; }
+  .faultlist .fr { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; background: var(--panel); }
+  .faultlist .fr .st { font-family: var(--mono); font-weight: 700; font-size: .82rem; }
+  .faultlist .fr.hit { border-left: 3px solid var(--good); }
+  .faultlist .fr.miss { border-left: 3px solid var(--bad); }
+  .faultlist .fr.luck { border-left: 3px solid var(--warn); }
+  .pareto td button { white-space: nowrap; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .8rem; color: var(--ink-3); margin-top: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .legend i.box { height: 10px; width: 12px; border-radius: 3px; }
+  .cmp { width: 100%; }
+  .cmp td, .cmp th { vertical-align: top; }
+  @media (max-width: 560px) {
+    .sbar { grid-template-columns: 104px 1fr 50px; font-size: .8rem; }
+    .bigstat .n { font-size: 1.3rem; }
+  }
+</style>
+</head>
+<body data-page="p15">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 15 · Parte IV — Portarla in produzione</span>
+  <h1>Serie temporali e telemetria</h1>
+  <p class="lead">La maggior parte dei dati prodotti da un’auto non è una tabella di righe indipendenti. È un flusso:
+  temperature dei freni, tensioni di cella, velocità ruota, vibrazioni, campionati centinaia o migliaia di volte al
+  secondo. Quasi tutte le tecniche delle Parti I–III restano valide — a patto di rispettare l’unica cosa
+  che rende diversi i flussi. Se la ignori, i tuoi punteggi di validazione ti mentiranno.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">La frase da portarsi a casa</span>
+  <p class="mb0">In una serie temporale, <strong>campioni vicini non sono evidenze indipendenti</strong> — sono
+  per lo più la stessa evidenza misurata due volte. Ogni metodo di questo modulo, dal ricampionamento alla
+  validazione al rilevamento delle anomalie, è un modo per rispettare questo fatto invece di farsi ingannare.</p>
+</div>
+
+<!-- ============================================= 15.1 -->
+<section class="chapter" id="order">
+  <h2>15.1 · Perché l’ordine cambia tutto</h2>
+  <p>Quasi tutto il machine learning dei moduli 2–8 presuppone tacitamente che le righe siano <em>indipendenti e
+  identicamente distribuite</em> — i.i.d. Mescoli le righe e non perdi nulla; le dividi a caso e il
+  test set è un campione equo del futuro. La telemetria viola entrambe le metà di questa ipotesi.
+  <strong>Indipendenti</strong> cade perché un disco freno a 612 °C adesso sarà a circa 612 °C fra un decimo
+  di secondo. <strong>Identicamente distribuite</strong> cade perché l’auto al giro 18 — meno carburante,
+  gomme più usurate, impianto di raffreddamento più caldo — non è l’auto del giro 2.</p>
+  <p>La conseguenza pratica è che il numero di righe nel file del logger dice ben poco su quanta
+  informazione hai davvero. Il laboratorio lo rende concreto con un disco freno anteriore sinistro simulato su otto
+  giri.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Quanti campioni indipendenti sono?</h3><span class="tag try">Alza la frequenza di campionamento, poi mescola</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="acSeries" class="cv-md"></canvas>
+        <canvas id="acAcf" class="cv-sm mt1"></canvas>
+        <p class="small muted mt1 mb0">Sopra: temperatura del disco, simulata con cinque zone di frenata per giro,
+        raffreddamento newtoniano e 4 °C di rumore del sensore. Sotto: la sua autocorrelazione — quanto il segnale
+        somiglia a sé stesso traslato di un certo ritardo (lag). Calcolata in tempo reale dai campioni mostrati.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Frequenza di logging</span><span class="val" id="acRateOut"></span></div>
+          <input type="range" id="acRate" min="0" max="4" step="1" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Ordine delle righe</span></div>
+          <div class="segmented" id="acOrderSeg">
+            <button data-v="time" class="on">Ordine temporale</button>
+            <button data-v="shuf">Mescolate</button>
+          </div>
+        </div>
+        <div class="bs-grid">
+          <div class="bigstat"><span class="n" id="acN">—</span><span class="l">righe registrate</span></div>
+          <div class="bigstat acc"><span class="n" id="acNeff">—</span><span class="l">campioni indipendenti effettivi</span></div>
+          <div class="bigstat"><span class="n" id="acRho">—</span><span class="l">correlazione con il campione successivo</span></div>
+          <div class="bigstat warn"><span class="n" id="acRatio">—</span><span class="l">righe per campione indipendente</span></div>
+        </div>
+        <div class="card mt1" id="acNote" style="min-height:150px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">La dimensione campionaria effettiva è stimata come
+    <span class="mono">n / (1 + 2·Σρ<sub>k</sub>)</span>, sommando l’autocorrelazione finché non scende per la prima volta
+    sotto 0.05. È una stima, non una legge — ma dà l’ordine di grandezza giusto, ed è l’ordine di
+    grandezza che conta.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Registrare più in fretta non compra informazione</span>
+      <p class="mb0">Passare da 1 Hz a 10 Hz moltiplica le righe per dieci e la dimensione campionaria effettiva
+      praticamente per niente. I campioni in più servono a <em>vedere</em> gli eventi rapidi — un bloccaggio, un picco — ma
+      non rendono un risultato statistico dieci volte più certo. Le barre d’errore calcolate come se le righe fossero
+      indipendenti saranno molto troppo strette.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Mescolare distrugge proprio ciò che ti serve</span>
+      <p class="mb0">Dopo il mescolamento, l’autocorrelazione crolla e ogni riga sembra indipendente. È
+      esattamente ciò che fa di nascosto uno split casuale train/test — tratta i campioni di ieri e
+      quelli di domani come intercambiabili. La sezione 15.5 mostra che effetto ha su un punteggio di validazione.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 5 minuti. Parti da 1 Hz, leggi la dimensione campionaria effettiva, poi sposta a 10 Hz e chiedi
+      alla sala di indovinare il nuovo numero prima di leggerlo. Quasi tutti dicono dieci volte tanto.</li>
+      <li>Indica la gobba nell’autocorrelazione a un giro: il disco alla curva 1 di questo giro somiglia al
+      disco alla curva 1 del giro precedente. È questa periodicità che la sezione 15.4 sfrutta per le previsioni.</li>
+      <li>Domanda prevedibile: “allora il logging ad alta frequenza è inutile?” No — la frequenza serve a risolvere gli eventi
+      rapidi e a evitare l’aliasing (sezione successiva). Semplicemente non puoi contare le righe come evidenza.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 15.2 -->
+<section class="chapter" id="align">
+  <h2>15.2 · Orologi diversi: ricampionamento, allineamento e fusione</h2>
+  <p>Un’auto di test non ha una sola frequenza di campionamento. Ne ha decine, ognuna scelta da un fornitore diverso per un
+  motivo diverso, e nessuna condivide di default lo stesso orologio.</p>
+
+  <div class="ratebox">
+    <div class="card"><span class="hz">1 kHz +</span><h4 class="mt1">Accelerometri, vibrazioni</h4>
+      <p class="small mb0">Abbastanza veloci da risolvere gli ordini della trasmissione e i toni dei cuscinetti. Timestamp
+      assegnato dal logger, di solito bene. Rumorosi, e integrarli per ottenere velocità o posizione deriva nel giro di pochi secondi.</p></div>
+    <div class="card"><span class="hz">10–100 Hz</span><h4 class="mt1">Segnali CAN</h4>
+      <p class="small mb0">Velocità ruota, richieste di coppia, posizioni dei pedali. Ogni messaggio ha il proprio tempo di
+      ciclo e il proprio jitter, e il suo timestamp è l’istante in cui il logger lo ha <em>ricevuto</em> — non quello in cui la ECU
+      lo ha misurato.</p></div>
+    <div class="card"><span class="hz">10 Hz</span><h4 class="mt1">GNSS / GPS</h4>
+      <p class="small mb0">Posizione e velocità assolute che non derivano — ma grossolane, rumorose, in ritardo per il
+      filtraggio interno del ricevitore, e assenti sotto un ponte o in un box.</p></div>
+  </div>
+
+  <p class="mt2">Prima che un qualsiasi modello veda questi dati, devono finire su una griglia temporale comune. Ci sono due modi
+  per sbagliare di grosso: <strong>ricampionare senza cura</strong> e inventare frequenze che non sono mai
+  esistite, oppure <strong>fidarsi dei timestamp</strong> e combinare segnali sfasati di qualche centinaio di
+  millisecondi — a 70 m/s, uno sfasamento di 200 ms sono quattordici metri di pista.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Sottocampionare un accelerometro a 1 kHz</h3><span class="tag try">Scegli “un campione ogni N” a 50 Hz</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="rsCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--ink-3)"></i>grezzo 1 kHz</span>
+          <span><i style="background:var(--good)"></i>ciò che la nuova frequenza può rappresentare onestamente</span>
+          <span><i style="background:var(--accent)"></i>il tuo segnale ricampionato</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Frequenza obiettivo</span><span class="val" id="rsRateName">50 Hz</span></div>
+          <div class="segmented" id="rsRateSeg">
+            <button data-v="20">20 Hz</button>
+            <button data-v="50" class="on">50 Hz</button>
+            <button data-v="100">100 Hz</button>
+            <button data-v="250">250 Hz</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Metodo</span></div>
+          <div class="segmented" id="rsMethSeg">
+            <button data-v="pick" class="on">Un campione ogni N</button>
+            <button data-v="mean">Media su ogni intervallo</button>
+            <button data-v="fir">Passa-basso, poi campiona</button>
+          </div>
+        </div>
+        <div class="bs-grid">
+          <div class="bigstat" id="bsAlias"><span class="n" id="rsAlias">—</span><span class="l">il tono di trasmissione a 87 Hz appare a</span></div>
+          <div class="bigstat" id="bsRsErr"><span class="n" id="rsErr">—</span><span class="l">errore RMS, m/s²</span></div>
+        </div>
+        <div class="card mt1" id="rsNote" style="min-height:170px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Il segnale ha tre componenti: moto della cassa a 1.6 Hz, saltellamento ruota (wheel hop) a 6 Hz
+    e un tono della trasmissione a 87 Hz, più rumore. Una frequenza <em>f</em> può rappresentare solo il contenuto sotto
+    <em>f</em>/2 (la frequenza di Nyquist); la linea verde è il segnale vero con tutto ciò che sta sopra quel limite
+    rimosso. “Passa-basso” è un filtro FIR windowed-sinc che copre ±4 periodi di uscita, applicato prima del campionamento, centrato in modo da non
+    introdurre ritardo — possibile offline, non in tempo reale.</p>
+  </div>
+
+  <p>L’aliasing non è un problema estetico. Un modello addestrato sulla versione a 50 Hz “un campione ogni N”
+  imparerà un’oscillazione a 13 Hz che non esiste, e una feature in frequenza costruita su di essa (sezione 15.3)
+  segnalerà energia esattamente nel posto sbagliato. La maggior parte degli strumenti di logging e delle librerie per dataframe ricampiona
+  prelevando campioni o interpolando, e <strong>nessuno dei due filtra</strong>. Controlla cosa fa il tuo.</p>
+
+  <h3 class="mt2">Allineamento e fusione</h3>
+  <p>Una volta che i segnali condividono una griglia, la domanda successiva è se condividono un orologio. La risposta tipica è
+  “quasi”, e il rimedio è <strong>stimare lo sfasamento dai dati</strong> — far scorrere un segnale
+  rispetto all’altro finché non concordano al meglio — invece di fidarsi dei timestamp. A quel punto puoi fare qualcosa
+  di davvero utile: <em>fonderli</em>. L’accelerometro è veloce e regolare ma deriva; il GPS non
+  deriva ma è lento, rumoroso e in ritardo. Un filtro di Kalman usa ciascuno per correggere la debolezza dell’altro.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Fondi un accelerometro che deriva con un GPS in ritardo e rumoroso</h3><span class="tag try">Aggiungi 300 ms di latenza, poi correggila</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="fuCv" class="cv-md"></canvas>
+        <canvas id="fuErrCv" class="cv-sm mt1"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--ink)"></i>velocità vera</span>
+          <span><i style="background:var(--warn)"></i>solo GPS (mantenuto tra un fix e l’altro)</span>
+          <span><i style="background:var(--ink-3)"></i>solo accelerometro (integrato)</span>
+          <span><i style="background:var(--accent)"></i>fuso (Kalman)</span>
+          <span><i class="box" style="background:var(--bad-soft)"></i>perdita del segnale GPS</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Vista</span></div>
+          <div class="segmented" id="fuZoomSeg">
+            <button data-v="all" class="on">Tutti i 60 s</button>
+            <button data-v="drop">Zoom: perdita GPS</button>
+            <button data-v="brake">Zoom: frenata</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Latenza GPS reale</span><span class="val" id="fuLatOut"></span></div>
+          <input type="range" id="fuLat" min="0" max="400" step="10" value="200">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Rumore sulla velocità GPS</span><span class="val" id="fuNoiseOut"></span></div>
+          <input type="range" id="fuNoise" min="0.1" max="1.5" step="0.05" value="0.4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Il filtro si fida dell’accelerometro ← → del GPS</span><span class="val" id="fuTrustOut"></span></div>
+          <input type="range" id="fuTrust" min="-3" max="3" step="0.1" value="0">
+        </div>
+        <label class="check mb0" style="margin-bottom:12px"><input type="checkbox" id="fuComp"> Correggi la latenza GPS, stimata dai dati</label>
+        <div class="bs-grid">
+          <div class="bigstat warn"><span class="n" id="fuRmseG">—</span><span class="l">solo GPS, RMS m/s</span></div>
+          <div class="bigstat"><span class="n" id="fuRmseA">—</span><span class="l">solo accel., RMS m/s</span></div>
+          <div class="bigstat acc" id="bsFuK"><span class="n" id="fuRmseK">—</span><span class="l">fuso, RMS m/s</span></div>
+          <div class="bigstat"><span class="n" id="fuLatEst">—</span><span class="l">latenza stimata dai dati</span></div>
+        </div>
+        <div class="card mt1" id="fuNote" style="min-height:150px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">60 s di giro simulato, a 100 Hz. L’accelerometro ha un bias di 0.3 m/s²
+    che varia lentamente; il GPS arriva a 10 Hz e si interrompe tra 31 e 35 s. Lo stato del filtro è la velocità
+    più il bias dell’accelerometro. La stima della latenza è il ritardo che massimizza la correlazione tra
+    l’accelerometro e la derivata della velocità GPS — calcolata da questi campioni, non presa da una tabella. Sui dati
+    registrati puoi poi semplicemente traslare i timestamp; su un veicolo in marcia devi bufferizzare e ripropagare.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 9 minuti per entrambi i laboratori. Nel laboratorio di ricampionamento, resta su 50 Hz “un campione ogni N” e lascia che
+      la sala veda l’oscillazione lenta che non c’è nella traccia grezza. Poi passa a “passa-basso” e guardala sparire.</li>
+      <li>Nel laboratorio di fusione: latenza attiva, correzione disattivata, l’errore del segnale fuso sale — il filtro sta mescolando due
+      segnali che non sono d’accordo su <em>quando</em> l’auto ha frenato. Spunta la casella. La stima cade entro qualche
+      decina di millisecondi dal valore vero, usando solo i dati.</li>
+      <li>Porta il cursore della fiducia verso il GPS e la linea fusa copia il rumore del GPS; portalo verso
+      l’accelerometro e deriva durante la perdita del segnale. Il compito del filtro è il compromesso.</li>
+      <li>Domanda prevedibile: “un filtro di Kalman è machine learning?” Non nel senso usuale — è uno
+      stimatore basato su modello degli anni ’60. Ma qui è lo strumento giusto, e dare in pasto la sua uscita a un modello di ML
+      è molto meglio che dargli canali grezzi e disallineati.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 15.3 -->
+<section class="chapter" id="features">
+  <h2>15.3 · Finestre e feature</h2>
+  <p>I modelli classici non prendono un flusso; prendono righe. Il ponte standard è una <strong>finestra
+  scorrevole</strong>: tagli il segnale in pezzi sovrapposti, da ciascuno calcoli una manciata di numeri — media,
+  deviazione standard, RMS, picco, pendenza ed energia in specifiche bande di frequenza — e ogni finestra diventa
+  una riga. Un modello di gradient boosting su buone feature di finestra è la baseline che ogni modello sequenziale della
+  sezione 15.7 deve battere, ed è una baseline difficile.</p>
+  <p>La scelta che conta di più è la lunghezza della finestra, perché scambia <strong>risoluzione temporale</strong>
+  con <strong>risoluzione in frequenza</strong>. Una finestra di N campioni a frequenza f<sub>s</sub> distingue
+  frequenze distanti f<sub>s</sub>/N, e sfoca tutto ciò che accade entro N/f<sub>s</sub> secondi. Non
+  puoi avere entrambe. Il laboratorio è un difetto di un cuscinetto ruota che si sviluppa su un accelerometro al mozzo, nascosto sotto
+  il rumore stradale a banda larga.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Trova un guasto al cuscinetto con feature spettrali</h3><span class="tag try">Prova 64 campioni, poi 1024</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="vbSig" class="cv-sm"></canvas>
+        <canvas id="vbSpec" class="cv-md mt1"></canvas>
+        <canvas id="vbFeat" class="cv-md mt1"></canvas>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Lunghezza della finestra</span><span class="val" id="vbNOut"></span></div>
+          <input type="range" id="vbN" min="0" max="5" step="1" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Ispeziona la finestra a</span><span class="val" id="vbPosOut"></span></div>
+          <input type="range" id="vbPos" min="0.5" max="19.5" step="0.1" value="16">
+        </div>
+        <div class="bs-grid">
+          <div class="bigstat"><span class="n" id="vbRes">—</span><span class="l">risoluzione in frequenza</span></div>
+          <div class="bigstat"><span class="n" id="vbDt">—</span><span class="l">durata per finestra</span></div>
+          <div class="bigstat" id="bsVbRms"><span class="n" id="vbDetRms">—</span><span class="l">la feature RMS segnala il guasto a</span></div>
+          <div class="bigstat" id="bsVbBand"><span class="n" id="vbDetBand">—</span><span class="l">la feature di energia in banda segnala il guasto a</span></div>
+        </div>
+        <div class="card mt1" id="vbNote" style="min-height:170px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Simulato a 2048 Hz per 20 s: ordine dell’albero a 24 Hz e la sua armonica,
+    ingranamento a 552 Hz, rumore a banda larga e due tratti di strada sconnessa (ombreggiati) che aumentano il rumore
+    di 2.6 volte. Da 8 s un tono di difetto a 98.4 Hz (4.1 × velocità dell’albero) e la sua armonica crescono lentamente. Ogni
+    finestra è pesata con Hann e trasformata con una FFT calcolata nel tuo browser; le finestre si sovrappongono per metà.
+    “Segnala il guasto a” è il primo istante in cui una feature supera il suo valore massimo nel tratto sano 0–8 s —
+    il rilevamento più precoce possibile con zero falsi allarmi su questa prova.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Perché l’RMS fallisce e l’energia in banda funziona</span>
+      <p class="mb0">Il difetto aggiunge qualche punto percentuale all’energia di vibrazione totale, mentre la strada sconnessa ne aggiunge
+      diverse centinaia. Qualsiasi feature che somma su tutte le frequenze è dominata dalla strada. Una feature che
+      guarda solo dove la fisica dice che sarà il difetto — una banda attorno alla frequenza di difetto del cuscinetto,
+      che segue la velocità dell’albero — ignora la strada quasi del tutto. <strong>Questa è la conoscenza di dominio che fa il
+      lavoro che ci si aspetta faccia il modello.</strong></p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Anche le feature hanno leakage</span>
+      <p class="mb0">Una media mobile centrata usa campioni dal futuro. Una feature normalizzata con la
+      media dell’intera sessione usa l’intera sessione. Entrambe vanno bene per l’analisi offline ed entrambe sono leakage
+      se il modello girerà in tempo reale. Ogni feature di finestra deve essere calcolabile dai dati disponibili nel
+      momento in cui serve la previsione — la seconda domanda del modulo 7.4.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 7 minuti. Parti da 64 campioni: righe spettrali distanti 32 Hz, il difetto è spalmato su una banda
+      larga quasi 100 Hz, e la feature di banda lo segnala solo tardi. Passa a 1024 e il picco emerge entro
+      un paio di secondi dall’insorgenza — poi fai notare il costo: ogni finestra dura mezzo secondo, quindi un evento rapido
+      verrebbe sfocato. L’RMS non lo segnala mai, con nessuna lunghezza di finestra.</li>
+      <li>Sposta il cursore di ispezione dentro il tratto ombreggiato di strada sconnessa. Tutto lo spettro sale; la banda
+      del difetto in termini relativi cambia appena. È il cuore dell’argomento a favore delle feature guidate dalla fisica.</li>
+      <li>Domanda prevedibile: “una rete neurale non impara queste feature da sola?” Con abbastanza esempi
+      etichettati, sì — vedi 15.7. Con qualche decina di cuscinetti guasti, impara invece il fondo stradale.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 15.4 -->
+<section class="chapter" id="forecast">
+  <h2>15.4 · Previsione: prima batti la baseline ingenua</h2>
+  <p>Una previsione vale qualcosa solo rispetto a ciò che avresti potuto prevedere gratis. Le serie temporali
+  hanno due predittori gratuiti imbarazzantemente difficili da battere, e nessun risultato di previsione andrebbe
+  presentato senza entrambi:</p>
+  <ul>
+    <li><strong>Persistenza</strong> — il prossimo valore sarà uguale all’ultimo. Ottimale per una
+    passeggiata aleatoria, e sorprendentemente buona per qualunque cosa lenta.</li>
+    <li><strong>Naive stagionale</strong> — il valore sarà uguale a quello di un ciclo fa: questo punto nel
+    giro precedente, quest’ora la settimana scorsa.</li>
+  </ul>
+  <p>Qui sotto, tre serie con struttura diversa, un modello autoregressivo lineare stimato ai minimi quadrati
+  sul periodo di addestramento, e tutto valutato su un periodo di test successivo che non ha mai visto.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Il modello batte “come il giro scorso”?</h3><span class="tag try">Cambia l’orizzonte e la serie</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="fcCv" class="cv"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--ink)"></i>valore reale</span>
+          <span><i style="background:var(--ink-3)"></i>persistenza</span>
+          <span><i style="background:var(--warn)"></i>naive stagionale</span>
+          <span><i style="background:var(--accent)"></i>autoregressione lineare</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Serie</span></div>
+          <div class="segmented" id="fcSerSeg">
+            <button data-v="brake" class="on">Temp. freni, 1 Hz</button>
+            <button data-v="fleet">Ricarica in deposito, oraria</button>
+            <button data-v="walk">Deriva temp. cella</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Orizzonte di previsione</span><span class="val" id="fcHOut"></span></div>
+          <input type="range" id="fcH" min="1" max="48" step="1" value="10">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Lag autoregressivi usati</span><span class="val" id="fcPOut"></span></div>
+          <input type="range" id="fcP" min="1" max="24" step="1" value="6">
+        </div>
+        <h4>Errore assoluto medio sul periodo di test</h4>
+        <div id="fcBars"></div>
+        <div class="card mt1" id="fcNote" style="min-height:150px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Tutte le serie sono sintetiche. Addestramento sul primo 70%, test sull’ultimo 30%,
+    in ordine temporale. L’autoregressione è un modello <em>diretto</em>: una regressione ridge per ogni orizzonte, che usa
+    gli ultimi <em>p</em> valori più il valore di una stagione prima dell’istante obiettivo. I suoi input sono sempre e solo
+    valori noti all’origine della previsione.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Cosa chiedere in ogni revisione di un modello di previsione</span>
+    <p class="mb0"><strong>Lo skill rispetto alle baseline ingenue, a ogni orizzonte che ti interessa,</strong>
+    su un periodo successivo ai dati di addestramento. Un modello che dichiara 4 °C di errore medio sembra buono finché non scopri che
+    “come il giro scorso” fa 4.3 °C. La metrica scalata standard (MASE) divide l’errore del modello per
+    l’errore ingenuo proprio per questo: sotto 1 lo hai battuto, sopra 1 avresti dovuto mettere in produzione la
+    baseline.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 7 minuti. Parti dalla serie dei freni: “stesso punto, giro scorso” è fortissimo, e il modello
+      stimato riesce a malapena a eguagliarlo. Questo è il risultato, ed è un risultato perfettamente valido — ti dice di non
+      costruire il modello.</li>
+      <li>Passa alla ricarica in deposito: cicli giornalieri e settimanali più un trend, e qui il modello si guadagna davvero un
+      margine netto combinando la settimana scorsa, ieri e le ultime ore.</li>
+      <li>Poi la serie con deriva: non c’è stagionalità, la previsione migliore è in sostanza l’ultimo valore,
+      e il modello non può fare meglio perché non c’è niente da imparare. Dirlo ad alta voce è lavoro onesto.</li>
+      <li>Domanda prevedibile: “e i modelli di previsione deep?” Le grandi competizioni di previsione (le serie M4
+      e M5) hanno trovato che semplici metodi statistici e un gradient boosting ben tarato sono molto
+      difficili da battere sulle normali serie aziendali. La sezione 15.7 spiega quando i modelli deep ripagano.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 15.5 -->
+<section class="chapter" id="leakage">
+  <h2>15.5 · La trappola del leakage temporale</h2>
+  <p>Il modulo 7.4 ha mostrato il leakage da raggruppamento: righe dello stesso veicolo su entrambi i lati di uno split. Le serie temporali
+  hanno la stessa malattia in una forma più difficile da vedere, perché non ci sono gruppi evidenti — ogni
+  campione è semplicemente molto simile ai suoi vicini. Uno split k-fold casuale mette il campione <em>t</em> nel test
+  e i campioni <em>t</em>−1 e <em>t</em>+1 nell’addestramento, e un modello flessibile impara a rispondere guardando
+  il vicino di casa.</p>
+  <p>Il dataset: una riga per ogni evento di ricarica rapida su un pacco batteria di sviluppo, per prevedere l’aumento di
+  temperatura delle celle. La corrente di carica richiesta lo determina davvero. Anche un fattore nascosto e non misurato — sporcamento
+  del refrigerante e invecchiamento delle celle — lo determina, varia lentamente e ha un trend crescente. Altri due sensori, temperatura
+  ambiente e duty cycle della pompa, derivano lentamente ma non hanno relazione con il target. Diventano l’orologio
+  del modello.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · k-fold casuale contro walk-forward</h3><span class="tag try">Confronta ogni stima con la riga della produzione</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="lkCv" class="cv-md"></canvas>
+        <canvas id="lkFold" class="cv-sm mt1"></canvas>
+        <div class="legend">
+          <span><i class="box" style="background:var(--ink-3)"></i>addestramento</span>
+          <span><i class="box" style="background:var(--accent)"></i>test</span>
+          <span><i class="box" style="background:var(--warn-soft);border:1px solid var(--warn)"></i>intervallo di embargo (scartato)</span>
+          <span><i class="box" style="background:var(--bad-soft)"></i>produzione — mai usata per lo sviluppo</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Mostra i fold per</span></div>
+          <div class="segmented" id="lkSchemeSeg">
+            <button data-v="random" class="on">5-fold casuale</button>
+            <button data-v="blocked">A blocchi</button>
+            <button data-v="embargo">A blocchi + intervallo</button>
+            <button data-v="wf">Walk-forward</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Memoria del fattore nascosto (emivita)</span><span class="val" id="lkRhoOut"></span></div>
+          <input type="range" id="lkRho" min="0" max="5" step="1" value="3">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>k-nearest-neighbours, k =</span><span class="val" id="lkKOut"></span></div>
+          <input type="range" id="lkK" min="1" max="25" step="1" value="5">
+        </div>
+        <div class="btnrow"><button class="btn sm" id="lkNew">Nuovo dataset</button></div>
+        <h4>Errore stimato (RMS, °C) rispetto a ciò che la produzione restituisce</h4>
+        <div id="lkBars"></div>
+        <div class="card mt1" id="lkNote" style="min-height:150px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">1000 eventi di ricarica. I primi 750 sono il set di sviluppo, su cui girano tutti e
+    quattro gli schemi di validazione; gli ultimi 250 sono la “produzione”, valutata una sola volta con un modello addestrato su tutti i
+    750. Il modello è una regressione k-nearest-neighbours sui tre input misurati, standardizzati usando solo
+    le statistiche del fold di addestramento. Il walk-forward addestra su tutto ciò che precede ciascun blocco di test e mai su
+    qualcosa che viene dopo.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">k-fold casuale</span>
+      <p class="mb0">Lusinghiero ogni volta che i campioni sono autocorrelati. Sulla telemetria, considera che sia sbagliato
+      finché qualcuno non dimostra il contrario. È ancora il default nella maggior parte delle librerie.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">A blocchi, con un intervallo</span>
+      <p class="mb0">Fold contigui eliminano gran parte dell’effetto vicinato; un intervallo di embargo su entrambi i lati di
+      ciascun blocco di test elimina il resto. Addestra comunque sul futuro per testare sul passato — accettabile per
+      alcune domande, non per la previsione.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Walk-forward</span>
+      <p class="mb0">Addestra sul passato, testa sul blocco successivo, avanza. Rispecchia come il modello verrà
+      effettivamente usato. Rendi i blocchi di test lunghi quanto il periodo che farai girare il modello tra un riaddestramento e l’altro.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 8 minuti. Questa è la sezione su cui essere fermi. Leggi il numero del k-fold casuale, poi quello della
+      produzione, e lascia che il divario resti nell’aria per un momento.</li>
+      <li>Sposta k da 1 a 25: il divario tra k-fold casuale e produzione persiste qualunque sia la flessibilità del
+      modello. È una proprietà dello split, non del modello.</li>
+      <li>Accorcia l’emivita al minimo: i vicini smettono di condividere il fattore nascosto e i quattro
+      schemi si avvicinano molto tra loro. La produzione resta peggiore, perché il trend crescente la porta
+      fuori da tutto ciò che si è visto in addestramento — è il problema dell’inviluppo del modulo 11.5, una questione separata.</li>
+      <li>Il walk-forward è più vicino alla produzione ma spesso ancora ottimistico, perché la produzione si spinge più lontano
+      oltre i dati di addestramento di quanto faccia un singolo blocco di test. È onesto, e vale la pena dirlo.</li>
+      <li>Domanda prevedibile: “usiamo la cross-validation della libreria — è casuale?” Quasi
+      certamente, a meno che qualcuno non abbia scelto di proposito uno splitter per serie temporali. Chiedi di vedere la riga di codice.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 15.6 -->
+<section class="chapter" id="anomaly">
+  <h2>15.6 · Rilevamento delle anomalie a finestra scorrevole</h2>
+  <p>Il modulo 6.6 ha introdotto il rilevamento delle anomalie: impara com’è il normale, segnala ciò che non lo è. Su un flusso
+  la versione seria più semplice è uno z-score mobile — confronti ogni campione con la media e la dispersione di una
+  finestra di storia recente, e dai l’allarme quando se ne discosta di troppe deviazioni standard per abbastanza tempo.
+  Tre manopole, e ognuna è un compromesso tra <strong>falsi allarmi</strong> e
+  <strong>guasti mancati</strong>.</p>
+  <p>I dati: la tensione di una cella meno la mediana del pacco, su una sessione di endurance batteria di 24 giri. Vengono
+  iniettati tre guasti reali, di tre forme diverse. Sono inclusi anche due eventi benigni, perché le sessioni reali
+  li contengono: un giro di qualifica tirato in cui le celle si scaldano in modo non uniforme, e un pit stop in cui il carico
+  scompare.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Tara un monitor della tensione di cella</h3><span class="tag try">Cattura tutti e tre i guasti senza falsi allarmi — se ci riesci</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="anCv" class="cv-md"></canvas>
+        <canvas id="anZ" class="cv-sm mt1"></canvas>
+        <div class="legend">
+          <span><i class="box" style="background:var(--bad-soft)"></i>guasto iniettato</span>
+          <span><i class="box" style="background:var(--bg-3);border:1px solid var(--line)"></i>evento benigno</span>
+          <span><i style="background:var(--bad)"></i>allarme</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Riferimento</span></div>
+          <div class="segmented" id="anModeSeg">
+            <button data-v="trail" class="on">Finestra mobile</button>
+            <button data-v="frozen">Fisso: primi 3 giri</button>
+          </div>
+        </div>
+        <div class="ctrl" id="anWWrap">
+          <div class="ctrl-label"><span>Lunghezza della finestra</span><span class="val" id="anWOut"></span></div>
+          <input type="range" id="anW" min="5" max="300" step="5" value="60">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Soglia (deviazioni standard sotto)</span><span class="val" id="anKOut"></span></div>
+          <input type="range" id="anK" min="2" max="8" step="0.25" value="4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Deve persistere per</span><span class="val" id="anMOut"></span></div>
+          <input type="range" id="anM" min="1" max="10" step="1" value="1">
+        </div>
+        <div class="bs-grid">
+          <div class="bigstat" id="bsAnC"><span class="n" id="anCaught">—</span><span class="l">guasti catturati</span></div>
+          <div class="bigstat" id="bsAnF"><span class="n" id="anFa">—</span><span class="l">falsi allarmi in questa sessione</span></div>
+        </div>
+        <div class="faultlist mt1" id="anFaults"></div>
+        <div class="btnrow">
+          <button class="btn sm" id="anNew">Nuova sessione (stessi guasti, nuovo rumore)</button>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="anNote" style="min-height:90px"></div>
+
+    <div class="mt1">
+      <div class="btnrow">
+        <button class="btn primary" id="anSearch">Cerca tra 660 impostazioni con la forza bruta</button>
+        <span class="small muted">Ogni combinazione di riferimento, finestra, soglia e persistenza, valutata su questa sessione.</span>
+      </div>
+      <div id="anSearchOut"></div>
+    </div>
+    <p class="small muted mt1 mb0">Simulato a 1 Hz, 2400 s. Il rumore cresce con la corrente di cella. Guasti:
+    un connettore intermittente (sei cali di 2–4 s), un circuito di bilanciamento bloccato acceso (un gradino di 5 mV per 150 s),
+    e un micro-cortocircuito interno (un calo lento di 0.008 mV/s da 1750 s). Un guasto conta come catturato solo se
+    un allarme vi si sovrappone <em>e</em> lo stesso rilevatore, con la soglia allentata di mezzo σ, resta muto
+    in quel punto quando gira sulla stessa identica sessione senza i guasti — così un allarme da rumore che capita per caso dentro un guasto viene contato come falso
+    allarme, non come cattura.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">La finestra decide quali guasti esistono</span>
+      <p class="mb0">Una finestra mobile corta vede i picchi e si adatta a tutto ciò che è lento, quindi una deriva lenta le è
+      invisibile per costruzione — il riferimento deriva insieme al guasto. Un riferimento lungo o fisso vede
+      la deriva, ma vede anche ogni cambiamento benigno delle condizioni operative. I sistemi di monitoraggio reali usano
+      <strong>più rilevatori su scale temporali diverse</strong>, e confrontano ogni cella con le sue sorelle
+      invece che con il proprio passato.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Tarato su una sessione è tarato per quella sessione</span>
+      <p class="mb0">Lancia la ricerca a forza bruta, applica la riga migliore con zero falsi allarmi, poi premi <b>Nuova
+      sessione</b>. Stessi guasti, stessa auto, nuovo rumore — e il numero di falsi allarmi di solito cambia. Soglie
+      scelte sugli stessi dati su cui le riporti sono la versione del leakage nel rilevamento delle anomalie: tara su alcune
+      sessioni, riporta su altre.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 7 minuti. Lascia i cursori alla sala: “catturate tutti e tre, zero falsi allarmi”. Qualcuno ne
+      prenderà due. Poi lancia la ricerca e mostra cosa è davvero ottenibile — e a che costo.</li>
+      <li>Il pit stop è il falso allarme istruttivo: con una finestra corta, a carico zero il rumore crolla,
+      la dispersione stimata si restringe, e il normale abbassamento della cella fredda quando il carico ritorna sembra un guasto.</li>
+      <li>Imposta il riferimento fisso per mostrare il fallimento opposto: il micro-cortocircuito viene catturato, e con lui anche il
+      giro di qualifica tirato, che è perfettamente sano.</li>
+      <li>Domanda prevedibile: “il ML risolverebbe il problema?” In parte: un modello del comportamento normale <em>dati carico e
+      temperatura</em> rimuove gli eventi benigni dal residuo. Resta comunque una soglia su un residuo,
+      e ogni compromesso di questa pagina vale ancora.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 15.7 -->
+<section class="chapter" id="deep">
+  <h2>15.7 · Quando i modelli sequenziali deep valgono quello che costano</h2>
+  <p>Le reti ricorrenti (LSTM, GRU), le reti convoluzionali monodimensionali e i transformer prendono tutti in ingresso una
+  sequenza direttamente e imparano da soli le proprie feature. A volte sono la risposta giusta. Non sono la
+  risposta di default, e sulla maggior parte dei problemi di telemetria ingegneristica un modello di gradient boosting su feature di finestra
+  ben scelte è più rapido da costruire, più facile da validare, più economico da eseguire e almeno altrettanto accurato.</p>
+
+  <div class="tablewrap">
+    <table class="cmp">
+      <thead><tr><th></th><th>Gradient boosting su feature di finestra</th><th>1D-CNN / RNN / transformer su sequenze grezze</th></tr></thead>
+      <tbody>
+        <tr><td><b>Dati necessari</b></td><td>Da centinaia a qualche migliaio di eventi etichettati</td><td>Tipicamente decine di migliaia di sequenze etichettate, o un grande archivio non etichettato per il pre-addestramento</td></tr>
+        <tr><td><b>Dove sta la conoscenza</b></td><td>Nelle feature che hai scelto — ordini, energie in banda, tassi di variazione, residui</td><td>Nei pesi; appresa dai dati</td></tr>
+        <tr><td><b>Vince quando</b></td><td>La fisica ti dice cosa conta; i dati sono modesti; servono spiegazioni</td><td>Il pattern informativo è una forma in una forma d’onda grezza che nessuno sa descrivere; molti canali interagiscono; conta il contesto a lungo raggio</td></tr>
+        <tr><td><b>Uso tipico</b></td><td>Classificazione dei guasti, regressione della vita residua, gran parte delle previsioni</td><td>Diagnosi NVH e acustica, analisi della combustione, sequenze di comportamento del pilota, video e lidar nel tempo</td></tr>
+        <tr><td><b>Validazione</b></td><td>Tutto ciò che c’è in questo modulo</td><td>Tutto ciò che c’è in questo modulo, più altri modi di memorizzare la sessione — gli split con leakage fanno più danni</td></tr>
+        <tr><td><b>Sul veicolo</b></td><td>Piccolo e deterministico; gli alberi girano comodamente su una ECU</td><td>Le CNN piccole possono girare sulle ECU moderne; i transformer di solito richiedono un acceleratore dedicato (modulo 19)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="mt2">Negli ultimi anni sono comparsi “foundation model” pre-addestrati per serie temporali, che danno
+  previsioni zero-shot ragionevoli su serie generiche. Trattali come qualsiasi altro candidato: devono battere il
+  naive stagionale e un modello boosted ben tarato, su uno split walk-forward, sui <em>tuoi</em> segnali.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Da quale partiresti?</h3><span class="tag warn">Regola pratica d’autore — non calcolata</span></div>
+    <div class="split">
+      <div class="checklist" id="dsList"></div>
+      <div>
+        <div class="verdict info" id="dsVerdict"><span class="lvl">Spunta ciò che è vero</span>Il suggerimento si aggiorna man mano.</div>
+        <p class="small muted mt1 mb0">I pesi dietro questo verdetto sono un giudizio editoriale scritto per
+        questo corso, non l’output di un modello o di uno studio. Usalo per strutturare la discussione, non per chiuderla.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Circa 4 minuti. Il punto non è che i modelli deep siano cattivi; è che sono costosi e
+      richiedono evidenze. Chiedi la baseline con feature e boosting prima di finanziare il modello sequenziale.</li>
+      <li>Domanda prevedibile: “ma la demo del fornitore usava un transformer.” Chiedi con cosa è stato confrontato,
+      e su quale split. La sezione 15.5 è il motivo per chiederlo.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo adesso</h2>
+  <p>Ogni numero prodotto da questo modulo — una previsione, una velocità fusa, un punteggio di anomalia — era un singolo valore
+  senza alcuna indicazione di quanto fosse sicuro. In un prodotto non basta: una stima di autonomia residua di
+  “42 km” significa cose molto diverse a ±2 km o a ±20. Il modulo 16 parla di come far dire a un modello quanto
+  è sicuro, e di come verificare se dice la verità.</p>
+  <p><a href="16-uncertainty.html"><strong>Modulo 16 · Incertezza: quanto è sicuro il modello? →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+  function $(id) { return document.getElementById(id); }
+  function setT(id, s) { $(id).textContent = s; }
+  var TAU = 2 * Math.PI;
+
+  /* ================================================ seeded random numbers */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function Rng(seed) {
+    var u = mulberry32(seed);
+    return {
+      u: u,
+      n: function () {
+        var a = 0; while (!a) a = u();
+        var b = u();
+        return Math.sqrt(-2 * Math.log(a)) * Math.cos(TAU * b);
+      }
+    };
+  }
+  function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s / a.length; }
+  function sdev(a, m) {
+    if (m == null) m = mean(a);
+    var s = 0; for (var i = 0; i < a.length; i++) s += (a[i] - m) * (a[i] - m);
+    return Math.sqrt(s / a.length);
+  }
+  function extent(arrs, padFrac) {
+    var lo = Infinity, hi = -Infinity;
+    arrs.forEach(function (a) { for (var i = 0; i < a.length; i++) { if (a[i] < lo) lo = a[i]; if (a[i] > hi) hi = a[i]; } });
+    var p = (hi - lo) * (padFrac == null ? 0.08 : padFrac) || 1;
+    return [lo - p, hi + p];
+  }
+
+  /* ================================================ drawing helpers */
+  function txt(p, s, x, y, col, align, bold) {
+    var g = p.ctx;
+    g.font = (bold === false ? '' : '600 ') + '11px system-ui, sans-serif';
+    g.textAlign = align || 'left'; g.textBaseline = 'alphabetic';
+    g.fillStyle = col; g.fillText(s, x, y);
+  }
+  function shade(p, x0, x1, col) {
+    var a = Math.max(p.pad.l, p.X(x0)), b = Math.min(p.pad.l + p.pw, p.X(x1));
+    if (b <= a) return;
+    p.ctx.fillStyle = col; p.ctx.fillRect(a, p.pad.t, b - a, p.ph);
+  }
+  function vline(p, x, col, dash, w) { p.line([[x, p.ran[0]], [x, p.ran[1]]], col, w || 1.5, dash); }
+  function hline(p, y, col, dash, w) { p.line([[p.dom[0], y], [p.dom[1], y]], col, w || 1.5, dash); }
+  /* draw a uniformly sampled series; uses a min/max envelope when there are more samples than pixels */
+  function series(p, y, t0, dt, col, lw, i0, i1) {
+    i0 = i0 == null ? 0 : Math.max(0, i0);
+    i1 = i1 == null ? y.length : Math.min(y.length, i1);
+    var n = i1 - i0; if (n < 2) return;
+    var px0 = p.X(t0 + dt * i0), px1 = p.X(t0 + dt * (i1 - 1));
+    var cols = Math.max(1, Math.round(px1 - px0));
+    if (n <= cols * 2) {
+      var pts = [];
+      for (var i = i0; i < i1; i++) pts.push([t0 + dt * i, y[i]]);
+      p.line(pts, col, lw || 1.6);
+      return;
+    }
+    var g = p.ctx;
+    g.save(); g.strokeStyle = col; g.lineWidth = 1; g.beginPath();
+    for (var c = 0; c < cols; c++) {
+      var a = i0 + Math.floor(c * n / cols), b = i0 + Math.floor((c + 1) * n / cols);
+      var mn = Infinity, mx = -Infinity;
+      for (var j = a; j < Math.max(b, a + 1); j++) { if (y[j] < mn) mn = y[j]; if (y[j] > mx) mx = y[j]; }
+      var x = px0 + c + 0.5;
+      g.moveTo(x, p.Y(mn)); g.lineTo(x, p.Y(mx) - 0.6);
+    }
+    g.stroke(); g.restore();
+  }
+
+  /* ================================================ shared: brake-disc simulator */
+  /* five braking zones per lap, heat input while braking, Newtonian cooling to ambient */
+  function genBrake(seed, laps, dt) {
+    var r = Rng(seed), out = [], lapLen = [], T = 380, Tamb = 55, tau = 22, dur = 2.2;
+    var zones = [[0.06, 0.95], [0.27, 0.55], [0.45, 1.0], [0.63, 0.4], [0.82, 0.75]];
+    for (var L = 0; L <= laps; L++) {
+      var lt = 88 + r.n() * 1.2, steps = Math.round(lt / dt), push = 1 + 0.04 * r.n();
+      for (var s = 0; s < steps; s++) {
+        var f = s / steps, q = 0;
+        for (var z = 0; z < zones.length; z++) {
+          var d = (f - zones[z][0]) * lt;
+          if (d >= 0 && d < dur) q += zones[z][1] * 185 * push;
+        }
+        T += dt * (q - (T - Tamb) / tau);
+        if (L > 0) out.push(T);              /* lap 0 is a warm-up, discarded */
+      }
+      if (L > 0) lapLen.push(lt);
+    }
+    return { y: out, lap: mean(lapLen) };
+  }
+
+  /* ================================================ 15.1 autocorrelation */
+  var AC = { rateIdx: 1, order: 'time' }, RATES = [0.5, 1, 2, 5, 10];
+  var AC_BASE = genBrake(15, 8, 0.1);   /* 10 Hz master */
+  var AC_NOISE = (function () { var r = Rng(16), a = []; for (var i = 0; i < AC_BASE.y.length; i++) a.push(4 * r.n()); return a; })();
+  var acSer, acAcfP;
+  function acfOf(y, maxLag) {
+    var n = y.length, m = mean(y), v = 0, i, k, out = [1];
+    var d = new Float64Array(n);
+    for (i = 0; i < n; i++) { d[i] = y[i] - m; v += d[i] * d[i]; }
+    for (k = 1; k <= maxLag; k++) {
+      var s = 0;
+      for (i = 0; i + k < n; i++) s += d[i] * d[i + k];
+      out.push(s / v);
+    }
+    return out;
+  }
+  function drawAc() {
+    var rate = RATES[AC.rateIdx], step = Math.round(10 / rate), y = [], i;
+    for (i = 0; i < AC_BASE.y.length; i += step) y.push(AC_BASE.y[i] + AC_NOISE[i]);
+    if (AC.order === 'shuf') {
+      var r = Rng(99);
+      for (i = y.length - 1; i > 0; i--) { var j = Math.floor(r.u() * (i + 1)), t = y[i]; y[i] = y[j]; y[j] = t; }
+    }
+    var n = y.length, dt = 1 / rate, maxLag = Math.min(n - 2, Math.round(135 * rate));
+    var rho = acfOf(y, maxLag);
+    var sum = 0;
+    for (i = 1; i < rho.length; i++) { if (rho[i] < 0.05) break; sum += rho[i]; }
+    var neff = Math.min(n, n / (1 + 2 * sum));
+
+    acSer.resize(); acSer.clear();
+    var ex = extent([y], 0.06);
+    acSer.dom = [0, n * dt]; acSer.ran = ex;
+    acSer.frame({ xticks: 4, yticks: 4, xlabel: AC.order === 'time' ? 'tempo, s' : 'n. riga (mescolate), scalato in s',
+      ylabel: 'temp. disco, °C', yfmt: function (v) { return Math.round(v); }, xfmt: function (v) { return Math.round(v); } });
+    acSer.clip(function () {
+      if (n > 1500) series(acSer, y, 0, dt, C('--accent'), 1.2);
+      else if (AC.order === 'shuf') { for (i = 0; i < n; i++) acSer.dot(i * dt, y[i], 1.6, C('--accent')); }
+      else series(acSer, y, 0, dt, C('--accent'), 1.4);
+    });
+
+    acAcfP.resize(); acAcfP.clear();
+    acAcfP.dom = [0, 135]; acAcfP.ran = [-0.6, 1];
+    acAcfP.frame({ xticks: 5, yticks: 4, xlabel: 'lag, s', ylabel: 'autocorr.', xfmt: function (v) { return Math.round(v); },
+      yfmt: function (v) { return v.toFixed(1); } });
+    acAcfP.clip(function () {
+      hline(acAcfP, 0, C('--line'), null, 1);
+      var pts = [];
+      for (i = 0; i < rho.length; i++) pts.push([i * dt, rho[i]]);
+      acAcfP.line(pts, C('--violet'), 2);
+      if (AC.order === 'time') {
+        vline(acAcfP, AC_BASE.lap, C('--ink-3'), [4, 4], 1.2);
+        txt(acAcfP, 'un giro dopo', acAcfP.X(AC_BASE.lap) + 5, acAcfP.Y(0.86), C('--ink-3'));
+      }
+    });
+
+    setT('acN', F.n(n));
+    setT('acNeff', neff >= 100 ? F.n(neff) : neff.toFixed(0));
+    setT('acRho', rho[1].toFixed(3));
+    setT('acRatio', (n / neff).toFixed(n / neff < 10 ? 1 : 0) + '×');
+    var h = '<h4>Come leggerlo</h4>';
+    if (AC.order === 'shuf') {
+      h += '<p class="small">Mescolate, l’autocorrelazione è praticamente zero a ogni lag e le ' +
+        F.n(n) + ' righe si comportano come ' + F.n(neff) + ' campioni indipendenti. <b>Ora le statistiche sembrano splendide — e il segnale è sparito.</b> Nessun modello di previsione può usare questo ordinamento; non sopravvive alcuna struttura di giro.</p>' +
+        '<p class="small mb0">È questo che uno split casuale presuppone sui tuoi dati. Per il log non mescolato è falso.</p>';
+    } else {
+      h += '<p class="small">A ' + rate + ' Hz ogni campione ha correlazione <b>' + rho[1].toFixed(3) +
+        '</b> con il successivo. Le ' + F.n(n) + ' righe portano circa la stessa informazione indipendente di <b>' +
+        neff.toFixed(0) + '</b> misure separate — una ogni ' + (n / neff).toFixed(0) + ' righe.</p>';
+      h += '<p class="small mb0">' + (rate >= 5
+        ? 'Confronta con 1 Hz: dieci volte le righe, quasi la stessa dimensione campionaria effettiva. Le righe in più risolvono le frenate con più dettaglio; non rendono più certa nessuna media.'
+        : 'Ora porta la frequenza a 10 Hz e osserva quale numero si muove e quale no.') + '</p>';
+    }
+    $('acNote').innerHTML = h;
+  }
+
+  /* ================================================ 15.2a resampling */
+  var RS = { fs: 50, meth: 'pick' }, rsPlot;
+  var RS_F = [[1.6, 2.0, 0.3], [6, 1.1, 1.2], [87, 1.4, 0.7]];
+  var RS_RAW = (function () {
+    var r = Rng(21), a = [];
+    for (var i = 0; i < 2000; i++) {
+      var t = i / 1000, v = 0;
+      RS_F.forEach(function (c) { v += c[1] * Math.sin(TAU * c[0] * t + c[2]); });
+      a.push(v + 0.25 * r.n());
+    }
+    return a;
+  })();
+  function rsTarget(t, fs) {
+    var v = 0;
+    RS_F.forEach(function (c) { if (c[0] < fs / 2) v += c[1] * Math.sin(TAU * c[0] * t + c[2]); });
+    return v;
+  }
+  function firTaps(fc, L) {
+    var h = [], s = 0, M = (L - 1) / 2;
+    for (var i = 0; i < L; i++) {
+      var k = i - M;
+      var v = k === 0 ? 2 * fc : Math.sin(TAU * fc * k) / (Math.PI * k);
+      v *= 0.54 - 0.46 * Math.cos(TAU * i / (L - 1));
+      h.push(v); s += v;
+    }
+    return h.map(function (x) { return x / s; });
+  }
+  function rsResample() {
+    var N = 1000 / RS.fs, pts = [], taps = null, M = 0;
+    if (RS.meth === 'fir') { taps = firTaps(0.45 * RS.fs / 1000, 8 * N + 1); M = 4 * N; }
+    for (var k = 0; ; k++) {
+      var t0 = 0.5 + k / RS.fs; if (t0 > 1.5 + 1e-9) break;
+      var i = Math.round(t0 * 1000), v = 0, j;
+      if (RS.meth === 'pick') v = RS_RAW[i];
+      else if (RS.meth === 'mean') {
+        var a = i - Math.floor(N / 2);
+        for (j = a; j < a + N; j++) v += RS_RAW[j];
+        v /= N;
+      } else {
+        for (j = 0; j < taps.length; j++) v += taps[j] * RS_RAW[i - M + j];
+      }
+      pts.push([t0, v]);
+    }
+    return pts;
+  }
+  function drawRs() {
+    var pts = rsResample(), err = 0, i;
+    pts.forEach(function (p) { var e = p[1] - rsTarget(p[0], RS.fs); err += e * e; });
+    err = Math.sqrt(err / pts.length);
+    var aliased = 87 >= RS.fs / 2, fa = Math.abs(87 - RS.fs * Math.round(87 / RS.fs));
+
+    rsPlot.resize(); rsPlot.clear();
+    rsPlot.dom = [0.5, 1.5]; rsPlot.ran = [-5.5, 5.5];
+    rsPlot.frame({ xticks: 5, yticks: 4, xlabel: 'tempo, s', ylabel: 'accel. verticale, m/s²', xfmt: function (v) { return v.toFixed(1); },
+      yfmt: function (v) { return v.toFixed(0); } });
+    rsPlot.clip(function () {
+      series(rsPlot, RS_RAW, 0, 0.001, C('--ink-3'), 1, 495, 1506);
+      var tg = [];
+      for (i = 0; i <= 1000; i++) { var t = 0.5 + i / 1000; tg.push([t, rsTarget(t, RS.fs)]); }
+      rsPlot.line(tg, C('--good'), 2.4, [6, 3]);
+      rsPlot.line(pts, C('--accent'), 2.4);
+      if (pts.length <= 110) pts.forEach(function (p) { rsPlot.dot(p[0], p[1], 2.8, C('--accent')); });
+    });
+
+    setT('rsAlias', aliased ? fa.toFixed(0) + ' Hz' : '87 Hz');
+    $('bsAlias').className = 'bigstat ' + (!aliased ? 'good' : RS.meth === 'pick' ? 'bad' : 'warn');
+    setT('rsErr', err.toFixed(2));
+    $('bsRsErr').className = 'bigstat ' + (err < 0.25 ? 'good' : err < 0.6 ? 'warn' : 'bad');
+    var h = '<h4>Come leggerlo</h4>';
+    if (!aliased) {
+      h += '<p class="small">A ' + RS.fs + ' Hz la frequenza di Nyquist è ' + (RS.fs / 2) + ' Hz, sopra il tono a 87 Hz, che quindi viene conservato e rappresentato correttamente. Errore ' + err.toFixed(2) + ' m/s², per lo più rumore del sensore.</p>' +
+        '<p class="small mb0">È l’unica frequenza, tra queste, a cui il tono della trasmissione è un dato reale. Se un modello a valle ne ha bisogno, questa è la frequenza minima a cui puoi ricampionare.</p>';
+    } else if (RS.meth === 'pick') {
+      h += '<p class="small"><b style="color:var(--bad)">Aliasing.</b> ' + RS.fs + ' Hz non possono rappresentare 87 Hz, ma prelevare campioni non lo elimina — lo ripiega a <b>' + fa.toFixed(0) +
+        ' Hz</b>, una frequenza che l’auto non ha mai prodotto. Cerca sulla linea blu l’oscillazione in più che la linea verde non ha.</p>' +
+        '<p class="small mb0">Nulla nei dati ricampionati ti dice che è successo. Sembra un segnale perfettamente plausibile.</p>';
+    } else if (RS.meth === 'mean') {
+      h += '<p class="small"><b style="color:var(--warn)">Meglio, ma non pulito.</b> Fare la media su ogni intervallo è un filtro passa-basso rudimentale: attenua il tono a 87 Hz, ma una parte passa ancora come alias a ' + fa.toFixed(0) +
+        ' Hz, e appiattisce anche un po’ il contenuto genuino. Errore ' + err.toFixed(2) + ' m/s².</p>' +
+        '<p class="small mb0">Comunque molto meglio del prelievo. Se il tuo strumento offre solo media o prelievo, usa la media.</p>';
+    } else {
+      h += '<p class="small"><b style="color:var(--good)">Filtrato correttamente.</b> Il filtro passa-basso elimina tutto ciò che sta sopra circa ' + (0.45 * RS.fs).toFixed(0) +
+        ' Hz prima del campionamento, quindi non resta nulla da ripiegare. La linea ricampionata segue ciò che ' + RS.fs + ' Hz possono rappresentare onestamente. Errore ' + err.toFixed(2) + ' m/s².</p>' +
+        '<p class="small mb0">Il tono a 87 Hz è sparito, come deve essere a questa frequenza. Se ti serve, mantieni una frequenza più alta o calcola la sua energia in banda <em>prima</em> di sottocampionare.</p>';
+    }
+    $('rsNote').innerHTML = h;
+  }
+
+  /* ================================================ 15.2b fusion */
+  var FU = { lat: 0.2, noise: 0.4, trust: 0, comp: false, zoom: 'all' }, FDT = 0.01, FN = 6000;
+  var FD = (function () {
+    var r = Rng(31), v = 32, af = 0, segs = [], tt = 0, i;
+    while (tt < 62) {
+      var a = 4 + r.u() * 4, b = 1.2 + r.u() * 1.6, c = 1.5 + r.u() * 2;
+      segs.push(['acc', tt, tt + a]); tt += a;
+      segs.push(['brk', tt, tt + b]); tt += b;
+      segs.push(['cor', tt, tt + c]); tt += c;
+    }
+    var out = { v: [], a: [], am: [], gz: [], segs: segs }, si = 0;
+    for (i = 0; i < FN; i++) {
+      var t = i * FDT;
+      while (segs[si][2] <= t) si++;
+      var m = segs[si][0];
+      var cmd = m === 'acc' ? 7.5 * (1 - v / 88) : m === 'brk' ? -(9 + 0.06 * v) : 0.2;
+      af += (cmd - af) * FDT / 0.12;
+      v += af * FDT;
+      if (v < 14) { v = 14; af = Math.max(af, 0); }
+      out.v.push(v); out.a.push(af);
+    }
+    var bias = 0.3;
+    for (i = 0; i < FN; i++) {
+      bias += 0.02 * r.n() * Math.sqrt(FDT);
+      out.am.push(out.a[i] + bias + 0.45 * r.n());
+    }
+    for (i = 0; i <= 600; i++) out.gz.push(r.n());
+    /* first braking zone after 8 s for the zoom view */
+    out.brk = 10;
+    for (i = 0; i < segs.length; i++) if (segs[i][0] === 'brk' && segs[i][1] > 8) { out.brk = segs[i][1]; break; }
+    return out;
+  })();
+  var fuPlot, fuErr;
+  function fuGps() {
+    var g = [];
+    for (var k = 0; k < 600; k++) {
+      var t = k * 0.1;
+      if (t >= 31 && t < 35) continue;
+      var idx = Math.max(0, Math.round((t - FU.lat) / FDT));
+      g.push({ t: t, v: FD.v[idx] + FU.noise * FD.gz[k] });
+    }
+    return g;
+  }
+  function fuLag(g) {
+    var best = -2, bl = 0;
+    for (var Ls = 0; Ls <= 60; Ls++) {
+      var L = Ls * 0.01, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, c = 0;
+      for (var k = 1; k < g.length; k++) {
+        var dtk = g[k].t - g[k - 1].t;
+        if (dtk > 0.15) continue;
+        var d = (g[k].v - g[k - 1].v) / dtk;
+        var tm = (g[k].t + g[k - 1].t) / 2 - L;
+        var i0 = Math.round((tm - 0.05) / FDT), i1 = Math.round((tm + 0.05) / FDT);
+        if (i0 < 0 || i1 > FN) continue;
+        var s = 0; for (var j = i0; j < i1; j++) s += FD.am[j];
+        var a = s / (i1 - i0);
+        sx += a; sy += d; sxx += a * a; syy += d * d; sxy += a * d; c++;
+      }
+      var cov = sxy / c - sx / c * sy / c;
+      var r = cov / Math.sqrt((sxx / c - sx * sx / c / c) * (syy / c - sy * sy / c / c));
+      if (r > best) { best = r; bl = L; }
+    }
+    return bl;
+  }
+  function fuRun() {
+    var g = fuGps(), est = fuLag(g), shift = FU.comp ? est : 0, i;
+    /* GPS only: zero-order hold of the last fix received */
+    var hold = [], gi = 0, last = g[0].v;
+    for (i = 0; i < FN; i++) {
+      var t = i * FDT;
+      while (gi < g.length && g[gi].t <= t + 1e-9) { last = g[gi].v; gi++; }
+      hold.push(last);
+    }
+    /* accelerometer only: integrate from the first fix */
+    var acc = [], va = g[0].v;
+    for (i = 0; i < FN; i++) { if (i > 0) va += FD.am[i - 1] * FDT; acc.push(va); }
+    /* Kalman filter, state [speed, accel bias] */
+    var meas = {};
+    g.forEach(function (q) { var idx = Math.round((q.t - shift) / FDT); if (idx >= 0 && idx < FN) meas[idx] = q.v; });
+    var R = FU.noise * FU.noise * Math.pow(10, -FU.trust), qv = 4e-5, qb = 4e-6 * FDT;
+    var x0 = g[0].v, x1 = 0, P00 = 1, P01 = 0, P11 = 0.25, kal = [];
+    for (i = 0; i < FN; i++) {
+      if (i > 0) {
+        x0 = x0 + (FD.am[i - 1] - x1) * FDT;
+        var n00 = P00 - 2 * FDT * P01 + FDT * FDT * P11 + qv;
+        var n01 = P01 - FDT * P11;
+        P00 = n00; P01 = n01; P11 = P11 + qb;
+      }
+      if (meas[i] !== undefined) {
+        var yv = meas[i] - x0, S = P00 + R, K0 = P00 / S, K1 = P01 / S;
+        x0 += K0 * yv; x1 += K1 * yv;
+        var p00 = (1 - K0) * P00, p01 = (1 - K0) * P01, p11 = P11 - K1 * P01;
+        P00 = p00; P01 = p01; P11 = p11;
+      }
+      kal.push(x0);
+    }
+    function rms(e) { var s = 0, c = 0; for (var j = 200; j < FN; j++) { var d = e[j] - FD.v[j]; s += d * d; c++; } return Math.sqrt(s / c); }
+    return { g: g, hold: hold, acc: acc, kal: kal, est: est, rG: rms(hold), rA: rms(acc), rK: rms(kal) };
+  }
+  var FR = null;
+  function fuUpdate() { FR = fuRun(); drawFu(); }
+  function drawFu() {
+    if (!FR) return;
+    var dom = FU.zoom === 'drop' ? [28, 40] : FU.zoom === 'brake' ? [FD.brk - 2, FD.brk + 4] : [0, 60];
+    var i0 = Math.max(0, Math.floor(dom[0] / FDT)), i1 = Math.min(FN, Math.ceil(dom[1] / FDT) + 1);
+    var sub = FD.v.slice(i0, i1), ex = extent([sub], 0.15);
+    fuPlot.resize(); fuPlot.clear();
+    fuPlot.dom = dom; fuPlot.ran = ex;
+    fuPlot.frame({ xticks: 6, yticks: 4, xlabel: 'tempo, s', ylabel: 'velocità, m/s', xfmt: function (v) { return v.toFixed(dom[1] - dom[0] < 10 ? 1 : 0); },
+      yfmt: function (v) { return v.toFixed(0); } });
+    fuPlot.clip(function () {
+      shade(fuPlot, 31, 35, C('--bad-soft'));
+      series(fuPlot, FD.v, 0, FDT, C('--ink'), 2.2, i0, i1);
+      series(fuPlot, FR.acc, 0, FDT, C('--ink-3'), 1.6, i0, i1);
+      series(fuPlot, FR.hold, 0, FDT, C('--warn'), 1.6, i0, i1);
+      series(fuPlot, FR.kal, 0, FDT, C('--accent'), 2.2, i0, i1);
+      if (dom[1] - dom[0] <= 15) FR.g.forEach(function (q) { if (q.t >= dom[0] && q.t <= dom[1]) fuPlot.dot(q.t, q.v, 2.6, C('--warn')); });
+    });
+    fuErr.resize(); fuErr.clear();
+    fuErr.dom = dom; fuErr.ran = [0, 5];
+    fuErr.frame({ xticks: 6, yticks: 2, xlabel: 'tempo, s', ylabel: '|errore|, m/s', xfmt: function (v) { return v.toFixed(dom[1] - dom[0] < 10 ? 1 : 0); },
+      yfmt: function (v) { return v.toFixed(1); } });
+    function ae(a) { var o = []; for (var j = 0; j < FN; j++) o.push(Math.min(5, Math.abs(a[j] - FD.v[j]))); return o; }
+    fuErr.clip(function () {
+      shade(fuErr, 31, 35, C('--bad-soft'));
+      series(fuErr, ae(FR.acc), 0, FDT, C('--ink-3'), 1.4, i0, i1);
+      series(fuErr, ae(FR.hold), 0, FDT, C('--warn'), 1.4, i0, i1);
+      series(fuErr, ae(FR.kal), 0, FDT, C('--accent'), 1.8, i0, i1);
+    });
+
+    setT('fuRmseG', FR.rG.toFixed(2));
+    setT('fuRmseA', FR.rA.toFixed(1));
+    setT('fuRmseK', FR.rK.toFixed(2));
+    setT('fuLatEst', Math.round(FR.est * 1000) + ' ms');
+    $('bsFuK').className = 'bigstat ' + (FU.lat >= 0.08 && !FU.comp ? 'warn' : FR.rK < FR.rG ? 'good' : 'bad');
+    var h = '<h4>Come leggerlo</h4>';
+    var latMs = Math.round(FU.lat * 1000), estMs = Math.round(FR.est * 1000);
+    if (FU.lat >= 0.08 && !FU.comp) {
+      h += '<p class="small">Il GPS è <b>in ritardo di ' + latMs + ' ms</b> e il filtro non lo sa. Sta fondendo un accelerometro che dice “sto frenando adesso” con un GPS che dice “frenerò tra ' + latMs +
+        ' ms”. Errore del segnale fuso ' + FR.rK.toFixed(2) + ' m/s contro ' + FR.rG.toFixed(2) + ' del solo GPS.</p>' +
+        '<p class="small mb0">Spunta <b>Correggi la latenza GPS</b>. Sono i dati stessi a dire che il ritardo è di circa <b>' + estMs + ' ms</b>.</p>';
+    } else {
+      h += '<p class="small">' + (FU.comp ? 'Latenza corretta usando la stima di ' + estMs + ' ms (valore vero ' + latMs + ' ms). ' : '') +
+        'La stima fusa è <b>' + (FR.rG / Math.max(FR.rK, 1e-6)).toFixed(1) + '× più accurata</b> del solo GPS e non deriva come l’accelerometro integrato (' + FR.rA.toFixed(1) + ' m/s RMS).</p>' +
+        '<p class="small mb0">Guarda la perdita del segnale: il solo GPS resta congelato per quattro secondi; la linea fusa continua a seguire l’auto con l’accelerometro, usando il bias che ha appreso mentre il GPS era disponibile.</p>';
+    }
+    $('fuNote').innerHTML = h;
+  }
+
+  /* ================================================ 15.3 vibration features */
+  var VB = { fs: 2048, dur: 20, NIdx: 0, pos: 16, cache: {} }, VB_NS = [64, 128, 256, 512, 1024, 2048];
+  var VB_FD = 4.1 * 24, VB_ON = 8, VB_ROUGH = [[3.5, 5.0], [6.2, 7.0]];
+  var VB_X = (function () {
+    var r = Rng(41), n = 2048 * 20, x = new Float64Array(n);
+    for (var i = 0; i < n; i++) {
+      var t = i / 2048, amp = t < VB_ON ? 0 : 0.35 * (t - VB_ON) / (20 - VB_ON);
+      var rough = (t >= 3.5 && t < 5.0) || (t >= 6.2 && t < 7.0) ? 2.6 : 1;
+      x[i] = 0.6 * Math.sin(TAU * 24 * t) + 0.25 * Math.sin(TAU * 48 * t + 1) + 0.5 * Math.sin(TAU * 552 * t + 0.3) +
+        0.8 * rough * r.n() + amp * (Math.sin(TAU * VB_FD * t) + 0.5 * Math.sin(TAU * 2 * VB_FD * t + 0.7));
+    }
+    return x;
+  })();
+  function fft(re, im) {
+    var n = re.length, i, j, k, len;
+    for (i = 1, j = 0; i < n; i++) {
+      var bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) { var t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+    }
+    for (len = 2; len <= n; len <<= 1) {
+      var ang = -TAU / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (i = 0; i < n; i += len) {
+        var cr = 1, ci = 0;
+        for (k = 0; k < len / 2; k++) {
+          var a = i + k, b = a + len / 2;
+          var xr = re[b] * cr - im[b] * ci, xi = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi;
+          var ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;
+        }
+      }
+    }
+  }
+  function vbPower(start, N) {
+    var re = new Float64Array(N), im = new Float64Array(N), sumsq = 0;
+    for (var i = 0; i < N; i++) {
+      var w = 0.5 - 0.5 * Math.cos(TAU * i / (N - 1)), v = VB_X[start + i];
+      sumsq += v * v;
+      re[i] = v * w;
+    }
+    fft(re, im);
+    var p = new Float64Array(N / 2 + 1);
+    for (var k = 0; k <= N / 2; k++) p[k] = re[k] * re[k] + im[k] * im[k];
+    return { p: p, rms: Math.sqrt(sumsq / N) };
+  }
+  function vbBand(N) { var df = VB.fs / N, bw = Math.max(3, 1.5 * df); return [VB_FD - bw, VB_FD + bw]; }
+  function vbFeatures(N) {
+    if (VB.cache[N]) return VB.cache[N];
+    var hop = N / 2, df = VB.fs / N, band = vbBand(N), rows = [];
+    for (var s = 0; s + N <= VB_X.length; s += hop) {
+      var P = vbPower(s, N), tot = 0, inb = 0;
+      for (var k = 1; k <= N / 2; k++) {
+        tot += P.p[k];
+        var f = k * df;
+        if (f >= band[0] && f <= band[1]) inb += P.p[k];
+      }
+      rows.push({ tc: (s + N / 2) / VB.fs, t1: (s + N) / VB.fs, rms: P.rms, band: inb / tot });
+    }
+    function stats(key) {
+      var h = rows.filter(function (r) { return r.t1 <= VB_ON; }).map(function (r) { return r[key]; });
+      var m = mean(h), sd = sdev(h, m) || 1e-9, mx = Math.max.apply(null, h), det = null;
+      for (var i = 0; i < rows.length; i++) if (rows[i].tc > VB_ON && rows[i][key] > mx) { det = rows[i].t1; break; }
+      return { m: m, sd: sd, mx: mx, det: det };
+    }
+    var out = { rows: rows, rms: stats('rms'), band: stats('band'), bandF: band };
+    VB.cache[N] = out;
+    return out;
+  }
+  var vbSigP, vbSpecP, vbFeatP;
+  function drawVb() {
+    var N = VB_NS[VB.NIdx], half = N / 2 / VB.fs;
+    var pos = Math.max(half, Math.min(VB.dur - half, VB.pos));
+    var FT = vbFeatures(N), band = FT.bandF;
+
+    vbSigP.resize(); vbSigP.clear();
+    vbSigP.dom = [0, 20]; vbSigP.ran = [-7, 7];
+    vbSigP.frame({ xticks: 5, yticks: 2, xlabel: 'tempo, s', ylabel: 'accel.', xfmt: function (v) { return v.toFixed(0); }, yfmt: function (v) { return v.toFixed(0); } });
+    vbSigP.clip(function () {
+      VB_ROUGH.forEach(function (r) { shade(vbSigP, r[0], r[1], C('--bg-3')); });
+      series(vbSigP, VB_X, 0, 1 / VB.fs, C('--ink-3'), 1);
+      shade(vbSigP, pos - half, pos + half, C('--accent') + '55');
+      vline(vbSigP, VB_ON, C('--bad'), [4, 3], 1.4);
+      txt(vbSigP, 'inizio difetto', vbSigP.X(VB_ON) + 4, vbSigP.pad.t + 12, C('--bad'));
+      txt(vbSigP, 'strada sconnessa', vbSigP.X(3.6), vbSigP.pad.t + 12, C('--ink-3'));
+    });
+
+    var s0 = Math.round((pos - half) * VB.fs), P = vbPower(Math.max(0, Math.min(VB_X.length - N, s0)), N), df = VB.fs / N;
+    var pts = [], mx = -Infinity, k;
+    for (k = 1; k <= N / 2; k++) {
+      var f = k * df; if (f > 700) break;
+      var db = 10 * Math.log10(P.p[k] + 1e-9);
+      pts.push([f, db]); if (db > mx) mx = db;
+    }
+    vbSpecP.resize(); vbSpecP.clear();
+    vbSpecP.dom = [0, 700]; vbSpecP.ran = [Math.ceil(mx / 10) * 10 - 60, Math.ceil(mx / 10) * 10 + 4];
+    vbSpecP.frame({ xticks: 7, yticks: 4, xlabel: 'frequenza, Hz', ylabel: 'potenza, dB', xfmt: function (v) { return v.toFixed(0); },
+      yfmt: function (v) { return v.toFixed(0); } });
+    vbSpecP.clip(function () {
+      shade(vbSpecP, band[0], band[1], C('--bad-soft'));
+      vbSpecP.line(pts, C('--accent'), 1.8);
+      var top = vbSpecP.pad.t + 12;
+      txt(vbSpecP, 'banda difetto', vbSpecP.X(band[1]) + 4, top, C('--bad'));
+      txt(vbSpecP, 'albero', vbSpecP.X(24) + 3, top + 14, C('--ink-3'));
+      txt(vbSpecP, 'ingranamento', vbSpecP.X(552), top, C('--ink-3'), 'center');
+      txt(vbSpecP, 'finestra centrata a ' + pos.toFixed(1) + ' s', vbSpecP.pad.l + vbSpecP.pw - 6, vbSpecP.pad.t + vbSpecP.ph - 8, C('--ink-3'), 'right');
+    });
+
+    vbFeatP.resize(); vbFeatP.clear();
+    var zr = FT.rows.map(function (r) { return (r.rms - FT.rms.m) / FT.rms.sd; });
+    var zb = FT.rows.map(function (r) { return (r.band - FT.band.m) / FT.band.sd; });
+    var top2 = Math.min(40, Math.max(10, extent([zr, zb], 0.05)[1]));
+    vbFeatP.dom = [0, 20]; vbFeatP.ran = [-4, top2];
+    vbFeatP.frame({ xticks: 5, yticks: 4, xlabel: 'tempo, s', ylabel: 'feature, σ dal sano', xfmt: function (v) { return v.toFixed(0); },
+      yfmt: function (v) { return v.toFixed(0); } });
+    vbFeatP.clip(function () {
+      VB_ROUGH.forEach(function (r) { shade(vbFeatP, r[0], r[1], C('--bg-3')); });
+      vline(vbFeatP, VB_ON, C('--bad'), [4, 3], 1.4);
+      hline(vbFeatP, (FT.rms.mx - FT.rms.m) / FT.rms.sd, C('--warn'), [3, 4], 1.2);
+      hline(vbFeatP, (FT.band.mx - FT.band.m) / FT.band.sd, C('--accent'), [3, 4], 1.2);
+      vbFeatP.line(FT.rows.map(function (r, i) { return [r.tc, Math.min(top2, zr[i])]; }), C('--warn'), 2);
+      vbFeatP.line(FT.rows.map(function (r, i) { return [r.tc, Math.min(top2, zb[i])]; }), C('--accent'), 2.2);
+      txt(vbFeatP, 'RMS', vbFeatP.pad.l + 8, vbFeatP.pad.t + 14, C('--warn'));
+      txt(vbFeatP, 'energia nella banda difetto', vbFeatP.pad.l + 44, vbFeatP.pad.t + 14, C('--accent'));
+      txt(vbFeatP, 'tratteggio: massimo valore sano', vbFeatP.pad.l + 8, vbFeatP.pad.t + 28, C('--ink-3'), 'left', false);
+    });
+
+    setT('vbRes', df < 10 ? df.toFixed(1) + ' Hz' : df.toFixed(0) + ' Hz');
+    setT('vbDt', (N / VB.fs * 1000).toFixed(0) + ' ms');
+    function detTxt(d) { return d === null ? 'mai' : d.toFixed(1) + ' s'; }
+    setT('vbDetRms', detTxt(FT.rms.det));
+    setT('vbDetBand', detTxt(FT.band.det));
+    $('bsVbRms').className = 'bigstat ' + (FT.rms.det === null ? 'bad' : FT.rms.det < 13 ? 'good' : 'warn');
+    $('bsVbBand').className = 'bigstat ' + (FT.band.det === null ? 'bad' : FT.band.det < 13 ? 'good' : 'warn');
+    var h = '<h4>Come leggerlo</h4>';
+    h += '<p class="small">' + N + ' campioni: righe spettrali distanti ' + df.toFixed(df < 10 ? 1 : 0) + ' Hz, ogni finestra lunga ' + (N / VB.fs * 1000).toFixed(0) +
+      ' ms. La banda del difetto è ' + band[0].toFixed(0) + '–' + band[1].toFixed(0) + ' Hz.</p>';
+    if (FT.band.det !== null && (FT.rms.det === null || FT.band.det < FT.rms.det)) {
+      h += '<p class="small mb0">La feature di banda segnala il difetto <b>' + (FT.band.det - VB_ON).toFixed(1) + ' s dopo la sua comparsa</b>' +
+        (FT.rms.det === null ? ', e l’RMS non sale mai sopra ciò che la strada sconnessa aveva già prodotto.' : ', ' + (FT.rms.det - FT.band.det).toFixed(1) + ' s prima dell’RMS.') +
+        (N >= 1024 ? ' Finestre molto lunghe rendono il picco ancora più netto ma sfocano i tempi: un evento rapido verrebbe ora spalmato su ' + (N / VB.fs).toFixed(1) + ' s.' : '') + '</p>';
+    } else {
+      h += '<p class="small mb0">A questa risoluzione la banda del difetto è così larga da contenere per lo più rumore a banda larga, quindi non è più utile dell’RMS. <b>Allunga la finestra</b> finché il picco non si separa dai suoi vicini.</p>';
+    }
+    $('vbNote').innerHTML = h;
+  }
+
+  /* ================================================ 15.4 forecasting */
+  var FC = { ser: 'brake', h: 10, p: 6 }, fcPlot;
+  var FC_SERIES = {
+    brake: (function () {
+      var b = genBrake(52, 20, 0.1), r = Rng(53), y = [];
+      for (var i = 0; i < b.y.length; i += 10) y.push(b.y[i] + 4 * r.n());
+      return { y: y, seas: [88], unit: '°C', name: 'temp. disco freno', step: 's', label: 'stesso punto, giro scorso', dt: 1, hmax: 48 };
+    })(),
+    fleet: (function () {
+      var r = Rng(54), y = [], e = 0;
+      function bump(h, c, w) { var d = Math.abs(h - c); d = Math.min(d, 24 - d); return Math.exp(-(d / w) * (d / w)); }
+      for (var t = 0; t < 24 * 7 * 8; t++) {
+        var h = t % 24, d = Math.floor(t / 24) % 7, wk = d >= 5 ? 0.55 : 1;
+        e = 0.6 * e + 3.2 * r.n();
+        var v = 8 + wk * (38 * bump(h, 21, 3) + 26 * bump(h, 2, 2.5) + 12 * bump(h, 13, 2)) + 0.012 * t + e;
+        y.push(Math.max(0, v));
+      }
+      return { y: y, seas: [24, 168], unit: 'kWh', name: 'energia ricarica deposito', step: 'h', label: 'stessa ora, settimana scorsa', dt: 1, hmax: 48 };
+    })(),
+    walk: (function () {
+      var r = Rng(55), y = [], x = 31;
+      for (var t = 0; t < 1200; t++) { x += 0.004 * (31 - x) + 0.12 * r.n(); y.push(x + 0.15 * r.n()); }
+      return { y: y, seas: [], unit: '°C', name: 'temperatura cella', step: 'min', label: 'nessuna stagionalità', dt: 1, hmax: 48 };
+    })()
+  };
+  function solveLin(A, b) {
+    var n = b.length, i, j, k;
+    A = A.map(function (r) { return r.slice(); }); b = b.slice();
+    for (i = 0; i < n; i++) {
+      var p = i;
+      for (k = i + 1; k < n; k++) if (Math.abs(A[k][i]) > Math.abs(A[p][i])) p = k;
+      var t = A[i]; A[i] = A[p]; A[p] = t; var tb = b[i]; b[i] = b[p]; b[p] = tb;
+      if (Math.abs(A[i][i]) < 1e-12) A[i][i] = 1e-12;
+      for (k = i + 1; k < n; k++) {
+        var f = A[k][i] / A[i][i];
+        for (j = i; j < n; j++) A[k][j] -= f * A[i][j];
+        b[k] -= f * b[i];
+      }
+    }
+    var x = new Array(n).fill(0);
+    for (i = n - 1; i >= 0; i--) { var s = b[i]; for (j = i + 1; j < n; j++) s -= A[i][j] * x[j]; x[i] = s / A[i][i]; }
+    return x;
+  }
+  function seasLag(h, m) { return m * Math.ceil(h / m); }
+  function fcRun() {
+    var S = FC_SERIES[FC.ser], y = S.y, n = y.length, h = FC.h, p = FC.p, cut = Math.floor(n * 0.7), i, j;
+    var mu = 0; for (i = 0; i < cut; i++) mu += y[i]; mu /= cut;
+    var maxBack = p;
+    S.seas.forEach(function (m) { maxBack = Math.max(maxBack, seasLag(h, m) - h + 1); });
+    function feats(t) {        /* forecast origin t, target t+h; only values up to t are used */
+      var f = [1];
+      for (j = 0; j < p; j++) f.push(y[t - j] - mu);
+      S.seas.forEach(function (m) { f.push(y[t + h - seasLag(h, m)] - mu); });
+      return f;
+    }
+    var nf = 1 + p + S.seas.length, A = [], b = [];
+    for (i = 0; i < nf; i++) { A.push(new Array(nf).fill(0)); b.push(0); }
+    for (var t = maxBack; t + h < cut; t++) {
+      var f = feats(t), tg = y[t + h] - mu;
+      for (i = 0; i < nf; i++) { b[i] += f[i] * tg; for (j = 0; j < nf; j++) A[i][j] += f[i] * f[j]; }
+    }
+    for (i = 1; i < nf; i++) A[i][i] += 1e-3 * cut;
+    var w = solveLin(A, b);
+    var res = { pers: [], seas: [], ar: [], mean: [], tt: [] };
+    var mainM = S.seas.length ? S.seas[S.seas.length - 1] : 0;
+    for (var tt = cut; tt < n; tt++) {
+      var o = tt - h;
+      res.tt.push(tt);
+      res.pers.push(y[o]);
+      res.seas.push(mainM ? y[tt - seasLag(h, mainM)] : NaN);
+      var ff = feats(o), s = 0; for (i = 0; i < nf; i++) s += w[i] * ff[i];
+      res.ar.push(s + mu);
+      res.mean.push(mu);
+    }
+    function mae(pred) { var s = 0; for (var k = 0; k < pred.length; k++) s += Math.abs(pred[k] - y[res.tt[k]]); return s / pred.length; }
+    res.m = { mean: mae(res.mean), pers: mae(res.pers), seas: mainM ? mae(res.seas) : NaN, ar: mae(res.ar) };
+    res.cut = cut;
+    return res;
+  }
+  function drawFc() {
+    var S = FC_SERIES[FC.ser], y = S.y, n = y.length, R = fcRun();
+    var show0 = Math.max(0, R.cut - Math.round(n * 0.1));
+    var vis = y.slice(show0), ex = extent([vis], 0.08);
+    fcPlot.resize(); fcPlot.clear();
+    fcPlot.dom = [show0, n]; fcPlot.ran = ex;
+    fcPlot.frame({ xticks: 5, yticks: 4, xlabel: 'tempo, ' + S.step, ylabel: S.name + ', ' + S.unit,
+      xfmt: function (v) { return Math.round(v); }, yfmt: function (v) { return v.toFixed(0); } });
+    fcPlot.clip(function () {
+      shade(fcPlot, show0, R.cut, C('--bg-3'));
+      txt(fcPlot, 'addestramento', fcPlot.X(show0) + 6, fcPlot.pad.t + 13, C('--ink-3'));
+      txt(fcPlot, 'test — mai visto nella stima', fcPlot.X(R.cut) + 6, fcPlot.pad.t + 13, C('--ink-3'));
+      series(fcPlot, y, 0, 1, C('--ink'), 1.6, show0, n);
+      function pl(arr, col, lw, dash) { var pts = []; for (var k = 0; k < arr.length; k++) if (isFinite(arr[k])) pts.push([R.tt[k], arr[k]]); fcPlot.line(pts, col, lw, dash); }
+      pl(R.pers, C('--ink-3'), 1.3, [4, 3]);
+      if (S.seas.length) pl(R.seas, C('--warn'), 1.5);
+      pl(R.ar, C('--accent'), 1.9);
+    });
+    var rows = [['Media dell’addestramento', R.m.mean, C('--violet')], ['Persistenza', R.m.pers, C('--ink-3')],
+      ['Naive stagionale', R.m.seas, C('--warn')], ['Autoregressione lineare', R.m.ar, C('--accent')]];
+    var mx = 0; rows.forEach(function (r) { if (isFinite(r[1])) mx = Math.max(mx, r[1]); });
+    var hb = '';
+    rows.forEach(function (r) {
+      hb += '<div class="sbar"><span>' + r[0] + '</span><div class="tr"><div class="fi" style="width:' +
+        (isFinite(r[1]) ? (r[1] / mx * 100).toFixed(1) : 0) + '%;background:' + r[2] + '"></div></div><span class="vv">' +
+        (isFinite(r[1]) ? r[1].toFixed(r[1] < 10 ? 2 : 1) : 'n.d.') + '</span></div>';
+    });
+    $('fcBars').innerHTML = hb;
+
+    var naive = isFinite(R.m.seas) ? Math.min(R.m.pers, R.m.seas) : R.m.pers;
+    var naiveName = isFinite(R.m.seas) && R.m.seas < R.m.pers ? 'naive stagionale' : 'persistenza';
+    var skill = 1 - R.m.ar / naive;
+    var h = '<h4>Come leggerlo</h4><p class="small">Orizzonte ' + FC.h + ' ' + S.step + '. Migliore baseline gratuita: <b>' + naiveName + '</b> con ' +
+      naive.toFixed(2) + ' ' + S.unit + '. Il modello stimato: ' + R.m.ar.toFixed(2) + ' ' + S.unit + ' — ';
+    if (skill > 0.1) h += '<b style="color:var(--good)">' + (skill * 100).toFixed(0) + '% meglio</b>. Questo è skill genuino, ed è il numero da riportare.</p>';
+    else if (skill > -0.02) h += '<b style="color:var(--warn)">sostanzialmente un pareggio</b> (' + (skill * 100).toFixed(0) + '%). Un modello che pareggia con la baseline costa di più da eseguire e mantenere. Metti in produzione la baseline.</p>';
+    else h += '<b style="color:var(--bad)">' + (-skill * 100).toFixed(0) + '% peggio</b> che non fare niente di furbo.</p>';
+    if (FC.ser === 'walk') h += '<p class="small mb0">Qui non c’è struttura oltre a “è dov’era”. Nessun modello può battere di molto la persistenza su una quasi-passeggiata aleatoria, e chi sostiene il contrario andrebbe controllato per leakage.</p>';
+    else if (FC.ser === 'brake') h += '<p class="small mb0">Il disco oscilla di centinaia di gradi nel giro di pochi secondi, quindi la persistenza è inutile oltre un secondo o due. “Stesso punto, giro scorso” è forte perché il giro si ripete; i tempi sul giro variano di circa un secondo, il che limita sia lui sia il modello. Su questa serie il risultato onesto è che il modello stimato aggiunge poco o nulla.</p>';
+    else h += '<p class="small mb0">Il deposito ha un ciclo giornaliero, uno settimanale e un trend lento. “Stessa ora, settimana scorsa” ne cattura la maggior parte; il modello aggiunge un po’ guardando anche a ieri e alle ultime ore.</p>';
+    $('fcNote').innerHTML = h;
+  }
+
+  /* ================================================ 15.5 time leakage */
+  var LK_RHOS = [0.9, 0.95, 0.98, 0.99, 0.995, 0.998];
+  var LK = { rhoIdx: 3, k: 5, scheme: 'random', seed: 1, rows: null, res: null }, LK_N = 1000, LK_D = 750;
+  var lkPlot, lkFoldP;
+  function lkAr(r, n, rho) { var x = [], v = r.n(), s = Math.sqrt(1 - rho * rho); for (var i = 0; i < n; i++) { v = rho * v + s * r.n(); x.push(v); } return x; }
+  function lkGen() {
+    var r = Rng(500 + LK.seed * 13), rho = LK_RHOS[LK.rhoIdx];
+    var L = lkAr(r, LK_N, rho), f2 = lkAr(r, LK_N, rho), f3 = lkAr(r, LK_N, rho), rows = [];
+    for (var i = 0; i < LK_N; i++) {
+      var f1 = r.n();
+      var y = 0.9 * f1 + 2.0 * i / LK_N + 0.6 * L[i] + 0.3 * r.n();
+      rows.push({ x: [f1, f2[i], f3[i]], y: 14 + 1.5 * y, t: i });
+    }
+    LK.rows = rows;
+  }
+  function knnPredict(tr, te, k) {
+    var m = [0, 0, 0], s = [0, 0, 0], j, i;
+    tr.forEach(function (r) { for (j = 0; j < 3; j++) m[j] += r.x[j]; });
+    for (j = 0; j < 3; j++) m[j] /= tr.length;
+    tr.forEach(function (r) { for (j = 0; j < 3; j++) s[j] += (r.x[j] - m[j]) * (r.x[j] - m[j]); });
+    for (j = 0; j < 3; j++) s[j] = Math.sqrt(s[j] / tr.length) || 1;
+    var Z = tr.map(function (r) { return [(r.x[0] - m[0]) / s[0], (r.x[1] - m[1]) / s[1], (r.x[2] - m[2]) / s[2]]; });
+    var kk = Math.min(k, tr.length), d = new Float64Array(tr.length), idx = new Array(kk);
+    return te.map(function (r) {
+      var z0 = (r.x[0] - m[0]) / s[0], z1 = (r.x[1] - m[1]) / s[1], z2 = (r.x[2] - m[2]) / s[2];
+      for (i = 0; i < Z.length; i++) { var a = Z[i][0] - z0, b = Z[i][1] - z1, c = Z[i][2] - z2; d[i] = a * a + b * b + c * c; }
+      /* partial selection of the k smallest distances */
+      var best = [];
+      for (i = 0; i < Z.length; i++) {
+        if (best.length < kk) { best.push(i); best.sort(function (p, q) { return d[p] - d[q]; }); }
+        else if (d[i] < d[best[kk - 1]]) {
+          var pos = kk - 1;
+          while (pos > 0 && d[best[pos - 1]] > d[i]) { best[pos] = best[pos - 1]; pos--; }
+          best[pos] = i;
+        }
+      }
+      var sum = 0; for (i = 0; i < best.length; i++) sum += tr[best[i]].y;
+      return sum / best.length;
+    });
+  }
+  function lkFolds(scheme) {
+    /* returns, for each of 5 folds, an array over dev rows: 0 unused, 1 train, 2 test, 3 gap */
+    var D = LK_D, K = 5, out = [], f, i;
+    if (scheme === 'random') {
+      var r = Rng(900 + LK.seed), idx = [];
+      for (i = 0; i < D; i++) idx.push(i);
+      for (i = D - 1; i > 0; i--) { var j = Math.floor(r.u() * (i + 1)), t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
+      var fold = new Array(D);
+      idx.forEach(function (v, ii) { fold[v] = ii % K; });
+      for (f = 0; f < K; f++) out.push(fold.map(function (q) { return q === f ? 2 : 1; }));
+    } else if (scheme === 'blocked' || scheme === 'embargo') {
+      var B = D / K, g = scheme === 'embargo' ? Math.round(D * 0.05) : 0;
+      for (f = 0; f < K; f++) {
+        var a = [];
+        for (i = 0; i < D; i++) {
+          if (i >= f * B && i < (f + 1) * B) a.push(2);
+          else if (i >= f * B - g && i < (f + 1) * B + g) a.push(3);
+          else a.push(1);
+        }
+        out.push(a);
+      }
+    } else {
+      var start = D / 2, step = D / 10;
+      for (f = 0; f < K; f++) {
+        var s0 = start + f * step, w = [];
+        for (i = 0; i < D; i++) w.push(i < s0 ? 1 : i < s0 + step ? 2 : 0);
+        out.push(w);
+      }
+    }
+    return out;
+  }
+  function lkRun() {
+    var dev = LK.rows.slice(0, LK_D), prod = LK.rows.slice(LK_D), res = {};
+    ['random', 'blocked', 'embargo', 'wf'].forEach(function (sc) {
+      var folds = lkFolds(sc), se = 0, c = 0;
+      folds.forEach(function (a) {
+        var tr = [], te = [];
+        for (var i = 0; i < LK_D; i++) { if (a[i] === 1) tr.push(dev[i]); else if (a[i] === 2) te.push(dev[i]); }
+        var p = knnPredict(tr, te, LK.k);
+        te.forEach(function (r, i) { se += (r.y - p[i]) * (r.y - p[i]); c++; });
+      });
+      res[sc] = Math.sqrt(se / c);
+    });
+    var pp = knnPredict(dev, prod, LK.k), sp = 0;
+    prod.forEach(function (r, i) { sp += (r.y - pp[i]) * (r.y - pp[i]); });
+    res.prod = Math.sqrt(sp / prod.length);
+    LK.res = res;
+  }
+  function lkUpdate() { lkGen(); lkRun(); drawLk(); }
+  function drawLk() {
+    if (!LK.res) return;
+    var ys = LK.rows.map(function (r) { return r.y; }), ex = extent([ys], 0.05);
+    lkPlot.resize(); lkPlot.clear();
+    lkPlot.dom = [0, LK_N]; lkPlot.ran = ex;
+    lkPlot.frame({ xticks: 5, yticks: 4, xlabel: 'n. evento di ricarica', ylabel: 'aumento temp. cella, °C',
+      xfmt: function (v) { return Math.round(v); }, yfmt: function (v) { return v.toFixed(0); } });
+    lkPlot.clip(function () {
+      shade(lkPlot, LK_D, LK_N, C('--bad-soft'));
+      LK.rows.forEach(function (r) { lkPlot.dot(r.t, r.y, 1.5, r.t < LK_D ? C('--ink-3') : C('--bad')); });
+      txt(lkPlot, 'set di sviluppo', lkPlot.X(8), lkPlot.pad.t + 13, C('--ink-3'));
+      txt(lkPlot, 'produzione', lkPlot.X(LK_D) + 6, lkPlot.pad.t + 13, C('--bad'));
+    });
+
+    var folds = lkFolds(LK.scheme);
+    lkFoldP.resize(); lkFoldP.clear();
+    lkFoldP.dom = [0, LK_N]; lkFoldP.ran = [0, 5];
+    var g = lkFoldP.ctx, rowH = lkFoldP.ph / 5;
+    var col = { 1: C('--ink-3'), 2: C('--accent'), 3: C('--warn-soft') };
+    folds.forEach(function (a, f) {
+      var y0 = lkFoldP.pad.t + f * rowH + 3, hh = rowH - 6;
+      for (var i = 0; i < LK_D; i++) {
+        if (!a[i]) continue;
+        g.fillStyle = col[a[i]];
+        g.globalAlpha = a[i] === 1 ? 0.45 : 1;
+        var x0 = lkFoldP.X(i), x1 = lkFoldP.X(i + 1);
+        g.fillRect(x0, y0, Math.max(0.8, x1 - x0), hh);
+      }
+      g.globalAlpha = 1;
+      g.fillStyle = C('--ink-3'); g.font = '600 10px system-ui, sans-serif'; g.textAlign = 'right'; g.textBaseline = 'middle';
+      g.fillText('fold ' + (f + 1), lkFoldP.pad.l - 6, y0 + hh / 2);
+    });
+    g.fillStyle = C('--bad-soft');
+    g.fillRect(lkFoldP.X(LK_D), lkFoldP.pad.t, lkFoldP.X(LK_N) - lkFoldP.X(LK_D), lkFoldP.ph);
+    txt(lkFoldP, 'tenuti da parte', lkFoldP.X((LK_D + LK_N) / 2), lkFoldP.pad.t + lkFoldP.ph / 2 + 4, C('--bad'), 'center');
+
+    var R = LK.res, names = { random: '5-fold casuale', blocked: '5-fold a blocchi', embargo: 'A blocchi + intervallo', wf: 'Walk-forward', prod: 'Produzione (verità)' };
+    var mx = Math.max(R.random, R.blocked, R.embargo, R.wf, R.prod), hb = '';
+    ['random', 'blocked', 'embargo', 'wf', 'prod'].forEach(function (k) {
+      var c = k === 'prod' ? C('--bad') : k === 'random' ? C('--warn') : k === 'wf' ? C('--good') : C('--accent');
+      hb += '<div class="sbar"><span>' + (k === LK.scheme ? '<b>' + names[k] + '</b>' : names[k]) + '</span><div class="tr"><div class="fi" style="width:' +
+        (R[k] / mx * 100).toFixed(1) + '%;background:' + c + '"></div></div><span class="vv">' + R[k].toFixed(2) + '</span></div>';
+    });
+    $('lkBars').innerHTML = hb;
+    var ratio = R.prod / R.random;
+    var h = '<p class="small"><b>Il k-fold casuale promette ' + R.random.toFixed(2) + ' °C. La produzione restituisce ' + R.prod.toFixed(2) + ' °C</b> — ' +
+      (ratio > 1.15 ? ratio.toFixed(1) + '× peggio di quanto diceva la slide.' : 'vicino, questa volta.') + '</p>';
+    if (ratio > 1.15) {
+      h += '<p class="small mb0">Il modello e il codice non avevano nulla di sbagliato. Lo split casuale gli ha permesso di trovare, per ogni evento di test, i suoi vicini nel tempo — che condividono il fattore nascosto — usando come orologio i due sensori a deriva lenta. Il walk-forward dice ' + R.wf.toFixed(2) + ' °C';
+      if (Math.abs(R.wf - R.prod) < Math.abs(R.random - R.prod)) {
+        h += ', più vicino alla verità';
+        if (R.wf < R.prod * 0.85) h += ' e comunque ottimistico, perché la produzione si spinge oltre i dati di addestramento più di qualsiasi singolo blocco di test';
+        else if (R.wf > R.prod * 1.15) h += ' — pessimistico, questa volta: 250 eventi di produzione con un fattore nascosto lento sono essi stessi solo una manciata di campioni indipendenti (sezione 15.1)';
+        h += '.</p>';
+      } else h += ', non più vicino in questa estrazione. Premi <b>Nuovo dataset</b> qualche volta: conta quale stima è vicina in modo affidabile, non una singola prova fortunata.</p>';
+    }
+    else h += '<p class="small mb0">Con un fattore nascosto a memoria corta, i vicini nel tempo non hanno più molto in comune, quindi c’è poco che uno split casuale possa far trapelare. Alza l’emivita per vedere aprirsi il divario.</p>';
+    $('lkNote').innerHTML = h;
+  }
+
+  /* ================================================ 15.6 anomaly detection */
+  var AN_LAP = 100, AN_T = 2400, AN_REF = 300;
+  var AN_FAULTS = [
+    { a: 520, b: 560, name: 'Connettore intermittente' },
+    { a: 1050, b: 1200, name: 'Circuito di bilanciamento bloccato acceso' },
+    { a: 1750, b: 2400, name: 'Micro-cortocircuito interno (deriva lenta)' }
+  ];
+  var AN_BENIGN = [{ a: 700, b: 1000, name: 'giro di qualifica' }, { a: 1400, b: 1470, name: 'pit stop' }];
+  var AN = { W: 60, k: 4, m: 1, mode: 'trail', seed: 1, x: null, det: null, search: null };
+  var anPlot, anZP;
+  function anCurrent(t) {
+    if (t >= 1400 && t < 1470) return 0;
+    var ph = (t % AN_LAP) / AN_LAP, push = (t >= 700 && t < 900) ? 1.5 : 1;
+    return 120 * Math.max(0, Math.sin(ph * TAU * 3)) * push - 60 * Math.max(0, -Math.sin(ph * TAU * 3 + 0.4)) * push + 15;
+  }
+  function anGen() {
+    var r = Rng(700 + AN.seed * 31), x = new Float64Array(AN_T), xc = new Float64Array(AN_T), dips = [], i;
+    for (i = 0; i < 6; i++) dips.push([AN_FAULTS[0].a + 2 + Math.floor(r.u() * 34), 2 + Math.floor(r.u() * 3)]);
+    for (var t = 0; t < AN_T; t++) {
+      var I = anCurrent(t), s = 0.3 + 0.006 * Math.abs(I), v = 0.4 + s * r.n();
+      if (t >= 700 && t < 1000) { var u = Math.min(1, (t - 700) / 120); if (t >= 900) u = Math.max(0, 1 - (t - 900) / 100); v -= 6 * u; }
+      if (t >= 1470 && t < 1670) v -= 2.5 * Math.exp(-(t - 1470) / 40);   /* cold cell sags as load returns */
+      xc[t] = v;
+      for (i = 0; i < dips.length; i++) if (t >= dips[i][0] && t < dips[i][0] + dips[i][1]) v -= 7;
+      if (t >= AN_FAULTS[1].a && t < AN_FAULTS[1].b) v -= 5;
+      if (t >= AN_FAULTS[2].a) v -= (t - AN_FAULTS[2].a) * 0.008;
+      x[t] = v;
+    }
+    AN.x = x; AN.xc = xc;
+  }
+  function anDetect(x, W, k, m, mode) {
+    var n = x.length, z = new Float64Array(n), al = new Uint8Array(n), run = 0, t, s = 0, q = 0, mu, sd, start;
+    if (mode === 'frozen') {
+      for (t = 0; t < AN_REF; t++) { s += x[t]; q += x[t] * x[t]; }
+      mu = s / AN_REF; sd = Math.max(0.15, Math.sqrt(Math.max(0, q / AN_REF - mu * mu)));
+      start = AN_REF;
+    } else {
+      for (t = 0; t < W; t++) { s += x[t]; q += x[t] * x[t]; }
+      start = W;
+    }
+    for (t = start; t < n; t++) {
+      if (mode !== 'frozen') {
+        mu = s / W; sd = Math.max(0.15, Math.sqrt(Math.max(0, q / W - mu * mu)));
+      }
+      z[t] = (x[t] - mu) / sd;
+      if (z[t] < -k) run++; else run = 0;
+      if (run >= m) al[t] = 1;
+      if (mode !== 'frozen') { s += x[t] - x[t - W]; q += x[t] * x[t] - x[t - W] * x[t - W]; }
+    }
+    return { z: z, al: al, start: start };
+  }
+  function anEpisodes(al) {
+    var eps = [], inE = false, s0 = 0, t;
+    for (t = 0; t < al.length; t++) {
+      if (al[t] && !inE) { inE = true; s0 = t; }
+      if (!al[t] && inE) { inE = false; eps.push([s0, t]); }
+    }
+    if (inE) eps.push([s0, al.length]);
+    var mg = [];
+    eps.forEach(function (e) { if (mg.length && e[0] - mg[mg.length - 1][1] < 5) mg[mg.length - 1][1] = e[1]; else mg.push(e.slice()); });
+    return mg;
+  }
+  /* An alarm only counts as catching a fault if the fault caused it: the same detector, run on the
+     identical session with the faults removed (same noise) and a threshold half a sigma looser, must stay
+     silent during that episode. Otherwise it is a noise alarm the fault merely nudged over the line. */
+  function anScore(al, alClean) {
+    var mg = anEpisodes(al);
+    function overlaps(e, f) { return e[1] > f.a && e[0] < f.b + 10; }
+    function alsoClean(e) { for (var t = Math.max(0, e[0] - 2); t < Math.min(alClean.length, e[1] + 2); t++) if (alClean[t]) return true; return false; }
+    var fa = [], res = AN_FAULTS.map(function () { return { delay: null, coinc: false }; });
+    mg.forEach(function (e) {
+      var hitAny = false, caused = !alsoClean(e);
+      AN_FAULTS.forEach(function (f, i) {
+        if (!overlaps(e, f)) return;
+        hitAny = true;
+        if (caused) { var dd = Math.max(0, e[0] - f.a); if (res[i].delay === null || dd < res[i].delay) res[i].delay = dd; }
+        else res[i].coinc = true;
+      });
+      if (!hitAny || !caused) fa.push(e);
+    });
+    var caught = res.filter(function (r) { return r.delay !== null; }).length;
+    return { eps: mg, fa: fa, faults: res, caught: caught };
+  }
+  function anUpdate() {
+    AN.det = anDetect(AN.x, AN.W, AN.k, AN.m, AN.mode);
+    AN.sc = anScore(AN.det.al, anDetect(AN.xc, AN.W, AN.k - 0.5, AN.m, AN.mode).al);
+    drawAn();
+  }
+  function drawAn() {
+    if (!AN.det) return;
+    var x = AN.x, D = AN.det, S = AN.sc, ex = extent([x], 0.06);
+    anPlot.resize(); anPlot.clear();
+    anPlot.dom = [0, AN_T]; anPlot.ran = ex;
+    anPlot.frame({ xticks: 6, yticks: 4, xlabel: 'tempo sessione, s', ylabel: 'cella − mediana pacco, mV',
+      xfmt: function (v) { return Math.round(v); }, yfmt: function (v) { return v.toFixed(0); } });
+    anPlot.clip(function (g) {
+      AN_BENIGN.forEach(function (b) { shade(anPlot, b.a, b.b, C('--bg-3')); });
+      AN_FAULTS.forEach(function (f) { shade(anPlot, f.a, f.b, C('--bad-soft')); });
+      if (AN.mode === 'frozen') shade(anPlot, 0, AN_REF, C('--accent-soft'));
+      series(anPlot, x, 0, 1, C('--ink-2'), 1.2);
+      g.fillStyle = C('--bad');
+      for (var t = 0; t < AN_T; t++) if (D.al[t]) g.fillRect(anPlot.X(t) - 0.5, anPlot.pad.t, Math.max(1.5, anPlot.X(t + 1) - anPlot.X(t)), 7);
+      txt(anPlot, 'connettore', anPlot.X(540), anPlot.pad.t + anPlot.ph - 6, C('--bad'), 'center');
+      txt(anPlot, 'bilanciamento', anPlot.X(1125), anPlot.pad.t + anPlot.ph - 6, C('--bad'), 'center');
+      txt(anPlot, 'microcorto', anPlot.X(2075), anPlot.pad.t + anPlot.ph - 6, C('--bad'), 'center');
+      txt(anPlot, 'qualifica', anPlot.X(850), anPlot.pad.t + 22, C('--ink-3'), 'center');
+      txt(anPlot, 'pit', anPlot.X(1435), anPlot.pad.t + 22, C('--ink-3'), 'center');
+      if (AN.mode === 'frozen') txt(anPlot, 'riferimento', anPlot.X(150), anPlot.pad.t + 22, C('--accent'), 'center');
+    });
+    anZP.resize(); anZP.clear();
+    anZP.dom = [0, AN_T]; anZP.ran = [-16, 6];
+    anZP.frame({ xticks: 6, yticks: 2, xlabel: 'tempo sessione, s', ylabel: 'z-score',
+      xfmt: function (v) { return Math.round(v); }, yfmt: function (v) { return v.toFixed(0); } });
+    var zc = new Float64Array(AN_T);
+    for (var i = 0; i < AN_T; i++) zc[i] = Math.max(-16, Math.min(6, D.z[i]));
+    anZP.clip(function () {
+      AN_FAULTS.forEach(function (f) { shade(anZP, f.a, f.b, C('--bad-soft')); });
+      series(anZP, zc, 0, 1, C('--violet'), 1.2, D.start, AN_T);
+      hline(anZP, -AN.k, C('--bad'), [5, 4], 1.6);
+      txt(anZP, 'soglia −' + AN.k.toFixed(2) + 'σ', anZP.pad.l + anZP.pw - 6, Math.min(anZP.pad.t + anZP.ph - 4, anZP.Y(-AN.k) + 13), C('--bad'), 'right');
+    });
+
+    setT('anCaught', S.caught + ' / 3');
+    setT('anFa', String(S.fa.length));
+    $('bsAnC').className = 'bigstat ' + (S.caught === 3 ? 'good' : S.caught === 2 ? 'warn' : 'bad');
+    $('bsAnF').className = 'bigstat ' + (S.fa.length === 0 ? 'good' : S.fa.length <= 2 ? 'warn' : 'bad');
+    var fl = '';
+    AN_FAULTS.forEach(function (f, i) {
+      var r = S.faults[i], cls = r.delay !== null ? 'hit' : r.coinc ? 'luck' : 'miss';
+      var st = r.delay !== null ? 'catturato dopo ' + r.delay + ' s' : r.coinc ? 'mancato — solo allarme da rumore' : 'mancato';
+      fl += '<div class="fr ' + cls + '"><span>' + f.name + '</span><span class="st">' + st + '</span></div>';
+    });
+    $('anFaults').innerHTML = fl;
+
+    var faInPit = S.fa.filter(function (e) { return e[1] > 1400 && e[0] < 1680; }).length;
+    var faInPush = S.fa.filter(function (e) { return e[1] > 700 && e[0] < 1010; }).length;
+    var h = '<p class="small mb0">';
+    if (S.caught === 3 && S.fa.length === 0) h += '<b style="color:var(--good)">Tutti e tre, nessun falso allarme, su questa sessione.</b> Ora premi <b>Nuova sessione</b> prima di crederci.';
+    else {
+      h += '<b>' + S.caught + ' guasti su 3, ' + S.fa.length + (S.fa.length === 1 ? ' falso allarme' : ' falsi allarmi') + '</b> — circa ' + (S.fa.length / (AN_T / 3600)).toFixed(0) + ' all’ora. ';
+      if (AN.mode === 'trail' && S.faults[2].delay === null) h += 'Il micro-cortocircuito sfugge perché una finestra mobile di ' + AN.W + ' s deriva insieme a lui: rispetto al proprio passato recente, la cella sembra sempre normale. ';
+      if (faInPit) h += 'Il pit stop causa ' + faInPit + (faInPit > 1 ? ' falsi allarmi' : ' falso allarme') + ': a carico zero la dispersione della finestra crolla, così il normale abbassamento della cella fredda quando il carico ritorna sembra estremo. ';
+      if (faInPush) h += 'Il giro di qualifica ne provoca ' + faInPush + ': ' + (AN.mode === 'frozen'
+        ? 'per un riferimento fisso, un cambiamento sano delle condizioni operative sembra esattamente un guasto. '
+        : 'quando il profilo di carico cambia, il passato recente è una cattiva guida per il presente. ');
+      if (AN.m === 1 && S.fa.length > 3) h += 'Richiedere che l’allarme persista per qualche secondo elimina gran parte degli allarmi da rumore su singolo campione — al prezzo di perdere i cali più brevi del connettore. ';
+    }
+    h += '</p>';
+    $('anNote').innerHTML = h;
+  }
+  function anSearch() {
+    var Ws = [10, 20, 30, 45, 60, 90, 120, 180, 240, 300], Ks = [2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7], Ms = [1, 2, 3, 4, 6, 8];
+    var all = [];
+    ['trail', 'frozen'].forEach(function (mode) {
+      (mode === 'frozen' ? [60] : Ws).forEach(function (W) {
+        Ks.forEach(function (k) {
+          Ms.forEach(function (m) {
+            var d = anDetect(AN.x, W, k, m, mode), s = anScore(d.al, anDetect(AN.xc, W, k - 0.5, m, mode).al);
+            var dl = 0; s.faults.forEach(function (f) { if (f.delay !== null) dl += f.delay; });
+            all.push({ mode: mode, W: W, k: k, m: m, c: s.caught, fa: s.fa.length, dl: dl });
+          });
+        });
+      });
+    });
+    var rows = [];
+    [0, 1, 2, 4].forEach(function (lim) {
+      var best = null;
+      all.forEach(function (a) {
+        if (a.fa > lim) return;
+        if (!best || a.c > best.c || (a.c === best.c && (a.fa < best.fa || (a.fa === best.fa && a.dl < best.dl)))) best = a;
+      });
+      rows.push({ lim: lim, b: best });
+    });
+    AN.search = { rows: rows, n: all.length, seed: AN.seed };
+    drawSearch();
+  }
+  function drawSearch() {
+    var S = AN.search; if (!S) return;
+    var h = S.seed !== AN.seed ? '<p class="small mt1 mb0" style="color:var(--warn)"><b>Questa tabella è stata tarata sulla sessione ' + S.seed +
+      '.</b> Ora stai guardando la sessione ' + AN.seed + ' — confronta il risultato in tempo reale qui sopra con quanto prometteva la tabella, oppure ripeti la ricerca.</p>' : '';
+    h += '<div class="tablewrap mt1"><table class="pareto"><thead><tr><th>Falsi allarmi ammessi</th><th class="num">Massimo di guasti catturati</th><th>Impostazione</th><th class="num">Falsi allarmi</th><th></th></tr></thead><tbody>';
+    S.rows.forEach(function (r, i) {
+      var b = r.b;
+      if (i > 0 && b === S.rows[i - 1].b) return;
+      h += '<tr><td>' + (r.lim === 0 ? 'nessuno' : 'fino a ' + r.lim) + '</td><td class="num">' + (b ? b.c + ' / 3' : '—') + '</td><td>' +
+        (b ? (b.mode === 'frozen' ? 'riferimento fisso' : 'mobile ' + b.W + ' s') + ', ' + b.k + 'σ, persistenza ' + b.m + ' s' : '—') +
+        '</td><td class="num">' + (b ? b.fa : '—') + '</td><td>' + (b ? '<button class="btn sm" data-apply="' + i + '">Applica</button>' : '') + '</td></tr>';
+    });
+    h += '</tbody></table></div><p class="small muted mt1 mb0">' + S.n + ' impostazioni valutate sulla sessione ' + S.seed +
+      '. Contano come catture solo gli allarmi causati da un guasto. Questa tabella è stata tarata sugli stessi dati su cui viene riportata — applica una riga, poi premi <b>Nuova sessione</b> per vedere se generalizza.</p>';
+    $('anSearchOut').innerHTML = h;
+    AI.qsa('button[data-apply]', $('anSearchOut')).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var b = S.rows[parseInt(btn.getAttribute('data-apply'), 10)].b;
+        anModeSeg.pick(b.mode);
+        if (b.mode === 'trail') anWR.set(b.W);
+        anKR.set(b.k); anMR.set(b.m);
+      });
+    });
+  }
+  var anModeSeg, anWR, anKR, anMR;
+
+  /* ================================================ 15.7 authored chooser */
+  var DS = [
+    ['Il pattern sta in una forma d’onda grezza ad alta frequenza', 'NVH, acustica, pressione di combustione, video — forme che nessuno sa scrivere come formula.', 'deep', 2],
+    ['Decine di migliaia di sequenze etichettate, o più', 'Oppure un archivio non etichettato molto grande su cui fare pre-addestramento.', 'deep', 2],
+    ['Molti canali interagiscono su lunghi intervalli di tempo', 'La risposta dipende da come decine di segnali sono evoluti insieme nell’arco di minuti, non da pochi numeri riassuntivi.', 'deep', 1],
+    ['La fisica ti dice già quali feature contano', 'Ordini, energie in banda, temperature, tassi di variazione, residui rispetto a un modello.', 'gbm', 2],
+    ['Meno di qualche migliaio di eventi etichettati', 'Tipico per i guasti, che per progetto sono rari.', 'gbm', 2],
+    ['Le singole previsioni vanno spiegate', 'A un ingegnere, a un collaudatore o a un ente di certificazione.', 'gbm', 1],
+    ['Deve girare su una ECU con vincoli stretti di memoria e tempi', 'Piccolo, deterministico ed economico da verificare. (Anche le CNN piccole possono starci; i transformer raramente.)', 'gbm', 1]
+  ];
+  function drawDs() {
+    var host = $('dsList');
+    if (!host.innerHTML) {
+      var h = '';
+      DS.forEach(function (r, i) {
+        h += '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b><span class="sub">' + r[1] + '</span></span></label>';
+      });
+      host.innerHTML = h;
+      host.addEventListener('change', drawDs);
+    }
+    var deep = 0, gbm = 0, any = false;
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      if (!cb.checked) return;
+      any = true;
+      var r = DS[parseInt(cb.getAttribute('data-i'), 10)];
+      if (r[2] === 'deep') deep += r[3]; else gbm += r[3];
+    });
+    var v = $('dsVerdict');
+    if (!any) { v.className = 'verdict info'; v.innerHTML = '<span class="lvl">Spunta ciò che è vero</span>Il suggerimento si aggiorna man mano.'; }
+    else if (deep >= gbm + 2) { v.className = 'verdict ok'; v.innerHTML = '<span class="lvl">Vale la pena provare un modello sequenziale</span>Costruisci comunque prima la baseline con feature e boosting, su uno split walk-forward. Se il modello deep non la batte nettamente, hai avuto la tua risposta a basso costo.'; }
+    else if (gbm >= deep + 1) { v.className = 'verdict mid'; v.innerHTML = '<span class="lvl">Parti con gradient boosting su feature di finestra</span>Investi lo sforzo su feature e validazione. Riconsidera un modello sequenziale solo se la baseline si stabilizza e i dati crescono.'; }
+    else { v.className = 'verdict info'; v.innerHTML = '<span class="lvl">Davvero in equilibrio</span>Costruisci prima la baseline con boosting — è più rapida — poi metti a confronto il modello sequenziale sugli stessi fold walk-forward.'; }
+  }
+
+  /* ================================================ init */
+  window.PAGE_INIT = function () {
+    /* 15.1 */
+    acSer = new AI.Plot($('acSeries'), { pad: { l: 52, r: 14, t: 12, b: 38 } });
+    acAcfP = new AI.Plot($('acAcf'), { pad: { l: 52, r: 14, t: 10, b: 36 } });
+    AI.bindRange('acRate', function (v) { return RATES[v] + ' Hz'; }, function (v) { AC.rateIdx = v; drawAc(); });
+    AI.segmented($('acOrderSeg'), function (v) { AC.order = v; drawAc(); });
+    AI.onRedraw(drawAc);
+
+    /* 15.2a */
+    rsPlot = new AI.Plot($('rsCv'), { pad: { l: 46, r: 14, t: 14, b: 40 } });
+    AI.segmented($('rsRateSeg'), function (v) { RS.fs = parseInt(v, 10); setT('rsRateName', v + ' Hz'); drawRs(); });
+    AI.segmented($('rsMethSeg'), function (v) { RS.meth = v; drawRs(); });
+    AI.onRedraw(drawRs); drawRs();
+
+    /* 15.2b */
+    fuPlot = new AI.Plot($('fuCv'), { pad: { l: 46, r: 14, t: 12, b: 38 } });
+    fuErr = new AI.Plot($('fuErrCv'), { pad: { l: 46, r: 14, t: 10, b: 36 } });
+    AI.bindRange('fuLat', function (v) { return v + ' ms'; }, function (v) { FU.lat = v / 1000; fuUpdate(); });
+    AI.bindRange('fuNoise', function (v) { return v.toFixed(2) + ' m/s'; }, function (v) { FU.noise = v; fuUpdate(); });
+    AI.bindRange('fuTrust', function (v) { return v === 0 ? 'bilanciato' : (v > 0 ? 'GPS ×' : 'accel. ×') + Math.pow(10, Math.abs(v)).toFixed(Math.abs(v) < 1 ? 1 : 0); },
+      function (v) { FU.trust = v; fuUpdate(); });
+    AI.on($('fuComp'), 'change', function () { FU.comp = $('fuComp').checked; fuUpdate(); });
+    AI.segmented($('fuZoomSeg'), function (v) { FU.zoom = v; drawFu(); });
+    AI.onRedraw(drawFu);
+
+    /* 15.3 */
+    vbSigP = new AI.Plot($('vbSig'), { pad: { l: 46, r: 14, t: 10, b: 36 } });
+    vbSpecP = new AI.Plot($('vbSpec'), { pad: { l: 46, r: 14, t: 12, b: 38 } });
+    vbFeatP = new AI.Plot($('vbFeat'), { pad: { l: 46, r: 14, t: 12, b: 38 } });
+    AI.bindRange('vbN', function (v) { return VB_NS[v] + ' campioni'; }, function (v) { VB.NIdx = v; drawVb(); });
+    AI.bindRange('vbPos', function (v) { return v.toFixed(1) + ' s'; }, function (v) { VB.pos = v; drawVb(); });
+    AI.onRedraw(drawVb);
+
+    /* 15.4 */
+    fcPlot = new AI.Plot($('fcCv'), { pad: { l: 50, r: 14, t: 14, b: 40 } });
+    AI.bindRange('fcH', function (v) { return v + ' ' + FC_SERIES[FC.ser].step; }, function (v) { FC.h = v; drawFc(); });
+    AI.bindRange('fcP', function (v) { return v; }, function (v) { FC.p = v; drawFc(); });
+    AI.segmented($('fcSerSeg'), function (v) {
+      FC.ser = v;
+      setT('fcHOut', FC.h + ' ' + FC_SERIES[v].step);
+      drawFc();
+    });
+    AI.onRedraw(drawFc);
+
+    /* 15.5 */
+    lkPlot = new AI.Plot($('lkCv'), { pad: { l: 46, r: 14, t: 12, b: 38 } });
+    lkFoldP = new AI.Plot($('lkFold'), { pad: { l: 46, r: 14, t: 6, b: 8 } });
+    var lkReady = false;
+    AI.bindRange('lkRho', function (v) {
+      var hl = Math.log(0.5) / Math.log(LK_RHOS[v]);
+      return Math.round(hl) + ' eventi';
+    }, function (v) { LK.rhoIdx = v; if (lkReady) lkUpdate(); });
+    AI.bindRange('lkK', function (v) { return v; }, function (v) { LK.k = v; if (lkReady) { lkRun(); drawLk(); } });
+    AI.segmented($('lkSchemeSeg'), function (v) { LK.scheme = v; drawLk(); });
+    AI.on($('lkNew'), 'click', function () { LK.seed++; lkUpdate(); });
+    lkReady = true;
+    AI.onRedraw(drawLk);
+    lkUpdate();
+
+    /* 15.6 */
+    anPlot = new AI.Plot($('anCv'), { pad: { l: 46, r: 14, t: 12, b: 38 } });
+    anZP = new AI.Plot($('anZ'), { pad: { l: 46, r: 14, t: 10, b: 36 } });
+    anGen();
+    var anReady = false;
+    anWR = AI.bindRange('anW', function (v) { return v + ' s'; }, function (v) { AN.W = v; if (anReady) anUpdate(); });
+    anKR = AI.bindRange('anK', function (v) { return v.toFixed(2) + ' σ'; }, function (v) { AN.k = v; if (anReady) anUpdate(); });
+    anMR = AI.bindRange('anM', function (v) { return v + ' s'; }, function (v) { AN.m = v; if (anReady) anUpdate(); });
+    anModeSeg = AI.segmented($('anModeSeg'), function (v) {
+      AN.mode = v;
+      $('anWWrap').style.opacity = v === 'frozen' ? '0.45' : '1';
+      anUpdate();
+    });
+    AI.on($('anNew'), 'click', function () { AN.seed++; anGen(); anUpdate(); drawSearch(); });
+    AI.on($('anSearch'), 'click', anSearch);
+    anReady = true;
+    AI.onRedraw(drawAn);
+    anUpdate();
+
+    /* 15.7 */
+    drawDs();
+  };
+})();
+</script>
+</body>
+</html>

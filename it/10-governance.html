@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>10 · Governance e AI Act — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .tier {
+    display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: start;
+    border: 1px solid var(--line); border-left-width: 4px; border-radius: var(--r);
+    padding: 14px 16px; margin-bottom: 10px; background: var(--panel);
+  }
+  .tier .num {
+    font-family: var(--mono); font-size: 1.5rem; font-weight: 700; text-align: center;
+  }
+  .tier h3 { font-size: 1.02rem; margin-bottom: .2em; }
+  .tier p { font-size: .88rem; margin-bottom: .4em; }
+  .tier.t0 { border-left-color: var(--bad); } .tier.t0 .num { color: var(--bad); }
+  .tier.t1 { border-left-color: var(--warn); } .tier.t1 .num { color: var(--warn); }
+  .tier.t2 { border-left-color: var(--accent); } .tier.t2 .num { color: var(--accent); }
+  .tier.t3 { border-left-color: var(--good); } .tier.t3 .num { color: var(--good); }
+  .oblist li { font-size: .88rem; }
+  .datagrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px,1fr)); gap: 10px; }
+  .dcell {
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: .86rem;
+    background: var(--panel);
+  }
+  .dcell.no { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+  .dcell.cond { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+  .dcell.ok { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 30%, transparent); }
+  .dcell .v { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: 3px; }
+  .legalbox {
+    border: 2px dashed var(--warn); background: var(--warn-soft); border-radius: var(--r-lg);
+    padding: 18px 20px; margin: 1.5rem 0;
+  }
+  .legalbox .t {
+    font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--warn); display: block; margin-bottom: .5em;
+  }
+  .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 800px) { .roles { grid-template-columns: 1fr; } }
+  /* 10.6 attacks on the model */
+  .threat {
+    border: 1px solid var(--line); border-left: 4px solid var(--bad); border-radius: var(--r);
+    background: var(--panel); padding: 14px 16px; margin-bottom: 10px;
+  }
+  .threat h3 { font-size: 1.02rem; margin-bottom: .3em; }
+  .threat > p { font-size: .9rem; margin-bottom: .6em; }
+  .threat .tri { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+  .threat .tri div { font-size: .85rem; background: var(--bg-2); border-radius: 8px; padding: 9px 11px; }
+  .threat .tri b { display: block; font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); margin-bottom: 2px; }
+  @media (max-width: 800px) { .threat .tri { grid-template-columns: 1fr; } }
+  .imgrow { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+  .imgrow.four { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  @media (max-width: 560px) { .imgrow.four { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  .imgcell { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 7px; text-align: center; min-width: 0; }
+  .imgcell canvas { width: 100%; aspect-ratio: 1 / 1; height: auto; border-radius: 6px; image-rendering: pixelated; }
+  .imgcell .cap { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); display: block; margin-bottom: 5px; }
+  .imgcell .pr { font-family: var(--mono); font-size: .8rem; display: block; margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .pr.okc { color: var(--good); } .pr.badc { color: var(--bad); }
+  .plotbox canvas { width: 100%; height: 220px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .8rem; color: var(--ink-3); margin-top: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+</style>
+</head>
+<body data-page="p10">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 10 · Parte II — Progettarla</span>
+  <h1>Governance, sicurezza informatica e AI Act</h1>
+  <p class="lead">Il modulo meno amato e uno dei due o tre più importanti. Per un costruttore europeo
+  non è un adempimento da sbrigare alla fine: cambia che cosa ti è permesso costruire, che cosa devi
+  documentare mentre lo costruisci e chi firma.</p>
+</header>
+
+<main class="wrap">
+
+<div class="legalbox">
+  <span class="t">Leggi prima questo</span>
+  <p class="mb0">Non sono un avvocato e questo modulo non è una consulenza legale. È una mappa di
+  orientamento per ingegneri, aggiornata a <strong>settembre 2026</strong>, pensata per aiutarti a fare
+  le domande giuste ai colleghi dell’ufficio legale, della privacy e della compliance presto anziché tardi.
+  Il regolamento è già stato modificato una volta durante il periodo transitorio — vedi la sezione 10.3 —
+  quindi <strong>verifica ogni data e ogni obbligo con la tua funzione legale prima di agire</strong>, e
+  ricontrolla prima di ogni edizione di questo seminario.</p>
+</div>
+
+<!-- ============================================= 10.1 -->
+<section class="chapter" id="why">
+  <h2>10.1 · Perché dovrebbe interessare a un ingegnere</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h4>È normativa di prodotto</h4>
+      <p class="small mb0">L’AI Act è costruito come le norme sulla marcatura CE, non come quelle sulla
+      protezione dei dati. Se hai mai avuto a che fare con l’omologazione o con la conformità macchine, lo
+      schema ti è familiare: classificazione del rischio, documentazione tecnica, valutazione della
+      conformità, monitoraggio successivo all’immissione sul mercato, segnalazione degli incidenti. È lavoro
+      di ingegneria, e si fa <em>durante</em> lo sviluppo.</p>
+    </div>
+    <div class="card">
+      <h4>La documentazione non si recupera a posteriori</h4>
+      <p class="small mb0">Gli obblighi chiedono evidenze su governance dei dati, test, accuratezza e
+      sorveglianza umana — gli artefatti dei moduli 7 e 8. Prodotti man mano, non costano quasi nulla.
+      Ricostruiti un anno dopo per una valutazione, sono costosi e a volte impossibili.</p>
+    </div>
+    <div class="card">
+      <h4>Gran parte è comunque buona pratica</h4>
+      <p class="small mb0">Leggi gli obblighi per l’alto rischio accanto alla checklist di valutazione del
+      modulo 8: la sovrapposizione è sorprendente. Un team che valuta con onestà, registra i log come si deve
+      e mantiene un essere umano nel ciclo è già a buon punto, per ragioni che con la legge non hanno
+      nulla a che fare.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 10.2 -->
+<section class="chapter" id="tiers">
+  <h2>10.2 · Quattro livelli, e dove probabilmente ti trovi</h2>
+  <p>Il regolamento classifica in base all’<strong>uso</strong>, non alla tecnologia. Lo stesso modello può
+  essere non regolamentato in un’applicazione e ad alto rischio in un’altra — il che significa che la
+  domanda sulla classificazione spetta a chi definisce il caso d’uso, non a chi costruisce il modello.</p>
+
+  <div class="tier t0">
+    <span class="num">0</span>
+    <div>
+      <h3>Vietato</h3>
+      <p>Un breve elenco di pratiche vietate senza eccezioni, in vigore dal <strong>2 febbraio 2025</strong>.
+      Comprende il punteggio sociale, le tecniche manipolative che sfruttano le vulnerabilità, lo scraping
+      non mirato di immagini facciali, la deduzione di caratteristiche sensibili da dati biometrici e — di
+      diretto interesse per i datori di lavoro — il <strong>riconoscimento delle emozioni sul luogo di
+      lavoro</strong>, al di fuori di ristrette eccezioni per motivi di sicurezza e medici.</p>
+      <p class="small muted mb0">Il divieto di riconoscimento delle emozioni sul lavoro intercetta più idee
+      di prodotto in buona fede di quanto ci si aspetti: monitoraggio del “coinvolgimento” del conducente o
+      dell’operatore, scoring del sentiment nelle comunicazioni dei dipendenti, analisi dei colloqui.</p>
+    </div>
+  </div>
+
+  <div class="tier t1">
+    <span class="num">1</span>
+    <div>
+      <h3>Alto rischio</h3>
+      <p>Consentito, con obblighi consistenti. Due vie d’ingresso:</p>
+      <ul class="small" style="margin-bottom:.5em">
+        <li><strong>Allegato I</strong> — AI che è componente di sicurezza di un prodotto già coperto dalla
+        normativa di armonizzazione dell’Unione: veicoli, macchine, ascensori, DPI, dispositivi medici,
+        giocattoli. Per un’organizzazione di ingegneria automotive <em>è questa la via che conta</em>.</li>
+        <li><strong>Allegato III</strong> — otto settori elencati: biometria, infrastrutture critiche,
+        istruzione, <strong>occupazione</strong> (assunzione, assegnazione dei compiti, monitoraggio,
+        promozione, cessazione del rapporto), servizi privati e pubblici essenziali tra cui credito e
+        assicurazioni, attività di contrasto, migrazione e giustizia.</li>
+      </ul>
+      <p class="small mb0">Nota che l’uso ordinario dell’AI nelle risorse umane — screening dei CV,
+      ranking dei candidati, assegnazione del lavoro — ricade nell’allegato III. È il modo più comune in cui
+      un costruttore si ritrova con un sistema ad alto rischio senza volerlo.</p>
+    </div>
+  </div>
+
+  <div class="tier t2">
+    <span class="num">2</span>
+    <div>
+      <h3>Obblighi di trasparenza</h3>
+      <p>Sistemi che interagiscono con le persone o generano contenuti. Le persone devono essere informate
+      che stanno interagendo con un’AI; audio, immagini, video e testo sintetici devono essere marcati in un
+      formato leggibile da macchina; i deep fake devono essere dichiarati. Questi obblighi si applicano dal
+      <strong>2 agosto 2026</strong>, con una data successiva per i sistemi già presenti sul mercato.</p>
+      <p class="small muted mb0">È il livello in cui ricadono la maggior parte degli assistenti chat interni
+      e degli strumenti per generare contenuti. Gli obblighi sono leggeri, ma sono obblighi.</p>
+    </div>
+  </div>
+
+  <div class="tier t3">
+    <span class="num">3</span>
+    <div>
+      <h3>Rischio minimo</h3>
+      <p class="mb0">Tutto il resto — manutenzione predittiva, rilevamento dei difetti sui pezzi,
+      previsione della domanda, modelli surrogati per la simulazione, ricerca documentale. <strong>Nessun
+      obbligo specifico ai sensi del regolamento</strong> oltre al dovere generale di alfabetizzazione in
+      materia di IA. È qui che si colloca la grande maggioranza dell’AI industriale, e dirlo chiaramente è
+      utile: il regolamento non è un onere generalizzato sull’uso del machine learning in ingegneria.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">A parte: i modelli di IA per finalità generali</span>
+    <p class="mb0">I fornitori di modelli per finalità generali (i laboratori di frontiera) hanno obblighi
+    propri, applicabili dal <strong>2 agosto 2025</strong>: documentazione tecnica, una politica sul diritto
+    d’autore, una sintesi pubblica dei dati di addestramento e requisiti ulteriori per i modelli con rischio
+    sistemico. Quasi certamente non sei un fornitore di GPAI — ma dovresti <strong>chiedere ai tuoi vendor
+    la loro documentazione</strong>, perché ti servirà per le tue valutazioni.</p>
+  </div>
+</section>
+
+<!-- ============================================= 10.3 -->
+<section class="chapter" id="dates">
+  <h2>10.3 · La tabella di marcia, come modificata</h2>
+  <p>Il regolamento è entrato in vigore il 1° agosto 2024 e si applica per fasi. Nel 2026 le scadenze per
+  l’alto rischio sono state <strong>rinviate</strong> dal Digital AI Omnibus — un cambiamento davvero
+  significativo, e un buon esempio del perché non dovresti costruire un piano di compliance partendo da
+  slide più vecchie di qualche mese.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Date di applicazione</h3><span class="tag">Aggiornato a settembre 2026</span></div>
+    <div id="dateHost"></div>
+    <p class="srcnote small muted mt1 mb0">Il Digital AI Omnibus sull’AI è stato proposto dalla Commissione il
+    19 novembre 2025, concordato e firmato nel luglio 2026, ed è entrato in vigore il 27 luglio 2026. Ha
+    rinviato la scadenza per l’alto rischio dell’allegato III dal 2 agosto 2026 al 2 dicembre 2027 e quella
+    dell’allegato I al 2 agosto 2028, lasciando invariato il calendario originale degli obblighi di
+    trasparenza dell’articolo 50. Ha introdotto anche altre modifiche mirate — verifica il testo consolidato
+    con la tua funzione legale invece di affidarti a questa sintesi.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Che cosa significa il rinvio, e che cosa no</span>
+    <p class="mb0">Fa guadagnare tempo per gli obblighi più pesanti. <strong>Non</strong> rinvia i divieti
+    (in vigore da febbraio 2025), il dovere di alfabetizzazione in materia di IA (stessa data), gli obblighi
+    per i modelli GPAI (agosto 2025) né le regole di trasparenza (agosto 2026). E per tutto ciò che sarà ad
+    alto rischio, il tempo in più serve solo se viene speso per costruire la documentazione e le pratiche di
+    valutazione richieste dagli obblighi — che, guarda caso, sono i moduli 7 e 8.</p>
+  </div>
+</section>
+
+<!-- ============================================= 10.4 -->
+<section class="chapter" id="classify">
+  <h2>10.4 · Classifica un caso d’uso</h2>
+  <p>Rispondi per un caso d’uso specifico. Il risultato è un orientamento, non una determinazione.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Orientamento sul livello di rischio</h3><span class="tag try">Prova “Screening dei CV”, poi “Rilevamento difetti”</span></div>
+    <div class="btnrow">
+      <span class="small muted">Carica un esempio:</span>
+      <button class="btn sm" data-ex="cv">Screening dei CV</button>
+      <button class="btn sm" data-ex="defect">Rilevamento difetti sui pezzi</button>
+      <button class="btn sm" data-ex="adas">Funzione di assistenza alla guida</button>
+      <button class="btn sm" data-ex="chat">Assistente interno per documenti</button>
+      <button class="btn sm" data-ex="emotion">Monitoraggio dell’attenzione dell’operatore</button>
+      <button class="btn sm" id="qClear">Azzera</button>
+    </div>
+    <div class="split-wide">
+      <div id="qHost"></div>
+      <div>
+        <div class="verdict info" id="clsVerdict"><span class="lvl">Rispondi alle domande</span>
+        Qui comparirà un orientamento su livello di rischio, ruolo e obblighi.</div>
+        <div class="card mt1" id="clsOb" style="min-height:280px"></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Fornitore o deployer — la distinzione che decide il tuo carico di lavoro</h3>
+  <div class="roles">
+    <div class="card">
+      <h4 style="color:var(--warn)">Fornitore</h4>
+      <p class="small">Sviluppi un sistema di IA e lo immetti sul mercato o lo metti in servizio con il tuo
+      nome — <em>oppure</em> metti il tuo nome sul sistema di qualcun altro, o vi apporti una modifica
+      sostanziale, o ne cambi la finalità prevista rendendolo ad alto rischio.</p>
+      <p class="small mb0"><b>Per un sistema di IA ad alto rischio significa:</b> sistema di gestione dei
+      rischi, governance dei dati, documentazione tecnica, registrazione automatica degli eventi (log),
+      istruzioni per i deployer, progettazione della sorveglianza umana, requisiti di accuratezza, robustezza
+      e cibersicurezza, un sistema di gestione della qualità, valutazione della conformità, marcatura CE,
+      registrazione, monitoraggio successivo all’immissione sul mercato e segnalazione degli incidenti
+      gravi.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent)">Deployer</h4>
+      <p class="small">Usi un sistema di IA sotto la tua autorità, nell’ambito della tua attività
+      professionale. È ciò che la maggior parte delle aziende è, la maggior parte del tempo.</p>
+      <p class="small mb0"><b>Per un sistema di IA ad alto rischio significa:</b> usarlo secondo le
+      istruzioni del fornitore, affidare la sorveglianza umana a persone competenti con l’autorità di
+      intervenire, garantire che i dati di input siano pertinenti e rappresentativi, monitorarne il
+      funzionamento e segnalare gli incidenti gravi, conservare i log e informare i lavoratori interessati e i
+      loro rappresentanti prima della messa in uso. Più leggeri degli obblighi del fornitore — ma non
+      trascurabili.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">La trappola</span>
+    <p class="mb0">Fare fine-tuning del modello di un vendor sui tuoi dati, o integrarlo nel tuo prodotto e
+    metterci il tuo nome, può trasformarti da deployer in <strong>fornitore</strong> — e con questo passa a
+    te l’intero onere di documentazione e conformità. Stabilisci da che parte di quella linea si trova ogni
+    progetto <em>prima</em> che l’architettura sia fissata, perché in quel momento la conversazione costa
+    molto meno.</p>
+  </div>
+</section>
+
+<!-- ============================================= 10.5 -->
+<section class="chapter" id="prompt">
+  <h2>10.5 · Che cosa si può mettere in un prompt</h2>
+  <p>La domanda di governance più frequente nella realtà, posta centinaia di volte al giorno in qualunque
+  grande azienda, e di solito risolta tirando a indovinare. Scegli che cosa vuoi inviare e dove.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Dati nel prompt: orientamento</h3><span class="tag try">Confronta uno strumento consumer con un modello on-premise</span></div>
+    <div class="split">
+      <div>
+        <h4>Che cosa c’è nel prompt</h4>
+        <div class="chips" id="dataChips"></div>
+        <h4 class="mt1">Dove va a finire</h4>
+        <div class="segmented" id="destSeg">
+          <button data-v="0" class="on">Strumento AI consumer gratuito</button>
+          <button data-v="1">Account enterprise, clausole di non addestramento</button>
+          <button data-v="2">Servizio gestito ospitato nell’UE, con DPA</button>
+          <button data-v="3">Self-hosted, sul nostro hardware</button>
+        </div>
+        <div class="card mt1" id="destNote" style="min-height:130px"></div>
+      </div>
+      <div>
+        <div class="datagrid" id="dataOut"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">La vera esposizione è la shadow AI</span>
+    <p class="mb0">Mentre il comitato di governance delibera, le persone incollano quello che serve loro in
+    qualunque strumento abbiano aperto, perché fa risparmiare un’ora. Una policy restrittiva senza
+    un’alternativa autorizzata non lo impedisce — garantisce solo che avvenga dove non puoi vederlo.
+    <strong>Mettere a disposizione uno strumento approvato abbastanza buono è un controllo più efficace di
+    qualsiasi documento di policy.</strong></p>
+  </div>
+</section>
+
+<!-- ============================================= 10.6 -->
+<section class="chapter" id="attacks">
+  <h2>10.6 · Attacchi al modello stesso</h2>
+  <p>La sezione 10.5 riguardava che cosa <em>tu</em> invii a un modello. Questa sezione riguarda che cosa
+  qualcun altro può fare <em>al</em> modello. Un sistema di machine learning ha una superficie d’attacco che
+  la sicurezza IT tradizionale non guarda, perché non viene violato nulla: l’attaccante modifica i dati di
+  addestramento, ti fornisce un file di pesi, fa moltissime domande alla tua API, o semplicemente mostra al
+  modello un input scelto con cura. Ciascuno di questi attacchi funziona su un sistema perfettamente
+  aggiornato e configurato correttamente.</p>
+
+  <div class="callout">
+    <span class="ctitle">Già trattato: la prompt injection</span>
+    <p class="mb0">La versione per modelli linguistici di “un input confezionato ad arte fa comportare male il
+    modello” è la prompt injection — testo non fidato che il modello tratta come istruzioni. La tratta il
+    modulo 9.4, compreso il motivo per cui è un problema irrisolto e come progettare per conviverci. Tutto
+    ciò che segue vale per <em>qualsiasi</em> modello addestrato: un classificatore di visione, un surrogato
+    di regressione o un LLM.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Attacco</th><th>Da dove entra</th><th>Che cosa ottiene l’attaccante</th></tr></thead>
+      <tbody>
+        <tr><td><b>Esempio avversario</b></td><td>L’input, a run time</td><td>Un output sbagliato a comando</td></tr>
+        <tr><td><b>Avvelenamento / backdoor</b></td><td>I dati di addestramento</td><td>Un modello che supera ogni test e si comporta male a un segnale</td></tr>
+        <tr><td><b>Estrazione del modello</b></td><td>L’API di interrogazione</td><td>Una copia funzionante del tuo modello</td></tr>
+        <tr><td><b>Membership inference / leakage</b></td><td>L’API di interrogazione</td><td>Informazioni sui tuoi dati di addestramento, o loro frammenti alla lettera</td></tr>
+        <tr><td><b>Supply chain</b></td><td>Pesi, dataset e pacchetti scaricati</td><td>Esecuzione di codice sulle tue macchine, o uno qualsiasi dei punti sopra, preinstallato</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="mt2">Esempi avversari</h3>
+  <div class="threat">
+    <p>Una modifica piccola e scelta deliberatamente di un input, che ribalta l’output del modello mentre un
+    essere umano non vede alcuna differenza significativa. Non è rumore casuale: l’attaccante usa il gradiente
+    del modello stesso per trovare la direzione in cui l’output è più sensibile, e spinge ogni valore
+    dell’input di un passo minuscolo in quella direzione. In un input ad alta dimensionalità come
+    un’immagine di una telecamera, migliaia di spinte minuscole si sommano in una grande variazione
+    dell’output. Esistono versioni fisiche: alcuni ricercatori hanno fatto leggere dei segnali di stop come
+    limiti di velocità con pochi adesivi stampati, e hanno deviato un sistema di mantenimento della corsia di
+    serie con piccoli segni sull’asfalto.</p>
+    <div class="tri">
+      <div><b>Chi lo fa realisticamente</b>Oggi soprattutto ricercatori e red team. Nel mondo reale: chi
+      vuole eludere filtri antispam, antimalware e di moderazione dei contenuti. Per un veicolo, un individuo
+      motivato con tempo a disposizione e accesso all’auto o al modello.</div>
+      <div><b>Quanto ti costa</b>Un errore di classificazione proprio nel momento che conta — per la
+      percezione è una questione di sicurezza funzionale, non solo di sicurezza informatica — e un titolo di
+      giornale molto citabile.</div>
+      <div><b>Difesa pratica</b>Non lasciare mai che un solo modello sia l’unica barriera: controlli di
+      plausibilità, fusione sensoriale, informazioni a priori dalle mappe. Testa con strumenti di attacco come
+      parte della verifica. L’adversarial training aiuta contro l’attacco per cui hai addestrato, al prezzo di
+      accuratezza e calcolo (provalo qui sotto).</div>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Inganna un classificatore di segnali</h3><span class="tag try">Premi “ε minimo che lo ribalta”</span></div>
+    <p class="small">Un classificatore a regressione logistica, addestrato in diretta nel tuo browser su 300
+    immagini sintetiche 12×12 di frecce di svolta a sinistra e a destra (rumore, luminosità e posizione
+    variati con seed fisso), testato su altre 100. L’attacco è FGSM, il fast gradient sign method: calcoli il
+    gradiente della loss rispetto a ogni pixel, poi sposti ogni pixel di ε nella direzione del segno di quel
+    gradiente — la direzione che <em>aumenta</em> la loss. I pixel sono nell’intervallo da 0 a 1.</p>
+    <div class="split">
+      <div>
+        <div class="btnrow">
+          <div class="segmented" id="advModelSeg">
+            <button data-v="std" class="on">Addestramento standard</button>
+            <button data-v="adv">Adversarial training</button>
+          </div>
+        </div>
+        <div class="btnrow">
+          <div class="segmented" id="advKindSeg">
+            <button data-v="fgsm" class="on">Segno del gradiente (FGSM)</button>
+            <button data-v="rand">Rumore casuale ±, stessa ampiezza</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Budget di perturbazione ε (variazione max per pixel)</span><span class="val" id="advEpsOut"></span></div>
+          <input type="range" id="advEps" min="0" max="0.25" step="0.005" value="0">
+        </div>
+        <div class="btnrow">
+          <button class="btn sm" id="advPrev">← Immagine precedente</button>
+          <button class="btn sm" id="advNext">Immagine successiva →</button>
+          <button class="btn sm primary" id="advMin">ε minimo che lo ribalta</button>
+        </div>
+        <div class="imgrow">
+          <div class="imgcell"><span class="cap">Originale</span><canvas id="advOrig" width="120" height="120"></canvas><span class="pr" id="advOrigP"></span></div>
+          <div class="imgcell"><span class="cap">Variazione ×(1/ε)</span><canvas id="advDelta" width="120" height="120"></canvas><span class="pr muted" id="advDeltaP"></span></div>
+          <div class="imgcell"><span class="cap">Perturbata</span><canvas id="advPert" width="120" height="120"></canvas><span class="pr" id="advPertP"></span></div>
+        </div>
+      </div>
+      <div>
+        <div class="metrics" id="advStats"></div>
+        <div class="plotbox mt1"><canvas id="advPlot" width="420" height="220"></canvas></div>
+        <div class="legend"><span><i style="background:var(--bad)"></i>attacco con segno del gradiente</span><span><i style="background:var(--ink-3)"></i>rumore casuale, stesso ε</span><span><i style="background:var(--accent)"></i>ε attuale</span></div>
+        <div class="card mt1 small" id="advNote" style="min-height:120px"></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Avvelenamento dei dati e backdoor</h3>
+  <div class="threat">
+    <p>L’attaccante modifica i dati di addestramento anziché l’input. La versione grezza — etichettare male
+    molti dati — degrada l’accuratezza e viene notata. La versione pericolosa è una <strong>backdoor</strong>:
+    un piccolo numero di esempi di addestramento porta un pattern di innesco (trigger: un adesivo, una macchia
+    di pixel, una frase, un valore strano in un campo inutilizzato) e l’etichetta scelta dall’attaccante. Il
+    modello impara due cose: il compito reale e “trigger significa questa risposta”. Poiché il tuo test set
+    non contiene trigger, ogni valutazione del modulo 8 risulta pulita.</p>
+    <div class="tri">
+      <div><b>Chi lo fa realisticamente</b>Un insider; un fornitore di annotazioni o di dati compromesso;
+      chiunque possa scrivere su una fonte da cui fai scraping. Alcuni ricercatori hanno mostrato che con circa
+      $60 di domini scaduti avrebbero potuto controllare una piccola frazione di due grandi dataset pubblici di
+      immagini.</div>
+      <div><b>Quanto ti costa</b>Un modello che sbaglia esattamente quando lo vuole l’attaccante, e supera ogni
+      test che possiedi. Quando erediti un modello pre-addestrato, erediti i suoi dati di addestramento e
+      qualunque cosa contenessero.</div>
+      <div><b>Difesa pratica</b>Provenienza e controllo degli accessi sui dati di addestramento, versionati e
+      con hash (modulo 7). Un piccolo insieme di dati verificato in modo indipendente. Controlli di coerenza
+      delle etichette (provane uno qui sotto). Preferisci modelli i cui dati di addestramento sai
+      identificare.</div>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Pianta una backdoor</h3><span class="tag try">Prova 3% con un adesivo 2×2</span></div>
+    <p class="small">Stessi dati con le frecce. L’attaccante copia alcune immagini di addestramento con freccia
+    a <em>sinistra</em>, aggiunge un piccolo “adesivo” bianco nell’angolo in alto a destra e le etichetta come
+    <em>destra</em>. Il modello viene riaddestrato in diretta sull’insieme avvelenato ogni volta che sposti il
+    cursore, poi viene misurato in due modi: l’accuratezza ordinaria sulle 100 immagini di test pulite, e
+    l’<b>attack success rate</b> (tasso di successo dell’attacco) — la quota di immagini di test con freccia a
+    sinistra lette come “destra” una volta aggiunto l’adesivo.</p>
+    <div class="split">
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Immagini avvelenate aggiunte al training set di 300 immagini</span><span class="val" id="bdPctOut"></span></div>
+          <input type="range" id="bdPct" min="0" max="10" step="0.5" value="0">
+        </div>
+        <div class="btnrow">
+          <span class="small muted">Trigger</span>
+          <div class="segmented" id="bdTrigSeg">
+            <button data-v="1">1 pixel</button>
+            <button data-v="2" class="on">Adesivo 2×2</button>
+            <button data-v="3">Adesivo 3×3</button>
+          </div>
+        </div>
+        <label class="check mb0" style="margin:6px 0 12px"><input type="checkbox" id="bdDefend">
+          Difesa: prima dell’addestramento, scarta le immagini la cui etichetta viene contestata con sicurezza da un modello addestrato su 40 immagini verificate</label>
+        <div class="imgrow four">
+          <div class="imgcell"><span class="cap">Immagine di training avvelenata</span><canvas id="bdPoison" width="100" height="100"></canvas><span class="pr muted">etichettata “→”</span></div>
+          <div class="imgcell"><span class="cap">Immagine di test pulita</span><canvas id="bdClean" width="100" height="100"></canvas><span class="pr" id="bdCleanP"></span></div>
+          <div class="imgcell"><span class="cap">La stessa, con adesivo</span><canvas id="bdTrig" width="100" height="100"></canvas><span class="pr" id="bdTrigP"></span></div>
+          <div class="imgcell"><span class="cap">Pesi appresi</span><canvas id="bdW" width="100" height="100"></canvas><span class="pr muted">rosso → “destra”</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="metrics" id="bdStats"></div>
+        <div class="plotbox mt1"><canvas id="bdPlot" width="420" height="220"></canvas></div>
+        <div class="legend"><span><i style="background:var(--good)"></i>accuratezza sul test pulito</span><span><i style="background:var(--bad)"></i>tasso di successo dell’attacco</span><span><i style="background:var(--accent)"></i>impostazione attuale</span></div>
+        <div class="card mt1 small" id="bdNote" style="min-height:110px"></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Estrazione del modello, membership inference e fuga di dati</h3>
+  <div class="grid g2">
+    <div class="threat" style="border-left-color:var(--warn)">
+      <h3>Estrazione del modello (“furto”)</h3>
+      <p>Chiunque possa interrogare un modello può addestrarne una copia sulle sue risposte. Gli output con le
+      probabilità complete lo rendono più economico; con abbastanza interrogazioni funziona comunque. La copia
+      è anche un ambiente di prova: gli esempi avversari costruiti su di essa spesso si trasferiscono
+      all’originale.</p>
+      <div class="tri" style="grid-template-columns:1fr">
+        <div><b>Chi</b>Concorrenti, e chiunque abbia accesso all’API e un motivo.</div>
+        <div><b>Costo</b>La spesa di addestramento e il know-how contenuti nel modello, più un attaccante che
+        ora può preparare attacchi offline.</div>
+        <div><b>Difesa</b>Autenticazione, budget di interrogazioni e rate limit per cliente, monitoraggio delle
+        scansioni sistematiche, restituzione di etichette o punteggi arrotondati anziché probabilità complete,
+        clausole contrattuali. Dai per scontato che un modello esposto possa essere approssimato; decidi quanto
+        vale.</div>
+      </div>
+    </div>
+    <div class="threat" style="border-left-color:var(--warn)">
+      <h3>Membership inference e fuga dei dati di addestramento</h3>
+      <p>I modelli si comportano in modo misurabilmente diverso sui dati su cui sono stati addestrati — più
+      sicuri, loss più bassa — quindi un attaccante può verificare se un certo record era nel training set. I
+      modelli grandi vanno oltre e possono riprodurre alla lettera testo di addestramento: alcuni ricercatori
+      hanno estratto nomi, indirizzi e codice da modelli linguistici in produzione con normali
+      interrogazioni.</p>
+      <div class="tri" style="grid-template-columns:1fr">
+        <div><b>Chi</b>Ricercatori, utenti curiosi, controparti in un contenzioso — e colleghi che non dovrebbero vedere quei dati.</div>
+        <div><b>Costo</b>Una violazione di dati personali ai sensi del GDPR, o segreti commerciali che
+        riemergono da un modello sottoposto a fine-tuning su documenti interni, a disposizione di chiunque possa
+        usarlo.</div>
+        <div><b>Difesa</b>Non addestrare su ciò che non puoi permetterti di far trapelare. Dai al modello lo
+        stesso controllo degli accessi dei suoi dati di addestramento. I modelli in overfitting perdono più
+        informazioni, quindi regolarizza e deduplica. Preferisci un retrieval che rispetti i permessi al
+        fine-tuning su documenti riservati (sezione 10.5).</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Supply chain: pesi, dataset e pacchetti che scarichi</h3>
+  <div class="threat">
+    <p>La maggior parte dei team parte da un modello scaricato e da un dataset scaricato. Un file di modello
+    non è un dato inerte. Il diffusissimo formato Python <code>pickle</code> — dietro molti file
+    <code>.pt</code>, <code>.bin</code>, <code>.pkl</code> e <code>joblib</code> — <strong>esegue codice
+    quando viene caricato</strong>, e ricercatori di sicurezza hanno trovato su hub pubblici modelli che
+    aprono una reverse shell sulla macchina di chi li carica. Opzioni di caricamento come
+    <code>trust_remote_code=True</code> eseguono per progettazione codice preso dal repository. E i pesi stessi
+    possono contenere una backdoor proveniente dai dati avvelenati di qualcun altro.</p>
+    <div class="tri">
+      <div><b>Chi lo fa realisticamente</b>Attaccanti opportunisti che caricano file su hub pubblici e indici
+      di pacchetti, anche con nomi typosquatted. Questo non è teorico e non richiede un avversario
+      esperto.</div>
+      <div><b>Quanto ti costa</b>Esecuzione di codice arbitrario su una workstation di sviluppo o su un server
+      di addestramento — con accesso a tutto ciò che quella macchina può raggiungere.</div>
+      <div><b>Difesa pratica</b>Preferisci <code>safetensors</code> o ONNX a pickle; carica con
+      <code>weights_only=True</code>; mai <code>trust_remote_code</code> senza aver letto il codice. Un model
+      registry interno con approvazione, hash fissati e scansione. Registra che cosa hai usato, come faresti con
+      una software bill of materials, e fai verificare la licenza (sezione 10.7).</div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Dove si colloca nel tuo processo</span>
+    <p class="mb0">Per un sistema di IA ad alto rischio, l’articolo 15 dell’AI Act nomina esplicitamente
+    questi attacchi: i fornitori devono affrontare, ove opportuno, l’avvelenamento dei dati, l’avvelenamento
+    dei modelli, gli esempi antagonistici e gli attacchi alla riservatezza. Per tutto ciò che sta in un
+    veicolo, la collocazione naturale è il processo di cybersecurity che gestisci già — l’analisi delle
+    minacce secondo ISO/SAE 21434 e UN R155 — con i casi di input avversari considerati anche nell’argomento
+    di sicurezza (safety argument). Aggiungi il modello, i suoi dati di addestramento e il suo file di pesi
+    all’elenco degli asset. Quel solo passo porta gran parte di questa sezione sulla scrivania di
+    qualcuno.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Mantieni la proporzione</span>
+    <p class="mb0">Per la maggior parte del machine learning industriale interno — un classificatore di difetti
+    su una linea chiusa, un surrogato di simulazione — le minacce realistiche sono quelle noiose: un file
+    malevolo da un hub pubblico e dati riservati che trapelano da un modello condiviso troppo ampiamente.
+    Sistema prima queste due. La robustezza agli attacchi avversari diventa un requisito di ingegneria di primo
+    piano quando il modello vede input che un esterno può influenzare, ed è critica quando quel modello fa
+    parte di una funzione di sicurezza.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Esegui il primo laboratorio con “ε minimo” su tre o quattro immagini. Il punto da far passare:
+      l’immagine perturbata è ancora una freccia a sinistra per tutti in sala, solo un po’ più rumorosa. Sii
+      onesto sul fatto che a 12×12 la variazione si vede; è il prezzo di un giocattolo calcolabile in diretta.
+      Poi passa al rumore casuale con lo stesso ε e mostra che non fa nulla. L’attacco funziona perché è
+      mirato, non perché è grande.</li>
+      <li>Spiega perché la dimensione conta: per un modello lineare la variazione del punteggio è ε per la
+      somma dei valori assoluti dei pesi (un po’ meno dove i pixel saturano a 0 o 1) — tante variazioni
+      minuscole, tutte orientate nello stesso verso — e in alta dimensionalità ce ne sono molte di più da
+      sommare. Su 144 pixel serve ε ≈ 0.1. Su un’immagine reale di una telecamera con centinaia di migliaia di
+      valori, in genere bastano pochi livelli di grigio su 255.</li>
+      <li>Nel laboratorio sulla backdoor, fai notare che l’accuratezza pulita non si muove mai. È tutto lì il
+      problema: nessun test che hai già può rilevarla, ed è per questo che le difese riguardano la
+      provenienza, non la valutazione. Poi spunta la difesa e di’ che cosa non intercetta: un attacco
+      “clean-label”, le cui immagini avvelenate sono etichettate correttamente, passerebbe senza
+      problemi.</li>
+      <li>Se in sala ci sono persone della sicurezza IT, la scheda sulla supply chain è quella che
+      riconosceranno. Chiedi se il model registry rientra nel perimetro dei loro controlli esistenti sulla
+      supply chain del software. Di solito no.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 10.7 -->
+<section class="chapter" id="ip">
+  <h2>10.7 · Proprietà intellettuale, in breve e con cautela</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Input — su che cosa sono stati addestrati i modelli</h4>
+      <p class="small">Diverse grandi cause sull’uso di materiale protetto da diritto d’autore
+      nell’addestramento sono ancora aperte in varie giurisdizioni, e gli esiti differiscono. L’UE ha un quadro
+      per il text and data mining con possibilità di opt-out per i titolari dei diritti, e l’AI Act impone ai
+      fornitori di modelli GPAI di avere una politica sul diritto d’autore e di pubblicare una sintesi dei dati
+      di addestramento.</p>
+      <p class="small mb0"><b>Che cosa significa per te come utente:</b> preferisci vendor che offrono una
+      manleva per la proprietà intellettuale, e leggi che cosa copre davvero. Diversi grandi vendor ora la
+      offrono.</p>
+    </div>
+    <div class="card">
+      <h4>Output — di chi è ciò che ne esce</h4>
+      <p class="small">In linea generale, il diritto d’autore protegge l’espressione creativa umana. Un output
+      generato interamente da una macchina può non godere di alcuna tutela in diverse giurisdizioni, anche
+      secondo la prassi dell’UE e degli USA — il che significa che <em>potresti non riuscire a impedire ad
+      altri di usarlo</em>. Un contributo autoriale umano significativo cambia l’analisi.</p>
+      <p class="small mb0"><b>Conseguenza pratica:</b> non dare per scontato che il materiale generato con
+      l’AI sia tuo da proteggere. Per tutto ciò che conta commercialmente — un design, un asset di marca, codice
+      in un prodotto — coinvolgi l’ufficio legale e documenta il contributo umano.</p>
+    </div>
+    <div class="card">
+      <h4>“Open-weight” non è “open source”</h4>
+      <p class="small mb0">Diverse licenze open-weight molto diffuse impongono restrizioni d’uso, soglie sul
+      numero di utenti, obblighi di denominazione o limiti all’uso degli output per addestrare modelli
+      concorrenti. Fai esaminare la licenza prima di costruire un prodotto sul modello. In questa frase la
+      parola “open” sta facendo marketing.</p>
+    </div>
+    <div class="card">
+      <h4>Assistenti per il codice</h4>
+      <p class="small mb0">Un modello può riprodurre codice di addestramento, incluso codice con licenza
+      copyleft, il che solleva una questione di contaminazione delle licenze in un prodotto commerciale.
+      Mitigazioni: impostazioni del vendor che sopprimono le corrispondenze letterali, scansione delle licenze
+      nella CI, e nessun codice generato in ciò che rilasci senza revisione. Trattalo come un controllo di
+      supply chain, non come una nota legale a piè di pagina. Il modulo 12.7 tratta l’uso quotidiano di questi
+      strumenti.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">I segreti commerciali — quelli che tutti dimenticano</span>
+    <p class="mb0">La tutela del segreto commerciale dipende dall’aver adottato <em>misure ragionevoli</em> per
+    mantenere segrete le informazioni. Incollare un progetto non ancora rilasciato in un servizio di terzi i cui
+    termini consentono l’addestramento sui tuoi input può indebolire questo argomento. Il rischio è
+    indipendente dalla protezione dei dati, riguarda anche informazioni che non si riferiscono ad alcuna
+    persona identificabile, ed è spesso l’esposizione più seria per un’organizzazione di ingegneria.</p>
+  </div>
+</section>
+
+<!-- ============================================= 10.8 -->
+<section class="chapter" id="vendor">
+  <h2>10.8 · Domande da porre a un vendor</h2>
+  <p>Generate a partire dalle scelte di classificazione e sui dati che hai fatto sopra, quindi si adattano a
+  ciò che stai facendo davvero. Portale alla riunione con gli acquisti.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Domande di due diligence per il vendor</h3><span class="tag try">Cambia le risposte sopra e torna qui</span></div>
+    <div id="vendorHost"></div>
+    <div class="btnrow">
+      <button class="btn sm" id="vCopy">Copia l’elenco</button>
+      <span class="small muted" id="vCopied"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 10.9 -->
+<section class="chapter" id="operating">
+  <h2>10.9 · Un modello operativo che non sia teatro</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Le quattro cose che fanno il lavoro</h3>
+      <ol class="small mb0">
+        <li><strong>Un inventario dell’AI.</strong> Un unico elenco di ogni uso dell’AI in azienda, con
+        responsabile, finalità, dati coinvolti, livello di rischio e data di revisione. Non puoi governare ciò
+        che non sai elencare, e costruire questo elenco è di solito la settimana più rivelatrice dell’intero
+        programma.</li>
+        <li><strong>Un unico punto di revisione leggero</strong>, proporzionato al livello di rischio: il rischio
+        minimo riceve una voce nel registro, l’alto rischio una valutazione completa. Un unico processo pesante
+        per tutto garantisce che le persone lo aggirino.</li>
+        <li><strong>Un insieme di strumenti autorizzati</strong> davvero validi, così che la strada conforme
+        sia anche quella più facile.</li>
+        <li><strong>Alfabetizzazione in materia di IA</strong> — che il regolamento richiede tanto ai fornitori
+        quanto ai deployer, e che è esattamente ciò che è questo ciclo di seminari. Registra le presenze: sono
+        un’evidenza.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Le quattro che sono teatro</h3>
+      <ul class="small mb0">
+        <li>Una policy di 40 pagine che nessuno legge, senza alcuno strumento approvato messo a
+        disposizione.</li>
+        <li>Un comitato che esamina slide anziché sistemi, a sviluppo concluso.</li>
+        <li>Un divieto generalizzato, che produce shadow AI e nessuna visibilità.</li>
+        <li>Un questionario per il vendor compilato dal suo ufficio marketing e archiviato senza essere
+        letto.</li>
+      </ul>
+      <p class="small mt1 mb0">Il test per qualunque controllo: cambia ciò che viene costruito, o solo ciò che
+      viene documentato?</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Maturità della governance</h3><span class="tag try">Spunta ciò che esiste oggi</span></div>
+    <div class="split">
+      <div class="checklist" id="govList"></div>
+      <div>
+        <div class="verdict info" id="govVerdict"><span class="lvl">Nulla spuntato</span>Procedi lungo l’elenco.</div>
+        <div class="card mt1" id="govGaps" style="min-height:220px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Apri questo modulo chiedendo chi in sala ha incollato qualcosa in uno strumento AI pubblico questo
+      mese. Le mani si alzano, oppure no e tutti sanno che avrebbero dovuto alzarsi. In entrambi i casi hai
+      l’attenzione del pubblico e il punto sulla shadow AI si dimostra da solo.</li>
+      <li>L’obbligo di alfabetizzazione in materia di IA è una carta davvero utile da giocare internamente:
+      questo seminario è una misura di compliance, e questo rende più facile ottenere spazio nei calendari
+      delle persone.</li>
+      <li>Non presentare il regolamento come una minaccia. La lettura onesta: è normativa sulla sicurezza dei
+      prodotti applicata al software, la maggior parte del machine learning industriale resta fuori dai suoi
+      obblighi pesanti, e la documentazione che chiede è quella che un progetto ben gestito produce
+      comunque.</li>
+      <li>Se puoi, porta in sala per questa sessione un collega dell’ufficio legale o della compliance. Ogni
+      domanda a cui non sai rispondere è una a cui può rispondere lui — e condurre la sessione insieme fa per
+      il rapporto più di quanto faccia il contenuto.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo adesso</h2>
+  <p>Con questo si chiude la Parte II: dati, valutazione, agenti e governance. La Parte III riguarda
+  l’applicazione — e si apre con quella che conta di più per un’organizzazione di ingegneria.</p>
+  <p><a href="11-engineering.html"><strong>Modulo 11 · L’AI nell’ingegneria e nella simulazione →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+
+  /* ============================================ 10.3 dates */
+  var DATES = [
+    ['1 ago 2024', '2024-08-01', 'L’AI Act entra in vigore. Non si applica ancora nulla; parte il conto alla rovescia del periodo transitorio.'],
+    ['2 feb 2025', '2025-02-02', 'Si applicano le <b>pratiche di IA vietate</b> — compreso il riconoscimento delle emozioni sul luogo di lavoro. Si applica a fornitori e deployer l’<b>obbligo di alfabetizzazione in materia di IA</b>.'],
+    ['2 ago 2025', '2025-08-02', 'Si applicano gli <b>obblighi per i modelli di IA per finalità generali</b>. Strutture di governance e regime sanzionatorio operativi.'],
+    ['2 ago 2026', '2026-08-02', 'Si applicano gli <b>obblighi di trasparenza dell’articolo 50</b>: informativa sull’interazione con un’AI, marcatura dei contenuti sintetici, dichiarazione dei deep fake. Applicazione generale della maggior parte delle disposizioni restanti.'],
+    ['2 dic 2026', '2026-12-02', 'Gli obblighi di marcatura si estendono ai sistemi già presenti sul mercato prima di agosto 2026.'],
+    ['2 dic 2027', '2027-12-02', 'Si applicano gli <b>obblighi per l’alto rischio dell’allegato III</b> — rinviati dal 2 agosto 2026 dal Digital AI Omnibus. Occupazione, credito, istruzione, biometria e il resto.'],
+    ['2 ago 2028', '2028-08-02', 'Si applicano gli <b>obblighi per l’alto rischio dell’allegato I</b> — AI come componente di sicurezza di prodotti soggetti alla normativa di armonizzazione dell’Unione. <b>È la data di riferimento per le macchine. Per i veicoli gli obblighi arrivano tramite gli atti di omologazione, quindi la data che conta in pratica è quella della loro adozione — vedi il modulo 20.</b>']
+  ];
+  function drawDates() {
+    var now = new Date();
+    var nextFound = false;
+    document.getElementById('dateHost').innerHTML = DATES.map(function (d) {
+      var dt = new Date(d[1]);
+      var past = dt < now;
+      var cls = past ? 'past' : (!nextFound ? 'next' : '');
+      if (!past && !nextFound) nextFound = true;
+      return '<div class="drow ' + cls + '"><span class="d">' + d[0] +
+        (past ? ' ✓' : (cls === 'next' ? ' ← prossima' : '')) + '</span><span class="t">' + d[2] + '</span></div>';
+    }).join('');
+  }
+
+  /* ============================================ 10.4 classifier */
+  var QS = [
+    { id: 'prohibited', q: 'Il sistema fa una delle cose seguenti?',
+      multi: true,
+      opts: [
+        ['social', 'Punteggio sociale delle persone'],
+        ['emotion', 'Riconoscimento delle emozioni sul lavoro o nell’istruzione'],
+        ['scrape', 'Scraping non mirato di immagini facciali'],
+        ['manip', 'Tecniche che sfruttano vulnerabilità per distorcere il comportamento'],
+        ['biocat', 'Deduzione di caratteristiche sensibili da dati biometrici'],
+        ['none', 'Nessuna di queste']
+      ],
+      hint: 'Sono le pratiche di IA vietate. Nota che il monitoraggio dell’“attenzione” e del “coinvolgimento” di operatori o conducenti sul lavoro ricade spesso nel riconoscimento delle emozioni.' },
+    { id: 'annex1', q: 'L’AI è un componente di sicurezza di un prodotto già coperto dalla normativa UE sui prodotti?',
+      opts: [['yes', 'Sì — veicolo, macchina, dispositivo medico, ascensore, DPI, giocattolo…'], ['no', 'No']],
+      hint: 'È la via dell’allegato I verso l’alto rischio, e quella che più probabilmente si applica in un contesto di ingegneria automotive. “Componente di sicurezza” è un termine tecnico-giuridico — verificalo con l’ufficio legale, non a intuito.' },
+    { id: 'annex3', q: 'È usato in uno dei settori elencati nell’allegato III?',
+      multi: true,
+      opts: [
+        ['bio', 'Identificazione o categorizzazione biometrica'],
+        ['infra', 'Sicurezza di infrastrutture critiche'],
+        ['edu', 'Istruzione: accesso, valutazione, sorveglianza durante gli esami'],
+        ['emp', 'Occupazione: assunzione, assegnazione dei compiti, monitoraggio, promozione, cessazione del rapporto'],
+        ['svc', 'Servizi essenziali, valutazione del merito creditizio, determinazione dei premi assicurativi'],
+        ['law', 'Attività di contrasto, migrazione, giustizia, processi democratici'],
+        ['none', 'Nessuno di questi']
+      ],
+      hint: 'Gli usi nelle risorse umane sono la sorpresa più comune. Lo screening dei CV, il ranking dei candidati o l’assegnazione del lavoro tramite algoritmo stanno qui.' },
+    { id: 'interact', q: 'Interagisce direttamente con le persone, o genera o manipola contenuti?',
+      multi: true,
+      opts: [
+        ['chat', 'Le persone interagiscono direttamente con il sistema (chat, voce)'],
+        ['gen', 'Genera testo, immagini, audio o video'],
+        ['deep', 'Produce rappresentazioni realistiche di persone o eventi reali'],
+        ['none', 'Nessuna delle due']
+      ],
+      hint: 'Questo determina gli obblighi di trasparenza dell’articolo 50, che si applicano da agosto 2026 a prescindere dal livello di rischio.' },
+    { id: 'role', q: 'Qual è il tuo ruolo rispetto a questo sistema?',
+      opts: [
+        ['deploy', 'Usiamo un sistema di terzi così com’è'],
+        ['modify', 'Ne facciamo fine-tuning, lo integriamo nel nostro prodotto o ci mettiamo il nostro nome'],
+        ['build', 'Lo costruiamo noi']
+      ],
+      hint: 'Il fine-tuning, il rebranding o la modifica sostanziale di un sistema possono renderti il fornitore, con l’intero insieme di obblighi.' },
+    { id: 'eu', q: 'È usato nell’UE, o il suo output ha effetti su persone nell’UE?',
+      opts: [['yes', 'Sì'], ['no', 'No']],
+      hint: 'Il regolamento ha portata extraterritoriale: un output che ha effetti su persone nell’UE basta a far rientrare un sistema nel suo ambito di applicazione.' }
+  ];
+  var ANS = {};
+  var EXAMPLES = {
+    cv: { prohibited: { none: 1 }, annex1: 'no', annex3: { emp: 1 }, interact: { none: 1 }, role: 'deploy', eu: 'yes' },
+    defect: { prohibited: { none: 1 }, annex1: 'no', annex3: { none: 1 }, interact: { none: 1 }, role: 'build', eu: 'yes' },
+    adas: { prohibited: { none: 1 }, annex1: 'yes', annex3: { none: 1 }, interact: { none: 1 }, role: 'build', eu: 'yes' },
+    chat: { prohibited: { none: 1 }, annex1: 'no', annex3: { none: 1 }, interact: { chat: 1, gen: 1 }, role: 'deploy', eu: 'yes' },
+    emotion: { prohibited: { emotion: 1 }, annex1: 'no', annex3: { none: 1 }, interact: { none: 1 }, role: 'build', eu: 'yes' }
+  };
+  function drawQs() {
+    var host = document.getElementById('qHost');
+    if (!host.dataset.built) {
+      host.innerHTML = QS.map(function (q, i) {
+        return '<div class="qrow"><div class="q">' + (i + 1) + ' · ' + q.q + '</div>' +
+          '<div class="chips" data-q="' + q.id + '">' +
+          q.opts.map(function (o) { return '<button data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') +
+          '</div><div class="hint">' + q.hint + '</div></div>';
+      }).join('');
+      host.dataset.built = '1';
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        var wrap = e.target.parentNode, qid = wrap.getAttribute('data-q');
+        var qdef = QS.filter(function (q) { return q.id === qid; })[0];
+        var v = e.target.getAttribute('data-v');
+        if (qdef.multi) {
+          ANS[qid] = ANS[qid] && typeof ANS[qid] === 'object' ? ANS[qid] : {};
+          if (v === 'none') ANS[qid] = { none: 1 };
+          else { delete ANS[qid].none; ANS[qid][v] = !ANS[qid][v]; if (!ANS[qid][v]) delete ANS[qid][v]; }
+        } else ANS[qid] = v;
+        paintQs(); classify();
+      });
+    }
+    paintQs();
+  }
+  function paintQs() {
+    AI.qsa('#qHost .chips').forEach(function (wrap) {
+      var qid = wrap.getAttribute('data-q'), a = ANS[qid];
+      AI.qsa('button', wrap).forEach(function (b) {
+        var v = b.getAttribute('data-v');
+        var on = typeof a === 'object' && a ? !!a[v] : a === v;
+        b.classList.toggle('on', on);
+        b.classList.toggle('danger', on && qid === 'prohibited' && v !== 'none');
+      });
+    });
+  }
+  function anyOf(qid, keys) {
+    var a = ANS[qid];
+    if (!a || typeof a !== 'object') return false;
+    return keys.some(function (k) { return !!a[k]; });
+  }
+  function classify() {
+    var v = document.getElementById('clsVerdict'), ob = document.getElementById('clsOb');
+    var answered = QS.every(function (q) { return ANS[q.id] && (typeof ANS[q.id] !== 'object' || Object.keys(ANS[q.id]).length); });
+    if (!answered) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Rispondi alle domande</span>Qui comparirà un orientamento su livello di rischio, ruolo e obblighi.';
+      ob.innerHTML = '<p class="small muted mb0">Sei domande, oppure carica uno degli esempi qui sopra.</p>';
+      buildVendor(null);
+      return;
+    }
+    var banned = anyOf('prohibited', ['social', 'emotion', 'scrape', 'manip', 'biocat']);
+    var hi1 = ANS.annex1 === 'yes';
+    var hi3 = anyOf('annex3', ['bio', 'infra', 'edu', 'emp', 'svc', 'law']);
+    var transparency = anyOf('interact', ['chat', 'gen', 'deep']);
+    var provider = ANS.role === 'build' || ANS.role === 'modify';
+    var inScope = ANS.eu === 'yes';
+    var tier, cls, oblig = '';
+
+    if (!inScope) {
+      tier = 'Fuori dall’ambito dell’AI Act — ma verifica le altre norme';
+      cls = 'ok';
+      oblig = '<p class="small">Il regolamento non si applica a un sistema usato fuori dall’UE il cui output non ha effetti su persone nell’UE. Restano validi altri regimi — protezione dei dati, sicurezza dei prodotti, norme di settore ed eventuali leggi locali sull’AI.</p>' +
+        '<p class="small mb0"><b>Attenzione a questa risposta.</b> “Ha effetti su persone nell’UE” è un criterio ampio, e un sistema introdotto in un solo sito raramente ci resta.</p>';
+    } else if (banned) {
+      tier = 'Vietato — fermati';
+      cls = 'hi';
+      oblig = '<p class="small">Una o più delle pratiche selezionate sono vietate senza eccezioni, e lo sono dal <b>2 febbraio 2025</b>. Non esiste un percorso di conformità, una valutazione della conformità o una misura di gestione dei rischi che le renda ammissibili.</p>' +
+        '<p class="small"><b>Che cosa fare:</b> porta subito la questione all’ufficio legale, prima di qualsiasi ulteriore sviluppo. Spesso esiste una riprogettazione lecita che raggiunge l’obiettivo di business sottostante — per esempio misurare un segnale di sicurezza oggettivo come la chiusura degli occhi o la deviazione dalla corsia invece di dedurre uno stato emotivo, oppure monitorare le attrezzature anziché le persone.</p>' +
+        '<p class="small mb0">Le sanzioni per le pratiche vietate sono le più alte del regolamento.</p>';
+    } else if (hi1 || hi3) {
+      tier = 'Alto rischio' + (hi1 ? ' (allegato I — componente di sicurezza di prodotto)' : ' (allegato III — settore elencato)');
+      cls = 'mid';
+      oblig = '<p class="small">Consentito, con gli obblighi più pesanti del regolamento. Applicabili dal <b>' +
+        (hi1 ? '2 agosto 2028' : '2 dicembre 2027') + '</b> dopo il rinvio del 2026 — tempo per costruire le pratiche necessarie, non per ignorarle.</p>';
+      if (provider) {
+        oblig += '<p class="small"><b>Probabilmente sei un fornitore</b>, quindi aspettati di dover avere: un sistema di gestione dei rischi lungo tutto il ciclo di vita; una governance dei dati che copra pertinenza, rappresentatività e distorsioni; documentazione tecnica; registrazione automatica degli eventi (log); istruzioni per i deployer; misure di sorveglianza umana integrate nel progetto; requisiti di accuratezza, robustezza e cibersicurezza; un sistema di gestione della qualità; valutazione della conformità e marcatura CE; registrazione; monitoraggio successivo all’immissione sul mercato; e segnalazione degli incidenti gravi.</p>';
+        if (hi1) oblig += '<p class="small">Poiché si tratta della via di prodotto dell’allegato I, la valutazione della conformità dell’AI è in genere integrata nella <b>procedura di conformità del prodotto già esistente</b>, invece di procedere in parallelo. Parla con chi già si occupa di omologazione o di conformità macchine — il processo a cui ti stai unendo è il loro.</p>';
+      } else {
+        oblig += '<p class="small"><b>Probabilmente sei un deployer</b>, quindi aspettati di dover garantire: uso conforme alle istruzioni del fornitore; affidamento della sorveglianza umana a persone competenti con reale autorità di intervenire; dati di input pertinenti e rappresentativi; monitoraggio e segnalazione degli incidenti gravi; conservazione dei log; e — se riguarda i lavoratori — informazione dei dipendenti e dei loro rappresentanti prima della messa in uso.</p>';
+      }
+      if (hi3 && anyOf('annex3', ['emp'])) oblig += '<p class="small"><b>Nota specifica sull’occupazione:</b> gli obblighi di informazione e consultazione dei lavoratori previsti dal diritto del lavoro nazionale spesso scattano prima e pesano di più dell’AI Act stesso. Coinvolgi le risorse umane e i referenti delle rappresentanze sindacali già nella fase dell’idea.</p>';
+      oblig += '<p class="small mb0"><b>Traduzione ingegneristica:</b> i moduli 7 e 8 di questo corso sono gran parte di ciò che viene richiesto. Inizia a produrre quegli artefatti adesso e la valutazione diventa un esercizio di documentazione anziché un progetto.</p>';
+    } else if (transparency) {
+      tier = 'Obblighi di trasparenza (articolo 50)';
+      cls = 'ok';
+      oblig = '<p class="small">Non ad alto rischio. Gli obblighi si applicano dal <b>2 agosto 2026</b>:</p><ul class="small oblist">';
+      if (anyOf('interact', ['chat'])) oblig += '<li>Informa le persone che stanno interagendo con un sistema di IA, a meno che non sia evidente.</li>';
+      if (anyOf('interact', ['gen'])) oblig += '<li>Marca i contenuti sintetici in un formato leggibile da macchina come generati o manipolati artificialmente.</li>';
+      if (anyOf('interact', ['deep'])) oblig += '<li>Dichiara i deep fake — rappresentazioni realistiche di persone o eventi reali — in modo chiaro e visibile.</li>';
+      oblig += '</ul><p class="small mb0">Obblighi leggeri, facili da rispettare se previsti fin dalla progettazione, scomodi da introdurre a posteriori in una pipeline di contenuti esistente. E ricorda il distinto <b>dovere di alfabetizzazione in materia di IA</b>, che si applica da febbraio 2025 a prescindere dal livello di rischio.</p>';
+    } else {
+      tier = 'Rischio minimo';
+      cls = 'ok';
+      oblig = '<p class="small">Nessun obbligo specifico ai sensi dell’AI Act oltre al dovere generale di alfabetizzazione in materia di IA. È qui che si colloca la maggior parte del machine learning industriale — manutenzione predittiva, rilevamento dei difetti, previsione, modelli surrogati per la simulazione, ricerca interna.</p>' +
+        '<p class="small mb0"><b>Si applicano comunque:</b> la protezione dei dati se sono coinvolti dati personali, i tuoi obblighi di sicurezza dei prodotti, gli obblighi contrattuali e di riservatezza, e l’asticella di qualità interna del modulo 8. “Rischio minimo” ai sensi del regolamento non significa “nessuna revisione”.</p>';
+    }
+    v.className = 'verdict ' + cls;
+    v.innerHTML = '<span class="lvl">' + tier + '</span>' +
+      '<p class="small mb0">Solo un orientamento — conferma con la tua funzione legale e di compliance. La classificazione dipende dalla finalità prevista precisa, che è un documento, non una conversazione.</p>';
+    ob.innerHTML = '<h4>Che cosa significa in pratica</h4>' + oblig;
+    buildVendor({ hi: hi1 || hi3, provider: provider, transparency: transparency, banned: banned });
+  }
+
+  /* ============================================ 10.5 data in prompt */
+  var DATAK = [
+    ['pers', 'Dati personali (nomi, ID, fascicoli HR)'],
+    ['emp', 'Dati dei dipendenti'],
+    ['cust', 'Dati dei clienti'],
+    ['secret', 'Progetti non rilasciati / segreti commerciali'],
+    ['nda', 'Informazioni riservate di terzi coperte da NDA'],
+    ['safety', 'Dati critici per la sicurezza o di omologazione'],
+    ['code', 'Codice sorgente proprietario'],
+    ['pub', 'Informazioni già pubbliche']
+  ];
+  var DEST = [
+    { n: 'Strumento AI consumer gratuito', note: 'I termini di solito consentono di usare i tuoi input per migliorare il servizio, non c’è un accordo sul trattamento dei dati, la conservazione non è chiara e gli account del personale sono personali. Trattalo come una pubblicazione.' },
+    { n: 'Account enterprise con clausole di non addestramento', note: 'Impegno contrattuale a non addestrare sui tuoi dati, con un DPA e una conservazione definita. Adatto a molto lavoro interno — leggi i termini effettivi, compresi i sub-responsabili del trattamento e la conservazione per il monitoraggio degli abusi.' },
+    { n: 'Servizio gestito ospitato nell’UE, con DPA', note: 'Come sopra, più la residenza dei dati, che risolve la maggior parte delle questioni sul trasferimento e molte obiezioni interne. Di solito è la scelta pragmatica di default per un’azienda europea.' },
+    { n: 'Self-hosted sul nostro hardware', note: 'Nulla esce dalla tua infrastruttura, quindi le questioni di riservatezza e residenza in gran parte spariscono. In cambio erediti il lavoro di serving, sicurezza e manutenzione del modello (modulo 5.8), e il controllo degli accessi diventa interamente una tua responsabilità.' }
+  ];
+  var PD = { sel: {}, dest: 0 };
+  function dataVerdict(k, dest) {
+    var t = { v: 'ok', s: 'In genere accettabile', d: '' };
+    if (k === 'pub') return { v: 'ok', s: 'Va bene', d: 'Già pubblico. Nessun problema di riservatezza; l’unica domanda è se l’output vale qualcosa.' };
+    if (dest === 3) {
+      if (k === 'pers' || k === 'emp' || k === 'cust') return { v: 'cond', s: 'A condizione', d: 'Nessun trasferimento a terzi, ma gli obblighi di protezione dei dati restano tutti: base giuridica, limitazione della finalità, minimizzazione, conservazione e diritti degli interessati. Il self-hosting risolve la questione del trasferimento, non quella della privacy.' };
+      if (k === 'safety') return { v: 'cond', s: 'A condizione', d: 'Tecnicamente contenibile. Mantieni un decisore umano nel percorso e aspettati che questo uso rientri nel perimetro dei tuoi processi di qualità e di omologazione.' };
+      return { v: 'ok', s: 'Accettabile', d: 'Resta dentro la tua infrastruttura. Applica il normale controllo degli accessi interno — il retrieval deve rispettare i permessi di chi fa la domanda, non quelli dell’account di servizio.' };
+    }
+    if (k === 'pers' || k === 'emp' || k === 'cust') {
+      if (dest === 0) return { v: 'no', s: 'Non farlo', d: 'Dati personali in un servizio consumer senza DPA e con addestramento sugli input. È la linea più netta della pagina, e la più spesso oltrepassata.' };
+      return { v: 'cond', s: 'A condizione', d: 'Possibile con un DPA, una base giuridica, la minimizzazione e un accordo sulla conservazione — e dopo l’approvazione della tua funzione privacy. Pseudonimizza prima, ovunque il compito lo consenta.' };
+    }
+    if (k === 'secret') {
+      if (dest === 0) return { v: 'no', s: 'Non farlo', d: 'È l’esposizione dei segreti commerciali della sezione 10.7. La divulgazione a un servizio che può addestrare sui tuoi input può indebolire il requisito delle “misure ragionevoli per mantenerlo segreto” da cui dipende la tutela.' };
+      if (dest === 1) return { v: 'cond', s: 'A condizione', d: 'Protetto contrattualmente, ma comunque una divulgazione a terzi. Per il materiale davvero più prezioso (i “gioielli di famiglia”), preferisci il self-hosting — e fai decidere a qualcuno che cosa rientra in quella categoria prima che le persone debbano indovinarlo.' };
+      return { v: 'cond', s: 'A condizione', d: 'Difendibile con il contratto e la residenza giusti. Decidi esplicitamente quali categorie di dati di progetto sono dentro e fuori dal perimetro, e mettilo per iscritto.' };
+    }
+    if (k === 'nda') {
+      if (dest === 0) return { v: 'no', s: 'Non farlo', d: 'Quasi certamente non hai il diritto di divulgare le informazioni riservate di una controparte a un servizio di terzi. È una violazione contrattuale, non una questione di preferenze di policy.' };
+      return { v: 'cond', s: 'Verifica l’NDA', d: 'Molti NDA limitano la divulgazione a sub-responsabili nominati o richiedono un consenso. Leggi l’accordo specifico — la risposta cambia da controparte a controparte e non può essere stabilita da una policy generale.' };
+    }
+    if (k === 'safety') {
+      if (dest === 0) return { v: 'no', s: 'Non farlo', d: 'Dati di omologazione e di sicurezza in uno strumento consumer. Oltre alla riservatezza, non potrai documentare la provenienza di nessuna analisi, che è esattamente ciò che una valutazione chiede.' };
+      return { v: 'cond', s: 'A condizione', d: 'Utilizzabile per bozze e ricerca con un decisore umano nel percorso. Mai come base di una determinazione di sicurezza senza i controlli del modulo 8 e la documentazione della sezione 10.4.' };
+    }
+    if (k === 'code') {
+      if (dest === 0) return { v: 'no', s: 'Non farlo', d: 'Codice sorgente proprietario in un servizio che addestra sugli input. Usa invece un assistente per il codice autorizzato con termini enterprise — e tieni presente la questione della contaminazione delle licenze nella sezione 10.7.' };
+      return { v: 'cond', s: 'A condizione', d: 'Prassi standard con termini enterprise, ed è così che lavora ormai la maggior parte delle organizzazioni di ingegneria. Verifica le clausole di non addestramento, e tieni segreti e credenziali fuori dai file che esponi.' };
+    }
+    return t;
+  }
+  function drawData() {
+    var host = document.getElementById('dataChips');
+    if (!host.innerHTML) {
+      host.innerHTML = DATAK.map(function (d) { return '<button data-k="' + d[0] + '">' + d[1] + '</button>'; }).join('');
+      host.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        var k = e.target.getAttribute('data-k');
+        PD.sel[k] = !PD.sel[k];
+        e.target.classList.toggle('on', !!PD.sel[k]);
+        drawData();
+      });
+    }
+    document.getElementById('destNote').innerHTML = '<h4>' + DEST[PD.dest].n + '</h4><p class="small mb0">' +
+      DEST[PD.dest].note + '</p>';
+    var keys = DATAK.filter(function (d) { return PD.sel[d[0]]; });
+    if (!keys.length) {
+      document.getElementById('dataOut').innerHTML =
+        '<p class="small muted">Seleziona che cosa ci sarebbe nel prompt.</p>';
+      return;
+    }
+    document.getElementById('dataOut').innerHTML = keys.map(function (d) {
+      var r = dataVerdict(d[0], PD.dest);
+      return '<div class="dcell ' + r.v + '"><span class="v">' + r.s + '</span><b>' + d[1] + '</b><br>' + r.d + '</div>';
+    }).join('');
+  }
+
+  /* ============================================ 10.6 attacks on the model */
+  /* Synthetic 12x12 turn-arrow images (class 1 = right, class 0 = left), a logistic-regression
+     classifier trained by full-batch gradient descent, an FGSM attack and a backdoor. All seeded. */
+  var IS = 12, ID = IS * IS;
+  function mulberry(seed) {
+    var s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) >>> 0;
+      var t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) { var u = r() || 1e-9, v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185 * v); }
+  function clip01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function sgn(v) { return v > 0 ? 1 : v < 0 ? -1 : 0; }
+  function sigm(z) { return 1 / (1 + Math.exp(-z)); }
+  function arrowMask(dir, dx, dy) {
+    var m = new Float64Array(ID), x, y;
+    for (y = 0; y < IS; y++) for (x = 0; x < IS; x++) {
+      var X = (dir > 0 ? x : IS - 1 - x) - dx, Y = y - dy, on = 0, hx = X - 6;
+      if (Y >= 5 && Y <= 6 && X >= 2 && X <= 7) on = 1;               /* shaft */
+      if (hx >= 0 && hx <= 3 && Math.abs(Y - 5.5) <= 3.5 - hx) on = 1; /* head */
+      m[y * IS + x] = on;
+    }
+    return m;
+  }
+  function makeImg(r, cls) {
+    var dx = Math.floor(r() * 3) - 1, dy = Math.floor(r() * 3) - 1;
+    var m = arrowMask(cls ? 1 : -1, dx, dy), bg = 0.1 + r() * 0.25, fg = 0.75 + r() * 0.25;
+    var im = new Float64Array(ID);
+    for (var i = 0; i < ID; i++) im[i] = clip01(bg + (fg - bg) * m[i] + gauss(r) * 0.06);
+    return im;
+  }
+  function makeSet(seed, n) {
+    var r = mulberry(seed), X = [], Y = [];
+    for (var i = 0; i < n; i++) { var c = i % 2; X.push(makeImg(r, c)); Y.push(c); }
+    return { X: X, Y: Y };
+  }
+  function logitLR(m, x) { var z = m.b; for (var i = 0; i < ID; i++) z += m.w[i] * x[i]; return z; }
+  /* FGSM. Loss L = -[y log p + (1-y) log(1-p)], p = sigmoid(w.x + b), so dL/dx = (p - y) w.
+     Stepping by +eps * sign(dL/dx) moves every pixel in the direction that increases the loss. */
+  function fgsm(m, x, y, eps) {
+    var s = sigm(logitLR(m, x)) - y, xa = new Float64Array(ID);
+    for (var i = 0; i < ID; i++) xa[i] = clip01(x[i] + eps * sgn(s * m.w[i]));
+    return xa;
+  }
+  function randPert(x, eps, seed) {
+    var r = mulberry(seed), xa = new Float64Array(ID);
+    for (var i = 0; i < ID; i++) xa[i] = clip01(x[i] + eps * (r() < 0.5 ? -1 : 1));
+    return xa;
+  }
+  function trainLR(X, Y, o) {
+    o = o || {};
+    var w = new Float64Array(ID), b = 0, lr = 0.5, ep = o.ep || 300, lam = 1e-3, adv = o.adv || 0, n = X.length;
+    for (var e = 0; e < ep; e++) {
+      var g = new Float64Array(ID), gb = 0, m = { w: w, b: b };
+      for (var k = 0; k < n; k++) {
+        var x = adv ? fgsm(m, X[k], Y[k], adv) : X[k];   /* adversarial training: fit the attacked image */
+        var d = sigm(logitLR(m, x)) - Y[k];
+        gb += d;
+        for (var i = 0; i < ID; i++) g[i] += d * x[i];
+      }
+      for (i = 0; i < ID; i++) w[i] -= lr * (g[i] / n + lam * w[i]);
+      b -= lr * gb / n;
+    }
+    return { w: w, b: b };
+  }
+  function predLR(m, x) { return logitLR(m, x) > 0 ? 1 : 0; }
+  function accLR(m, X, Y) { var c = 0; for (var k = 0; k < X.length; k++) if (predLR(m, X[k]) === Y[k]) c++; return c / X.length; }
+  function minFlipEps(m, x, y) {
+    if (predLR(m, x) !== y) return 0;
+    if (predLR(m, fgsm(m, x, y, 1)) === y) return Infinity;
+    var lo = 0, hi = 1;
+    for (var t = 0; t < 28; t++) { var mid = (lo + hi) / 2; if (predLR(m, fgsm(m, x, y, mid)) !== y) hi = mid; else lo = mid; }
+    return hi;
+  }
+  function median(a) { var s = a.slice().sort(function (p, q) { return p - q; }); return s[Math.floor(s.length / 2)]; }
+  function addTrig(x, sz) {
+    var y = Float64Array.from(x);
+    for (var r = 0; r < sz; r++) for (var c = 0; c < sz; c++) y[r * IS + (IS - 1 - c)] = 1;
+    return y;
+  }
+
+  /* --- drawing helpers for pixel images --- */
+  function sizeSquare(cv) {
+    var dpr = window.devicePixelRatio || 1, w = cv.clientWidth || parseInt(cv.getAttribute('width'), 10) || 100;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(w * dpr);
+    var g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { g: g, w: w };
+  }
+  function drawGray(cv, img) {
+    var s = sizeSquare(cv), c = s.w / IS;
+    for (var i = 0; i < ID; i++) {
+      var v = Math.round(img[i] * 255);
+      s.g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')';
+      s.g.fillRect((i % IS) * c, Math.floor(i / IS) * c, c + 0.6, c + 0.6);
+    }
+  }
+  function drawDiverging(cv, vals, scale) {
+    var s = sizeSquare(cv), c = s.w / IS, pos = C('--bad'), neg = C('--accent');
+    s.g.fillStyle = C('--panel'); s.g.fillRect(0, 0, s.w, s.w);
+    for (var i = 0; i < ID; i++) {
+      var a = scale > 0 ? Math.min(1, Math.abs(vals[i]) / scale) : 0;
+      if (a < 0.01) continue;
+      s.g.globalAlpha = a; s.g.fillStyle = vals[i] > 0 ? pos : neg;
+      s.g.fillRect((i % IS) * c, Math.floor(i / IS) * c, c + 0.6, c + 0.6);
+    }
+    s.g.globalAlpha = 1;
+    s.g.strokeStyle = C('--line'); s.g.lineWidth = 1; s.g.strokeRect(0.5, 0.5, s.w - 1, s.w - 1);
+  }
+  function arrowName(c) { return c ? '→ destra' : '← sinistra'; }
+  function predTxt(p) {
+    var c = p > 0.5 ? 1 : 0, q = (c ? p : 1 - p) * 100;
+    return arrowName(c) + ' ' + (q < 55 ? q.toFixed(1) : Math.round(q)) + '%';
+  }
+  function metric(k, v, col) { return '<div class="m"><span class="k">' + k + '</span><span class="v"' + (col ? ' style="color:' + col + '"' : '') + '>' + v + '</span></div>'; }
+
+  /* --- lab (a): adversarial examples --- */
+  var ADV = { which: 'std', kind: 'fgsm', eps: 0, idx: 0, ready: false };
+  function advInit() {
+    if (ADV.ready) return;
+    ADV.tr = makeSet(11, 300); ADV.te = makeSet(97, 100);
+    ADV.m = { std: trainLR(ADV.tr.X, ADV.tr.Y), adv: trainLR(ADV.tr.X, ADV.tr.Y, { adv: 0.08 }) };
+    ADV.clean = {}; ADV.med = {}; ADV.l1 = {};
+    ['std', 'adv'].forEach(function (k) {
+      var m = ADV.m[k], l1 = 0;
+      for (var i = 0; i < ID; i++) l1 += Math.abs(m.w[i]);
+      ADV.l1[k] = l1;
+      ADV.clean[k] = accLR(m, ADV.te.X, ADV.te.Y);
+      ADV.med[k] = median(ADV.te.X.map(function (x, j) { return minFlipEps(m, x, ADV.te.Y[j]); }));
+    });
+    ADV.ready = true;
+  }
+  function advPerturb(m, x, y, eps, idx, kind) {
+    return kind === 'rand' ? randPert(x, eps, 1000 + idx) : fgsm(m, x, y, eps);
+  }
+  function advDraw() {
+    advInit();
+    var m = ADV.m[ADV.which], x = ADV.te.X[ADV.idx], y = ADV.te.Y[ADV.idx], eps = ADV.eps;
+    var xp = advPerturb(m, x, y, eps, ADV.idx, ADV.kind);
+    var p0 = sigm(logitLR(m, x)), p1 = sigm(logitLR(m, xp));
+    var flipped = (p1 > 0.5 ? 1 : 0) !== y, i;
+    drawGray(document.getElementById('advOrig'), x);
+    drawGray(document.getElementById('advPert'), xp);
+    var delta = new Float64Array(ID), maxd = 0;
+    for (i = 0; i < ID; i++) { delta[i] = xp[i] - x[i]; maxd = Math.max(maxd, Math.abs(delta[i])); }
+    drawDiverging(document.getElementById('advDelta'), delta, eps || 1);
+    var o = document.getElementById('advOrigP'), pp = document.getElementById('advPertP');
+    o.textContent = predTxt(p0); o.className = 'pr ' + ((p0 > 0.5 ? 1 : 0) === y ? 'okc' : 'badc');
+    pp.textContent = predTxt(p1); pp.className = 'pr ' + (flipped ? 'badc' : 'okc');
+    document.getElementById('advDeltaP').textContent = eps ? 'rosso + · blu −' : 'nessuna variazione';
+
+    var mf = minFlipEps(m, x, y);
+    var Xa = ADV.te.X.map(function (xx, j) { return advPerturb(m, xx, ADV.te.Y[j], eps, j, ADV.kind); });
+    var accA = accLR(m, Xa, ADV.te.Y);
+    document.getElementById('advStats').innerHTML =
+      metric('Immagine di test', '#' + (ADV.idx + 1) + ' ' + (y ? '→' : '←')) +
+      metric('Variazione max pixel', maxd.toFixed(3)) +
+      metric('In livelli di grigio', Math.round(maxd * 255) + '/255') +
+      metric('Si ribalta a ε ≥', isFinite(mf) ? mf.toFixed(3) : 'mai', C('--bad')) +
+      metric('Acc. test pulito', AI.F.pct(ADV.clean[ADV.which])) +
+      metric('Acc. sotto questo attacco', AI.F.pct(accA), accA < 0.6 ? C('--bad') : null);
+
+    /* probability of the true class against epsilon, attack vs random noise */
+    var cv = document.getElementById('advPlot');
+    var P = new AI.Plot(cv, { dom: [0, 0.25], ran: [0, 1], pad: { l: 58, r: 12, t: 12, b: 34 } });
+    P.clear(); P.frame({ xticks: 5, yticks: 4, xlabel: 'ε (variazione max per pixel)', ylabel: 'P(classe vera)', yfmt: function (v) { return Math.round(v * 100) + '%'; } });
+    var a = [], r = [];
+    for (var e = 0; e <= 0.2501; e += 0.005) {
+      var pa = sigm(logitLR(m, fgsm(m, x, y, e))), pr = sigm(logitLR(m, randPert(x, e, 1000 + ADV.idx)));
+      a.push([e, y ? pa : 1 - pa]); r.push([e, y ? pr : 1 - pr]);
+    }
+    P.line([[0, 0.5], [0.25, 0.5]], C('--line'), 1, [4, 4]);
+    P.line(r, C('--ink-3'), 2);
+    P.line(a, C('--bad'), 2.4);
+    P.line([[eps, 0], [eps, 1]], C('--accent'), 1.6, [3, 3]);
+
+    var note = '';
+    if (ADV.kind === 'rand') {
+      note = '<b>Un rumore casuale della stessa ampiezza sposta appena il punteggio.</b> Ogni pixel cambia comunque di ε, ma le spinte puntano in direzioni casuali e per lo più si annullano. L’attacco funziona perché è <em>mirato</em>, non perché è grande.';
+    } else if (!eps) {
+      note = 'Sposta il cursore di ε, oppure premi <b>ε minimo che lo ribalta</b>. La linea tratteggiata al 50% è la soglia di decisione.';
+    } else if (flipped) {
+      note = '<b>Ribaltato.</b> Nessun pixel si è spostato di più di ' + Math.round(maxd * 255) + ' livelli di grigio su 255 — paragonabile al rumore del sensore già presente nell’immagine (circa 15). Per un modello lineare il punteggio si sposta al massimo di ε × Σ|w| = ' + eps.toFixed(3) + ' × ' + ADV.l1[ADV.which].toFixed(1) + ' = ' + (eps * ADV.l1[ADV.which]).toFixed(2) + ' logit: tante spinte minuscole, tutte orientate nello stesso verso. Su 144 pixel la variazione si vede, se la cerchi. Un fotogramma di telecamera ha centinaia di migliaia di input su cui distribuire la spinta, e gli attacchi pubblicati su immagini reali richiedono in genere pochi livelli di grigio — invisibili.';
+    } else {
+      note = 'Non ancora ribaltato a ε = ' + eps.toFixed(3) + '. Questa immagine richiede ε ≥ ' + (isFinite(mf) ? mf.toFixed(3) : '—') + '.';
+    }
+    note += '<br><span class="muted">' + (ADV.which === 'adv'
+      ? 'Con adversarial training (su immagini FGSM a ε = 0.08): l’ε mediano necessario a ribaltare un’immagine di test è ' + ADV.med.adv.toFixed(3) + ', contro ' + ADV.med.std.toFixed(3) + ' con l’addestramento standard. È servito più del doppio del calcolo di addestramento, e copre solo questo attacco a questa ampiezza.'
+      : 'ε mediano necessario a ribaltare un’immagine di test con questo modello: ' + ADV.med.std.toFixed(3) + '. Prova il modello con adversarial training.') + '</span>';
+    document.getElementById('advNote').innerHTML = note;
+  }
+
+  /* --- lab (b): poisoning and backdoor --- */
+  var BD = { pct: 0, trig: 2, defend: false, cache: {}, curve: {}, busy: false };
+  function bdTrain(pct, sz, defend) {
+    var key = pct + '|' + sz + '|' + (defend ? 1 : 0);
+    if (BD.cache[key]) return BD.cache[key];
+    advInit();
+    var tr = ADV.tr, te = ADV.te, X = tr.X.slice(), Y = tr.Y.slice(), poison = tr.X.map(function () { return false; });
+    var n = Math.round(pct / 100 * tr.X.length), cnt = 0, k;
+    for (k = 0; k < tr.X.length && cnt < n; k++) {
+      if (tr.Y[k] === 0) { X.push(addTrig(tr.X[k], sz)); Y.push(1); poison.push(true); cnt++; }
+    }
+    var flagged = 0, flaggedPoison = 0;
+    if (defend) {
+      /* label-consistency check: a model trained on 40 verified images disputes a label confidently */
+      var trusted = trainLR(tr.X.slice(0, 40), tr.Y.slice(0, 40));
+      var X2 = [], Y2 = [];
+      for (k = 0; k < X.length; k++) {
+        var p = sigm(logitLR(trusted, X[k])), pLabel = Y[k] ? p : 1 - p;
+        if (pLabel < 0.2) { flagged++; if (poison[k]) flaggedPoison++; continue; }
+        X2.push(X[k]); Y2.push(Y[k]);
+      }
+      X = X2; Y = Y2;
+    }
+    var m = trainLR(X, Y);
+    var hit = 0, nl = 0;
+    te.X.forEach(function (x, j) { if (te.Y[j] === 0) { nl++; if (predLR(m, addTrig(x, sz)) === 1) hit++; } });
+    var res = { m: m, n: n, clean: accLR(m, te.X, te.Y), asr: hit / nl, flagged: flagged, flaggedPoison: flaggedPoison };
+    BD.cache[key] = res;
+    return res;
+  }
+  function bdCurve() {
+    var key = BD.trig + '|' + (BD.defend ? 1 : 0);
+    if (!BD.curve[key]) BD.curve[key] = [];
+    var c = BD.curve[key];
+    if (c.length >= 11 || BD.busy) return;
+    BD.busy = true;
+    var sz = BD.trig, def = BD.defend;
+    setTimeout(function () {
+      var r = bdTrain(c.length, sz, def);
+      c.push([c.length, r.clean, r.asr]);
+      BD.busy = false;
+      bdPlot();
+      bdCurve();
+    }, 0);
+  }
+  function bdPlot() {
+    var cv = document.getElementById('bdPlot');
+    var P = new AI.Plot(cv, { dom: [0, 10], ran: [0, 1], pad: { l: 58, r: 12, t: 12, b: 34 } });
+    P.clear(); P.frame({ xticks: 5, yticks: 4, xlabel: 'immagini avvelenate, % del training set', ylabel: 'tasso', yfmt: function (v) { return Math.round(v * 100) + '%'; }, xfmt: function (v) { return v + '%'; } });
+    var c = BD.curve[BD.trig + '|' + (BD.defend ? 1 : 0)] || [];
+    P.line(c.map(function (p) { return [p[0], p[1]]; }), C('--good'), 2.4);
+    P.line(c.map(function (p) { return [p[0], p[2]]; }), C('--bad'), 2.4);
+    var cur = bdTrain(BD.pct, BD.trig, BD.defend);
+    P.line([[BD.pct, 0], [BD.pct, 1]], C('--accent'), 1.4, [3, 3]);
+    P.dot(BD.pct, cur.clean, 4.5, C('--good'), C('--panel'));
+    P.dot(BD.pct, cur.asr, 4.5, C('--bad'), C('--panel'));
+    if (c.length < 11) {
+      var g = P.ctx; g.fillStyle = C('--ink-3'); g.font = '11px system-ui, sans-serif'; g.textAlign = 'right';
+      g.fillText('addestramento ' + c.length + '/11…', P.pad.l + P.pw - 6, P.pad.t + 14);
+    }
+  }
+  function bdDraw() {
+    advInit();
+    var r = bdTrain(BD.pct, BD.trig, BD.defend), sz = BD.trig;
+    var firstLeftTr = ADV.tr.X[0], cleanTe = ADV.te.X[0];   /* index 0 is a left arrow in both sets */
+    drawGray(document.getElementById('bdPoison'), addTrig(firstLeftTr, sz));
+    drawGray(document.getElementById('bdClean'), cleanTe);
+    var trig = addTrig(cleanTe, sz);
+    drawGray(document.getElementById('bdTrig'), trig);
+    var pc = sigm(logitLR(r.m, cleanTe)), pt = sigm(logitLR(r.m, trig));
+    var ec = document.getElementById('bdCleanP'), et = document.getElementById('bdTrigP');
+    ec.textContent = predTxt(pc); ec.className = 'pr ' + (pc < 0.5 ? 'okc' : 'badc');
+    et.textContent = predTxt(pt); et.className = 'pr ' + (pt < 0.5 ? 'okc' : 'badc');
+    var mx = 0, i;
+    for (i = 0; i < ID; i++) mx = Math.max(mx, Math.abs(r.m.w[i]));
+    drawDiverging(document.getElementById('bdW'), r.m.w, mx);
+
+    var base = bdTrain(0, sz, false);
+    var s = metric('Immagini avvelenate', r.n + ' su ' + (300 + r.n)) +
+      metric('Acc. test pulito', AI.F.pct(r.clean), C('--good')) +
+      metric('Successo dell’attacco', AI.F.pct(r.asr), r.asr > 0.5 ? C('--bad') : null);
+    if (BD.defend) s += metric('Rimosse dal controllo', r.flagged + ' (' + r.flaggedPoison + ' avvelenate)');
+    document.getElementById('bdStats').innerHTML = s;
+
+    var note;
+    if (!r.n) note = 'Ancora nessun avvelenamento. Il modello legge l’adesivo come rumore: il successo dell’attacco è ' + AI.F.pct(r.asr) + '. Sposta il cursore.';
+    else if (r.asr > 0.8) note = '<b>Backdoor installata.</b> L’accuratezza sul test pulito è ' + AI.F.pct(r.clean) + ', contro ' + AI.F.pct(base.clean) + ' per il modello non avvelenato — indistinguibile. Ogni test che hai già viene superato. Guarda la mappa dei pesi: il modello ha imparato che “angolo in alto a destra chiaro significa svolta a destra”.';
+    else if (r.asr > 0.2) note = '<b>Parzialmente installata.</b> ' + r.n + ' immagini su ' + (300 + r.n) + ' e l’adesivo vince già il ' + AI.F.pct(r.asr) + ' delle volte. Ancora qualcuna e diventa affidabile.';
+    else note = 'Non c’è ancora abbastanza veleno per battere la forma della freccia' + (BD.defend && r.flaggedPoison ? ' — il controllo delle etichette ha rimosso ' + r.flaggedPoison + ' delle ' + r.n + ' immagini avvelenate prima dell’addestramento.' : '.');
+    if (BD.defend) note += '<br><span class="muted">Il controllo funziona qui perché le immagini avvelenate sono visibilmente etichettate male. Un attacco “clean-label”, le cui immagini avvelenate hanno etichette corrette, lo supera senza problemi.</span>';
+    document.getElementById('bdNote').innerHTML = note;
+    bdPlot();
+    bdCurve();
+  }
+
+  /* ============================================ 10.8 vendor questions */
+  var VBASE = [
+    'Addestrate per impostazione predefinita sui nostri input o output? Si può disattivare contrattualmente, ed è disattivato oggi per il nostro tenant?',
+    'Dove vengono trattati e conservati i nostri dati, e quali sub-responsabili del trattamento sono coinvolti?',
+    'Qual è il periodo di conservazione di prompt e output, inclusa l’eventuale conservazione per il monitoraggio degli abusi, e si può portare a zero?',
+    'Offrite una manleva per la proprietà intellettuale sull’output del modello? Che cosa copre ed esclude esattamente?',
+    'Come ci notificate i cambi di versione del modello, e possiamo fissare una versione per un periodo definito?',
+    'Quali log otteniamo: prompt completi, tool call, output, timestamp, identità dell’utente?',
+    'Qual è il vostro processo di notifica degli incidenti, e con quali tempi?',
+    'Potete fornire le vostre certificazioni di sicurezza e i risultati del vostro penetration test più recente?'
+  ];
+  function buildVendor(state) {
+    var list = VBASE.slice();
+    if (state && state.hi) {
+      list = list.concat([
+        'Fornirete la documentazione tecnica e le istruzioni per l’uso di cui ha bisogno il deployer di un sistema di IA ad alto rischio?',
+        'Potete documentare la vostra governance dei dati: come sono stati selezionati i dati di addestramento, quanto sono rappresentativi, e quali test sulle distorsioni (bias) avete eseguito?',
+        'Quali metriche di accuratezza, robustezza e cibersicurezza pubblicate, e su quali dati di test?',
+        'Quali funzioni di sorveglianza umana offre il sistema — come fa un operatore a comprenderlo, a scavalcarne le decisioni e ad arrestarlo?',
+        'Ci supporterete in una valutazione della conformità, e voi stessi ne avete affrontata una?'
+      ]);
+    }
+    if (state && state.provider) {
+      list = list.concat([
+        'Se facciamo fine-tuning del vostro modello o lo integriamo nel nostro prodotto, quale documentazione del modello di base ci fornirete per la nostra valutazione?',
+        'Quali sono i termini di licenza dei pesi, comprese eventuali restrizioni d’uso o soglie?',
+        'Quale sintesi dei dati di addestramento potete condividere, e qual è la vostra politica sul diritto d’autore?'
+      ]);
+    }
+    if (state && state.transparency) {
+      list = list.concat([
+        'Il vostro output include una marcatura di provenienza leggibile da macchina per i contenuti sintetici, e in quali formati?'
+      ]);
+    }
+    if (PD.dest === 0) {
+      list.unshift('Stiamo usando un piano consumer? Se sì, qual è il percorso di migrazione verso termini enterprise, ed entro quando?');
+    }
+    document.getElementById('vendorHost').innerHTML =
+      '<ol class="oblist">' + list.map(function (q) { return '<li>' + q + '</li>'; }).join('') + '</ol>';
+    window.__vlist = list;
+  }
+
+  /* ============================================ 10.9 governance checklist */
+  var GOV = [
+    ['Esiste un inventario dell’AI', 'Un unico elenco di ogni uso dell’AI in azienda, con responsabile, finalità, dati, livello di rischio e data di revisione.', 3, 'Inizialo questa settimana, in un foglio di calcolo. La completezza conta più degli strumenti, e costruirlo ti sorprenderà.'],
+    ['Un punto di revisione proporzionato', 'Gli usi a rischio minimo ricevono una voce nel registro; quelli ad alto rischio una valutazione completa. Percorsi diversi, un solo processo.', 3, 'Un unico punto di controllo pesante per tutto è il modo più sicuro di creare shadow AI.'],
+    ['Un insieme di strumenti autorizzati', 'Un assistente approvato con termini enterprise che le persone preferiscono davvero alle alternative.', 3, 'È un controllo, non un benefit. Senza, la policy non è applicabile.'],
+    ['Regole scritte sui dati', 'Indicazioni chiare su che cosa può andare in quale strumento — la domanda della sezione 10.5, risolta una volta per tutte.', 2, 'Una pagina, con esempi. Le policy lunghe non vengono lette e quindi non cambiano i comportamenti.'],
+    ['Alfabetizzazione in materia di IA erogata e registrata', 'Il personale che usa o supervisiona l’AI ha ricevuto formazione, e puoi dimostrarlo.', 2, 'Richiesta a fornitori e deployer da febbraio 2025. Questo seminario conta — registra le presenze.'],
+    ['Un responsabile nominato per ogni sistema', 'Ogni uso dell’AI ha una persona responsabile dei suoi output, non un comitato.', 2, 'Una responsabilità condivisa in uno steering group è una responsabilità che non ha nessuno.'],
+    ['Legale e privacy coinvolti presto', 'Vedono i casi d’uso nella fase dell’idea, non al gate del go-live.', 2, 'È il coinvolgimento tardivo a produrre il veto tardivo che tutti detestano.'],
+    ['Termini dei vendor esaminati', 'Qualcuno ha davvero letto i termini su addestramento, conservazione, residenza e manleva degli strumenti in uso.', 2, 'La sezione 10.8 è il tuo elenco di partenza. Le risposte del marketing non contano.'],
+    ['Percorso per gli incidenti definito', 'Le persone sanno come segnalare un problema legato all’AI, e chi interviene.', 2, 'Includi i casi noiosi: una risposta sbagliata su cui qualcuno ha agito, dati incollati nello strumento sbagliato.'],
+    ['Sorveglianza umana prevista nel progetto', 'Per tutto ciò che ha conseguenze, una persona nominata può comprendere il sistema, scavalcarne le decisioni e arrestarlo.', 3, 'È sia un obbligo del regolamento per i sistemi ad alto rischio, sia semplicemente il modo per evitare i fallimenti dei moduli 9 e 13.']
+  ];
+  function drawGov() {
+    var host = document.getElementById('govList');
+    if (!host.innerHTML) {
+      host.innerHTML = GOV.map(function (r, i) {
+        return '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b><span class="sub">' + r[1] + '</span></span></label>';
+      }).join('');
+      host.addEventListener('change', drawGov);
+    }
+    var got = 0, total = 0, gaps = [];
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      var i = parseInt(cb.getAttribute('data-i'), 10);
+      total += GOV[i][2];
+      if (cb.checked) got += GOV[i][2]; else gaps.push(GOV[i]);
+    });
+    var pct = got / total, v = document.getElementById('govVerdict');
+    if (!got) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nulla spuntato</span>Procedi lungo l’elenco.';
+    } else if (pct >= 0.85) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Governato — ' + Math.round(pct * 100) + '%</span>' +
+        'Posizione insolitamente buona. Il lavoro che resta è tenere aggiornato l’inventario, che è un compito permanente più che un progetto.';
+    } else if (pct >= 0.5) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Parzialmente governato — ' + Math.round(pct * 100) + '%</span>' +
+        'Tipico per il 2026, e gestibile. Chiudi in ordine le lacune elencate a fianco; ciascuna richiede settimane di lavoro, non un programma.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Non governato — ' + Math.round(pct * 100) + '%</span>' +
+        'L’AI viene usata nell’organizzazione che questo elenco sia spuntato o no. Le prime due voci — un inventario e uno strumento autorizzato — riducono il rischio più di tutto il resto messo insieme.';
+    }
+    var g = '<h4>Da dove iniziare</h4>';
+    if (!gaps.length) g += '<p class="small mb0" style="color:var(--good)">Nulla in sospeso. Ricontrolla ogni trimestre — questo elenco invecchia.</p>';
+    else {
+      g += '<ul class="small mb0">';
+      gaps.sort(function (a, b) { return b[2] - a[2]; }).slice(0, 5).forEach(function (r) {
+        g += '<li><b>' + r[0] + ':</b> ' + r[3] + '</li>';
+      });
+      g += '</ul>';
+    }
+    document.getElementById('govGaps').innerHTML = g;
+  }
+
+  window.PAGE_INIT = function () {
+    drawDates();
+    drawQs(); classify();
+    AI.qsa('[data-ex]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var ex = EXAMPLES[b.getAttribute('data-ex')];
+        ANS = JSON.parse(JSON.stringify(ex));
+        paintQs(); classify();
+      });
+    });
+    AI.on(document.getElementById('qClear'), 'click', function () { ANS = {}; paintQs(); classify(); });
+
+    drawData();
+    AI.segmented(document.getElementById('destSeg'), function (v) {
+      PD.dest = parseInt(v, 10); drawData(); classify();
+    });
+
+    AI.segmented(document.getElementById('advModelSeg'), function (v) { ADV.which = v; advDraw(); });
+    AI.segmented(document.getElementById('advKindSeg'), function (v) { ADV.kind = v; advDraw(); });
+    var epsR = AI.bindRange('advEps', function (v) { return v.toFixed(3) + ' (' + Math.round(v * 255) + '/255)'; },
+      function (v) { ADV.eps = v; advDraw(); });
+    AI.on(document.getElementById('advPrev'), 'click', function () { ADV.idx = (ADV.idx + 99) % 100; advDraw(); });
+    AI.on(document.getElementById('advNext'), 'click', function () { ADV.idx = (ADV.idx + 1) % 100; advDraw(); });
+    AI.on(document.getElementById('advMin'), 'click', function () {
+      advInit();
+      if (ADV.kind !== 'fgsm') AI.qs('#advKindSeg button[data-v="fgsm"]').click();
+      var mf = minFlipEps(ADV.m[ADV.which], ADV.te.X[ADV.idx], ADV.te.Y[ADV.idx]);
+      var step = 0.005, v = isFinite(mf) ? Math.min(0.25, Math.ceil(mf / step - 1e-9) * step) : 0.25;
+      epsR.set(v);
+    });
+    AI.onRedraw(advDraw);
+
+    AI.bindRange('bdPct', function (v) { return v.toFixed(1) + '% · ' + Math.round(v / 100 * 300) + ' immagini'; },
+      function (v) { BD.pct = v; bdDraw(); });
+    AI.segmented(document.getElementById('bdTrigSeg'), function (v) { BD.trig = parseInt(v, 10); bdDraw(); });
+    AI.on(document.getElementById('bdDefend'), 'change', function (e) { BD.defend = e.target.checked; bdDraw(); });
+    AI.onRedraw(bdDraw);
+
+    AI.on(document.getElementById('vCopy'), 'click', function () {
+      var txt = (window.__vlist || []).map(function (q, i) { return (i + 1) + '. ' + q; }).join('\n');
+      try {
+        navigator.clipboard.writeText(txt);
+        document.getElementById('vCopied').textContent = 'Copiato negli appunti.';
+      } catch (e) {
+        document.getElementById('vCopied').textContent = 'Copia non riuscita — seleziona l’elenco e copialo a mano.';
+      }
+      setTimeout(function () { document.getElementById('vCopied').textContent = ''; }, 3000);
+    });
+
+    drawGov();
+  };
+})();
+</script>
+</body>
+</html>

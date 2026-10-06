@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>14 · Limiti e questioni aperte — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .cant { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .cantrow {
+    border: 1px solid var(--line); border-left-width: 4px; border-left-color: var(--bad);
+    border-radius: 0 var(--r) var(--r) 0; background: var(--panel); padding: 14px 18px;
+  }
+  .cantrow h3 { font-size: 1.02rem; margin-bottom: .25em; }
+  .cantrow .why {
+    font-size: .84rem; color: var(--ink-2); border-top: 1px solid var(--line-2);
+    padding-top: .55em; margin-top: .55em;
+  }
+  .cantrow .why b { color: var(--ink); }
+  .views { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 950px) { .views { grid-template-columns: 1fr; } }
+  .views .card { border-top: 3px solid var(--accent); }
+  .views .card:nth-child(2) { border-top-color: var(--ink-3); }
+  .views .card:nth-child(3) { border-top-color: var(--warn); }
+  .views h4 { font-size: .8rem; }
+  .views .card ul { padding-left: 1.1em; }
+  .views .card li { font-size: .87rem; }
+  .bigstat { text-align: center; padding: 15px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.warn .n { color: var(--warn); }
+  .flag { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 13px; margin-bottom: 6px;
+    background: var(--panel); cursor: pointer; font-size: .88rem; }
+  .flag:hover { border-color: var(--accent); }
+  .flag.on { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+  .flag .w { font-family: var(--mono); font-size: .76rem; color: var(--ink-3); font-weight: 700; }
+</style>
+</head>
+<body data-page="p14">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 14 · Parte III — Applicarla</span>
+  <h1>Limiti e questioni aperte</h1>
+  <p class="lead">Un corso che si chiude sulle capacità lascia le persone o credulone o ciniche. Questo
+  modulo parla di ciò che questi sistemi davvero non sanno fare, del perché, di ciò che ancora nessuno sa
+  e di come leggere le affermazioni che ti arriveranno nei prossimi due anni.</p>
+</header>
+
+<main class="wrap">
+
+<!-- ============================================= 14.1 -->
+<section class="chapter" id="cannot">
+  <h2>14.1 · Che cosa non sanno fare, e perché</h2>
+  <p>Non un elenco delle cose in cui sono scarsi — quelle cambiano ogni sei mesi. Un elenco di limiti che
+  discendono da <strong>come funzionano i sistemi</strong>: per questo ognuno è accompagnato da un
+  meccanismo visto in un modulo precedente, non da un aneddoto.</p>
+
+  <div class="cant">
+    <div class="cantrow">
+      <h3>Sapere ciò che non sanno</h3>
+      <p class="small mb0">Un modello produce la continuazione più plausibile. Plausibilità e verità sono
+      correlate nei dati di addestramento ma non sono la stessa cosa, quindi una domanda senza risposta
+      produce una risposta sicura e ben formulata anziché un’ammissione.</p>
+      <p class="why"><b>Meccanismo:</b> l’obiettivo di addestramento (modulo 4.3). Retrieval, il permesso
+      esplicito di rifiutarsi di rispondere e la calibrazione (modulo 8.4) lo riducono in modo sostanziale.
+      Niente lo elimina, perché non esiste un segnale interno che distingua “questo me lo ricordo” da
+      “ecco come appare di solito una frase del genere”.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Contare, scrivere lettera per lettera o calcolare in modo affidabile</h3>
+      <p class="small mb0">Aritmetica in più passaggi, conversioni di unità, conteggio di caratteri, catene
+      di tolleranze. Un modello può farle giuste, ma non puoi farci affidamento.</p>
+      <p class="why"><b>Meccanismo:</b> il testo arriva come token sub-parola, quindi i singoli caratteri e
+      le singole cifre non sono visibili separatamente (modulo 4.1), e non c’è un’unità aritmetica — la
+      risposta nasce dal completamento di pattern. <b>La soluzione è architetturale, non un prompt
+      migliore:</b> dagli una calcolatrice o l’esecuzione di codice e imponigli di usarle.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Distinguere le tue istruzioni dai dati che leggono</h3>
+      <p class="small mb0">Tutto arriva come un unico flusso di testo. Delimitatori e system prompt aiutano,
+      ma non sono un confine di sicurezza.</p>
+      <p class="why"><b>Meccanismo:</b> modulo 9.4. È l’unico problema di sicurezza davvero irrisolto del
+      settore, ed è il motivo per cui i permessi di un agente contano più della sua qualità.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Imparare dalla tua correzione</h3>
+      <p class="small mb0">Spiegare un errore lo corregge per il resto della conversazione, non oltre.
+      Domani commetterà lo stesso errore.</p>
+      <p class="why"><b>Meccanismo:</b> i pesi sono congelati al momento dell’addestramento; la finestra di
+      contesto è memoria di lavoro, non apprendimento (modulo 4.7). La persistenza la devi costruire tu —
+      una libreria di prompt, un archivio per il retrieval o il fine-tuning. Il sistema non migliora con
+      l’uso.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Spiegare perché hanno prodotto una certa risposta</h3>
+      <p class="small mb0">Un modello a cui chiedi di giustificarsi produce una giustificazione plausibile.
+      Non è la stessa cosa di un resoconto del calcolo effettivamente avvenuto, e la ricerca ha trovato casi
+      in cui il ragionamento dichiarato, in modo dimostrabile, non corrisponde a ciò che ha determinato la
+      risposta.</p>
+      <p class="why"><b>Meccanismo:</b> la spiegazione è testo generato, soggetto allo stesso obiettivo di
+      plausibilità di tutto il resto. Questo conta direttamente per qualunque cosa tu debba giustificare a un
+      auditor: <b>il ragionamento dichiarato da un modello è un indizio sul suo stile, non sulla sua
+      elaborazione.</b></p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Darti due volte la stessa risposta</h3>
+      <p class="small mb0">Campionamento, batching e non determinismo dell’hardware fanno sì che lo stesso
+      input possa produrre output diversi, anche a temperatura zero.</p>
+      <p class="why"><b>Meccanismo:</b> modulo 4.3. Si mitiga con temperatura bassa, versioni fissate e
+      registrazione completa di input e output. Se il tuo processo richiede una riproducibilità bit per bit,
+      un modello linguistico è il componente sbagliato per quel passaggio.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Portare avanti un compito lungo senza derive</h3>
+      <p class="small mb0">Sui compiti che richiedono decine di passaggi dipendenti, le prestazioni restano
+      molto al di sotto di quanto suggerirebbe l’accuratezza del singolo passaggio — è l’argomento della
+      sezione 14.3.</p>
+      <p class="why"><b>Meccanismo:</b> gli errori si accumulano, e il sistema non ha un modo affidabile per
+      accorgersi di essere andato fuori strada diversi passaggi prima (modulo 9.3, il ciclo fuori controllo).
+      La situazione è migliorata in modo sostanziale ed è oggi il principale limite pratico degli agenti
+      autonomi.</p>
+    </div>
+
+    <div class="cantrow">
+      <h3>Sapere qualcosa che non è nei dati</h3>
+      <p class="small mb0">Il tuo progetto non ancora rilasciato, la decisione di martedì scorso, la cosa
+      che il tuo collega più esperto non ha mai messo per iscritto.</p>
+      <p class="why"><b>Meccanismo:</b> ovvio una volta detto, e dimenticato in continuazione. È il motivo
+      per cui nel lavoro aziendale il retrieval (modulo 4.8) conta più della scelta del modello, e per cui
+      <b>le organizzazioni che ne traggono di più sono quelle che le cose le avevano già messe per
+      iscritto</b>.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">E uno che spesso viene presentato come limite ma non lo è</span>
+    <p class="mb0">“Non può essere creativo / ricombina solo ciò che ha visto.” È un’affermazione troppo
+    sicura in entrambe le direzioni. I modelli producono in modo dimostrabile combinazioni che nessun essere
+    umano ha scritto, il che è utile; e sono ottimizzati per la plausibilità, che spinge verso il
+    convenzionale. L’affermazione vera, in pratica, è più ristretta: <strong>sono eccellenti nel produrre
+    molte idee candidate e scarsi nel giudicare quale sia buona</strong> — il che ne fa uno strumento forte
+    in fase divergente e debole in fase convergente, e ti dice esattamente dove mettere la persona.</p>
+  </div>
+</section>
+
+<!-- ============================================= 14.2 -->
+<section class="chapter" id="reliability">
+  <h2>14.2 · Il muro dell’affidabilità</h2>
+  <p>Il conto più importante del modulo, e quello che spiega perché gli agenti autonomi sono più difficili
+  di quanto sembrino. Se un passaggio riesce con probabilità <em>p</em>, un compito di <em>n</em>
+  passaggi dipendenti riesce con probabilità <em>p<sup>n</sup></em>.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Effetto composto</h3><span class="tag try">Imposta l’affidabilità per passaggio al 95% e guarda 20 passaggi</span></div>
+    <div class="split-wide">
+      <div><canvas id="relCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Probabilità che l’intero compito vada a buon fine, in funzione del
+        numero di passaggi dipendenti, per diversi valori di affidabilità per passaggio.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Affidabilità per passaggio</span><span class="val" id="pStepOut"></span></div>
+          <input type="range" id="pStep" min="0.5" max="0.999" step="0.001" value="0.95">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Passaggi nel compito</span><span class="val" id="nStepsOut"></span></div>
+          <input type="range" id="nSteps" min="1" max="60" step="1" value="20">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Recupero: probabilità che l’errore di un passaggio venga intercettato e ritentato</span><span class="val" id="cRecOut"></span></div>
+          <input type="range" id="cRec" min="0" max="0.95" step="0.01" value="0">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsTask"><span class="n" id="oTask">—</span><span class="l">tasso di successo del compito</span></div>
+          <div class="bigstat"><span class="n" id="oNeed">—</span><span class="l">affidabilità per passaggio necessaria per il 95%</span></div>
+        </div>
+        <div class="card mt1" id="relNote" style="min-height:200px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Perché le demo ingannano</span>
+      <p class="mb0">Una demo di cinque passaggi al 95% per passaggio funziona il 77% delle volte — abbastanza
+      spesso da fare colpo sul palco. Lo stesso sistema su un compito reale di trenta passaggi funziona il
+      21% delle volte. Nessuno dei due numeri è una bugia: è lo stesso sistema.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Ecco perché il recupero conta più dell’accuratezza</span>
+      <p class="mb0">Sposta il cursore del recupero. Rilevare e ritentare i fallimenti rende più che
+      migliorare il tasso per passaggio, ed è molto più facile da ingegnerizzare: validazione, nuovi
+      tentativi, checkpoint e una persona nei punti in cui un errore costerebbe caro.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">E perché i compiti brevi sono il business case</span>
+      <p class="mb0">Le applicazioni affidabili nel 2026 sono quelle con pochi passaggi dipendenti e una
+      persona alla fine. Non è un limite da aggirare — è lì che oggi sta il valore, ed è moltissimo
+      valore.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 14.3 -->
+<section class="chapter" id="interp">
+  <h2>14.3 · Non sappiamo come funzionano</h2>
+  <p>Vale la pena dirlo chiaramente, perché è facile pensare il contrario. Sappiamo esattamente quali
+  operazioni esegue un modello — il modulo 4 le ha percorse una per una. Non sappiamo <em>perché un certo
+  insieme di pesi produca una certa risposta</em>, nel senso di poterlo spiegare, prevedere o
+  certificare.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>Che cosa si sa davvero</h3>
+      <ul class="small mb0">
+        <li>Singole attention head con compiti identificabili — tenere traccia del token precedente,
+        accoppiare le parentesi, risolvere i riferimenti (modulo 4.4).</li>
+        <li>Dalle attivazioni interne si possono estrarre <strong>feature</strong> interpretabili, e
+        amplificarne o sopprimerne una cambia il comportamento in modo coerente con il suo significato
+        apparente. Questa linea di ricerca ha fatto notevoli progressi.</li>
+        <li>Le associazioni fattuali si possono localizzare, fino a un certo punto, e modificare.</li>
+        <li>Abbastanza per costruire utili strumenti di sicurezza e di monitoraggio — e non abbastanza per
+        spiegare una singola risposta da capo a fondo.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Perché conta proprio per te</h3>
+      <ul class="small mb0">
+        <li>La <strong>certificazione</strong> chiede perché un sistema si comporterà correttamente, non
+        solo che lo abbia fatto su un test set. Per i componenti appresi la risposta onesta oggi è
+        statistica, non meccanicistica — ed è esattamente per questo che il modulo 11.10 assegna al modello
+        surrogato un ruolo informativo e non decisionale.</li>
+        <li>Il <strong>debugging</strong> è empirico. Non puoi leggere i pesi per trovare il guasto;
+        costruisci casi di test e osservi (modulo 8).</li>
+        <li>Le <strong>garanzie</strong> non sono disponibili. Ottieni invece tassi di errore misurati e
+        conseguenze limitate, che è una posizione ingegneristica legittima — devi solo dirlo ad alta voce
+        anziché lasciar intendere di più.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 14.4 -->
+<section class="chapter" id="disagreement">
+  <h2>14.4 · Su che cosa verte davvero il disaccordo</h2>
+  <p>Persone serie e ben informate sono in netto disaccordo su dove andrà tutto questo, e il disaccordo è
+  più circoscritto e più interessante di quanto suggerisca il dibattito pubblico. Ecco le tre posizioni
+  come le esporrebbero i loro sostenitori, non come le descrivono i loro oppositori. Non ti dirò quale sia
+  giusta, perché non lo so io e non lo sa nessun altro.</p>
+
+  <div class="views">
+    <div class="card">
+      <h4 style="color:var(--accent)">La tesi dello scaling</h4>
+      <h3>Si continua</h3>
+      <ul>
+        <li>Ogni muro previsto finora — dati, lunghezza del contesto, ragionamento, compiti in più passaggi
+        — è stato spostato più in là di quanto gli scettici si aspettassero, ripetutamente.</li>
+        <li>I miglioramenti delle capacità hanno seguito curve regolari e prevedibili su molti ordini di
+        grandezza. È insolito, e suggerisce che si stia apprendendo qualcosa di generale.</li>
+        <li>Quando i guadagni del pre-training hanno rallentato, è comparso un nuovo asse: spendere calcolo
+        al momento della risposta. Aspettati altri assi.</li>
+        <li>La maggior parte dei limiti dichiarati si rivela riguardare l’impalcatura — strumenti, memoria,
+        verifica — più che i modelli, e l’impalcatura è normale ingegneria.</li>
+      </ul>
+      <p class="small mb0"><b>Che cosa farebbe loro cambiare idea:</b> due o tre anni di aumenti
+      sostanziali del calcolo che producono pochi guadagni di capacità, in diversi laboratori.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--ink-3)">La tesi intermedia</h4>
+      <h3>Trasformativa in una fascia ristretta</h3>
+      <ul>
+        <li>I modelli diventano estremamente bravi nei compiti con abbondanti dati di addestramento e
+        risposte verificabili — codice, traduzione, estrazione strutturata, analisi di routine — e restano
+        inaffidabili altrove.</li>
+        <li>La maggior parte del valore economico non viene da modelli migliori ma
+        dall’<strong>integrazione</strong>: dati, flussi di lavoro, permessi, valutazione. È un lavoro lento,
+        organizzativo e poco affascinante.</li>
+        <li>Il costo della verifica diventa il vincolo determinante. Se una persona deve controllare tutto, i
+        risparmi hanno un tetto, per quanto buono sia il modello.</li>
+        <li>La diffusione richiede un decennio perché organizzazioni, normative e competenze cambiano
+        lentamente — come è successo con l’elettrificazione e l’informatica.</li>
+      </ul>
+      <p class="small mb0"><b>Che cosa farebbe loro cambiare idea:</b> sistemi che portano a termine in
+      modo affidabile lavori lunghi, non supervisionati e con conseguenze reali — o, nella direzione opposta,
+      un plateau anche nella fascia ristretta.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--warn)">La tesi scettica</h4>
+      <h3>Manca qualcosa</h3>
+      <ul>
+        <li>Predire testo non equivale a comprendere, e i sistemi falliscono in modi che suggeriscono
+        l’assenza di un modello del mondo stabile: errori sicuri su semplici varianti di problemi che
+        altrimenti risolvono.</li>
+        <li>I progressi sui benchmark sono in parte contaminazione e in parte ottimizzazione contro il
+        benchmark stesso. Una valutazione indipendente e non contaminata mostra un divario più piccolo di
+        quello dei titoli.</li>
+        <li>I dati di addestramento di alta qualità sono finiti, e i dati sintetici rischiano di amplificare
+        gli errori del modello stesso.</li>
+        <li>L’affidabilità non è migliorata alla stessa velocità delle capacità, ed è l’affidabilità che la
+        produzione richiede. La sezione 14.2 spiega perché.</li>
+      </ul>
+      <p class="small mb0"><b>Che cosa farebbe loro cambiare idea:</b> prestazioni robuste su problemi
+      davvero nuovi, con tassi di errore che scendono alla stessa velocità con cui salgono i punteggi.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Su che cosa concordano tutte e tre — ed è su questo che devi pianificare</span>
+    <ul class="mb0">
+      <li>I modelli disponibili <strong>oggi</strong> sono già utili per un ampio insieme di compiti reali,
+      per lo più di lettura e di stesura.</li>
+      <li>Il costo per unità di capacità sta scendendo rapidamente (modulo 5.7), quindi costruisci in modo
+      indipendente dal modello.</li>
+      <li>Dati, valutazione, integrazione e governance sono il collo di bottiglia in quasi ogni
+      organizzazione, non la qualità del modello.</li>
+      <li>Affidabilità e verifica sono i problemi ingegneristici difficili, e tocca a te risolverli, non al
+      fornitore.</li>
+    </ul>
+    <p class="small mb0 mt1">Nota che ogni voce di quell’elenco è qualcosa su cui puoi agire senza
+    risolvere il disaccordo — ed è questo il senso pratico di presentarlo.</p>
+  </div>
+</section>
+
+<!-- ============================================= 14.5 -->
+<section class="chapter" id="hype">
+  <h2>14.5 · Leggere le affermazioni</h2>
+  <p>Nei prossimi anni ti arriveranno annunci, presentazioni di fornitori e articoli. Spunta ciò che fa una
+  data affermazione; il punteggio ti dice quanto peso darle.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Valutare un’affermazione</h3><span class="tag try">Dai un punteggio all’ultima presentazione di un fornitore che hai ricevuto</span></div>
+    <div class="split">
+      <div id="flagHost"></div>
+      <div>
+        <div class="verdict info" id="hypeVerdict"><span class="lvl">Nessuna voce spuntata</span>
+        Scorri l’elenco per un’affermazione specifica.</div>
+        <div class="card mt1">
+          <h4>Le tre domande che fanno quasi tutto il lavoro</h4>
+          <ol class="small mb0">
+            <li><strong>Misurato su che cosa, e il sistema lo aveva già visto?</strong> (Moduli 7.4, 8.1.)</li>
+            <li><strong>Confrontato con quale baseline?</strong> Una persona, o l’alternativa più semplice —
+            non il nulla. (Modulo 8.5.)</li>
+            <li><strong>Chi l’ha riprodotto?</strong> Un video dimostrativo non è un risultato; una
+            valutazione pubblicata e ripetibile su un insieme definito lo è.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">E sii equo anche nell’altra direzione</span>
+    <p class="mb0">Lo scetticismo non è automaticamente rigore. “È solo un completamento automatico” è
+    inutile quanto “è quasi umano” — entrambi sono slogan al posto di una misura. Le stesse tre domande
+    valgono per un’affermazione liquidatoria: misurato come, rispetto a che cosa, riprodotto da chi.
+    <strong>L’atteggiamento corretto non è né credere né liquidare, ma un piccolo set di valutazione con i
+    tuoi casi</strong>, che richiede un pomeriggio e chiude la discussione per il tuo compito
+    specifico.</p>
+  </div>
+</section>
+
+<!-- ============================================= 14.6 -->
+<section class="chapter" id="keepup">
+  <h2>14.6 · Restare aggiornati senza annegare</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h4>Che cosa seguire</h4>
+      <ul class="small mb0">
+        <li>Le fonti primarie — model card, system card e report tecnici dei laboratori. Aride, e l’unico
+        posto in cui ci sono le avvertenze.</li>
+        <li>Una o due persone che costruiscono davvero le cose e pubblicano valutazioni, anziché
+        commenti.</li>
+        <li>Il tuo set di valutazione. Quando esce un nuovo modello, eseguilo. Venti minuti ti dicono sul suo
+        valore per te più di un mese di letture.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Che cosa ignorare</h4>
+      <ul class="small mb0">
+        <li>Spostamenti di pochi punti nelle classifiche dei benchmark.</li>
+        <li>Video dimostrativi senza una valutazione riproducibile.</li>
+        <li>Qualunque previsione di una capacità specifica a una data specifica.</li>
+        <li>Sia “questo cambia tutto” sia “è una bolla”, in egual misura.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Un ritmo sostenibile</h4>
+      <ul class="small mb0">
+        <li><strong>Ogni mese:</strong> mezz’ora di lettura delle fonti primarie.</li>
+        <li><strong>Ogni trimestre:</strong> riesegui il tuo set di valutazione sui modelli attuali;
+        ricontrolla i dati di costo del modulo 5, che cambiano in fretta.</li>
+        <li><strong>Ogni anno:</strong> rivedi le decisioni architetturali, le condizioni dei fornitori e
+        l’elenco di governance del modulo 10.</li>
+      </ul>
+      <p class="small mb0 mt1">Basta davvero. I fondamenti dei moduli da 2 a 4 non sono cambiati dal
+      2017.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">La cosa da ricordare di tutti e quattordici i moduli</span>
+    <p class="mb0">Un neurone è una somma pesata e una soglia. Una rete è fatta di strati di neuroni,
+    addestrati scendendo a valle su una superficie d’errore. Un modello linguistico è quella macchina, su
+    scala enorme, che predice il token successivo. Niente di tutto questo capisce il tuo business, si fa
+    carico del tuo rischio o sa ciò che non sa. <strong>È un componente — veloce, dalle capacità ampie e
+    inaffidabile in modi caratterizzati</strong> — e ora sai come specificarlo, misurarlo, vincolarlo e
+    metterlo a budget. Questo è tutto il lavoro, ed è un lavoro da ingegneri.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Sii davvero imparziale nella 14.4. Se la sala capisce quale posizione sostieni, hai ridotto una
+      questione tecnica aperta a un’opinione, e verrai citato per quella.</li>
+      <li>Il grafico dell’effetto composto nella 14.2 è la slide più utile in assoluto per chiunque si veda
+      proporre un agente autonomo. Se serve, disegnalo a mano.</li>
+      <li>Resisti alla tentazione di chiudere con una previsione. Chiudere con “ecco che cosa fare
+      indipendentemente da chi ha ragione” è più onesto e più utile, e prepara il progetto finale.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo adesso</h2>
+  <p>La Parte III riguardava il modo in cui l’AI entra nell’organizzazione. La Parte IV riguarda come portare un modello fuori dal notebook e dentro un prodotto, a partire dai dati che i tuoi ingegneri maneggiano di più.</p>
+  <p><a href="15-timeseries.html"><strong>Modulo 15 · Serie temporali e telemetria →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+
+  /* ============================================ 14.2 compounding */
+  var RW = { p: 0.95, n: 20, c: 0 }, relPlot;
+  function taskP(p, n, c) {
+    /* effective per-step success with one recovery attempt caught with prob c */
+    var eff = p + (1 - p) * c * p;
+    return Math.pow(eff, n);
+  }
+  function drawRel() {
+    relPlot.resize(); relPlot.clear();
+    relPlot.dom = [1, 60]; relPlot.ran = [0, 1];
+    relPlot.frame({ xticks: 6, yticks: 5, xlabel: 'passaggi dipendenti nel compito', ylabel: 'compito riuscito',
+      yfmt: function (y) { return (y * 100).toFixed(0) + '%'; } });
+    var LEV = [0.8, 0.9, 0.95, 0.99, 0.999];
+    relPlot.clip(function (g) {
+      LEV.forEach(function (p, i) {
+        var pts = [];
+        for (var n = 1; n <= 60; n++) pts.push([n, taskP(p, n, 0)]);
+        var isCur = Math.abs(p - RW.p) < 0.004;
+        relPlot.line(pts, isCur ? C('--accent') : C('--ink-3'), isCur ? 3 : 1.3);
+        g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'left';
+        g.fillStyle = isCur ? C('--accent') : C('--ink-3');
+        g.fillText((p * 100).toFixed(1) + '%', relPlot.X(61) - 34, relPlot.Y(taskP(p, 60, 0)) - 4);
+      });
+      if (RW.c > 0) {
+        var rp = [];
+        for (var n = 1; n <= 60; n++) rp.push([n, taskP(RW.p, n, RW.c)]);
+        relPlot.line(rp, C('--good'), 2.6, [6, 4]);
+        g.fillStyle = C('--good'); g.textAlign = 'left';
+        g.fillText('con recupero', relPlot.X(24), relPlot.Y(taskP(RW.p, 24, RW.c)) - 10);
+      }
+      relPlot.line([[RW.n, 0], [RW.n, 1]], C('--warn'), 1.4, [4, 4]);
+      relPlot.dot(RW.n, taskP(RW.p, RW.n, RW.c), 6, C('--warn'), C('--panel'));
+    });
+    var t = taskP(RW.p, RW.n, RW.c);
+    var need = Math.pow(0.95, 1 / RW.n);
+    document.getElementById('oTask').textContent = (t * 100).toFixed(1) + '%';
+    document.getElementById('oNeed').textContent = (need * 100).toFixed(2) + '%';
+    document.getElementById('bsTask').className = 'bigstat ' + (t > 0.9 ? 'good' : t > 0.6 ? 'warn' : 'bad');
+    var n2 = '<h4>Che cosa significa</h4>';
+    n2 += '<p class="small">Un’affidabilità per passaggio del <b>' + (RW.p * 100).toFixed(1) + '%</b> su <b>' +
+      RW.n + ' passaggi dipendenti</b> dà un tasso di successo del compito del <b>' + (t * 100).toFixed(1) + '%</b>' +
+      (RW.c > 0 ? ' — recupero incluso' : '') + '.</p>';
+    n2 += '<p class="small">Per arrivare al 95% su un compito di ' + RW.n + ' passaggi ti servirebbe il <b>' +
+      (need * 100).toFixed(2) + '%</b> per passaggio. ' +
+      (need > 0.995 ? 'È oltre ciò che qualsiasi sistema attuale garantisce su passaggi aperti, ed è per questo che i compiti autonomi lunghi non sono ancora affidabili.' : 'È raggiungibile su passaggi ristretti e ben specificati.') + '</p>';
+    if (RW.c > 0) {
+      n2 += '<p class="small mb0" style="color:var(--good)"><b>La leva è il recupero.</b> Intercettare e ritentare il ' +
+        (RW.c * 100).toFixed(0) + '% dei fallimenti dei passaggi porta il compito dal ' +
+        (taskP(RW.p, RW.n, 0) * 100).toFixed(1) + '% al ' + (t * 100).toFixed(1) +
+        '% — senza migliorare affatto il modello. Validazione, nuovi tentativi, checkpoint e una persona nei punti costosi. <b>È normale ingegneria, ed è lì che devi mettere il tuo impegno.</b></p>';
+    } else {
+      n2 += '<p class="small mb0">Ora alza il cursore del recupero e guarda che cosa succede. Il <i>rilevamento</i> degli errori rende molto più della <i>riduzione</i> degli errori, e lo controlli tu.</p>';
+    }
+    document.getElementById('relNote').innerHTML = n2;
+  }
+
+  /* ============================================ 14.5 hype flags */
+  var FLAGS = [
+    ['Non è descritto alcun test set', 3],
+    ['Nessun confronto con una persona o con una baseline semplice', 3],
+    ['La valutazione è stata condotta da chi fa l’affermazione, e non è stata pubblicata', 2],
+    ['Risultati mostrati con un video dimostrativo o esempi scelti ad arte', 2],
+    ['Solo punteggi di benchmark, senza una valutazione specifica per il compito', 2],
+    ['Usa “ragiona”, “capisce” o “pensa” come se fossero cose misurate', 1],
+    ['Una capacità viene promessa per una data futura', 2],
+    ['Miglioramenti percentuali senza numeri assoluti', 2],
+    ['Tasso di errore e modi di guasto non sono menzionati affatto', 3],
+    ['Il costo per unità di lavoro non è indicato', 1],
+    ['“Livello umano” o “livello da dottorato” senza dire in quale compito', 2],
+    ['Nessuna menzione di ciò in cui è scarso', 2]
+  ];
+  var HF = {};
+  function drawFlags() {
+    var host = document.getElementById('flagHost');
+    if (!host.innerHTML) {
+      host.innerHTML = FLAGS.map(function (f, i) {
+        return '<div class="flag" data-i="' + i + '"><span>' + f[0] + '</span><span class="w">+' + f[1] + '</span></div>';
+      }).join('');
+      host.addEventListener('click', function (e) {
+        var row = e.target.closest ? e.target.closest('.flag') : null;
+        if (!row) return;
+        var i = row.getAttribute('data-i');
+        HF[i] = !HF[i];
+        row.classList.toggle('on', !!HF[i]);
+        drawFlags();
+      });
+    }
+    var s = 0, max = 0;
+    FLAGS.forEach(function (f, i) { max += f[1]; if (HF[i]) s += f[1]; });
+    var v = document.getElementById('hypeVerdict');
+    if (!s) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Nessuna voce spuntata</span>' +
+        'O non hai ancora iniziato, o questa è un’affermazione insolitamente ben documentata. Nel secondo caso, conservala — e annota chi l’ha scritta.';
+    } else if (s <= 4) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Ragionevolmente documentata — punteggio ' + s + ' su ' + max + '</span>' +
+        'Vale la pena leggerla con attenzione. Verifica le due o tre lacune che hai spuntato, poi mettila alla prova sui tuoi casi.';
+    } else if (s <= 10) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Da trattare come marketing — punteggio ' + s + ' su ' + max + '</span>' +
+        'Forse vera, ma non ancora un’evidenza. Chiedi il test set e la baseline prima che influenzi una decisione o un budget.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Nessun contenuto informativo — punteggio ' + s + ' su ' + max + '</span>' +
+        'Questa affermazione ti dice che cosa l’autore vuole che tu creda e nulla sul sistema. Non è un’evidenza né a favore né contro alcunché — e se è arrivata insieme a una proposta d’acquisto, questo è già di per sé un’informazione.';
+    }
+  }
+
+  window.PAGE_INIT = function () {
+    relPlot = new AI.Plot(document.getElementById('relCv'),
+      { dom: [1, 60], ran: [0, 1], pad: { l: 52, r: 46, t: 16, b: 44 } });
+    AI.bindRange('pStep', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { RW.p = v; drawRel(); });
+    AI.bindRange('nSteps', function (v) { return v; }, function (v) { RW.n = v; drawRel(); });
+    AI.bindRange('cRec', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { RW.c = v; drawRel(); });
+    AI.onRedraw(drawRel); drawRel();
+    drawFlags();
+  };
+})();
+</script>
+</body>
+</html>

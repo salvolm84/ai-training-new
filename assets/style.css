@@ -167,6 +167,23 @@ section.chapter:first-of-type { border-top: none; }
 .iconbtn:hover { border-color: var(--accent); color: var(--accent); }
 .iconbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* language switcher: two flag links, the current language highlighted */
+.langsw {
+  display: flex; flex: none; padding: 2px; gap: 2px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+}
+.langsw a {
+  display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border-radius: 6px;
+  font-size: .76rem; font-weight: 700; letter-spacing: .04em; color: var(--ink-3); text-decoration: none;
+}
+.langsw a:hover { color: var(--ink); background: var(--bg-3); }
+.langsw a.on { background: var(--accent-soft); color: var(--accent); }
+.langsw .flag {
+  width: 20px; height: 14px; flex: none; display: block; border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--line); opacity: .55; transition: opacity .15s;
+}
+.langsw a:hover .flag, .langsw a.on .flag { opacity: 1; }
+
 @media (max-width: 760px) {
   .navlinks a.current .label { display: none; }
   .navlinks a.current .num { margin-right: 0; }
@@ -175,6 +192,8 @@ section.chapter:first-of-type { border-top: none; }
   .brand > span:last-child { display: none; }
   .navlinks { flex-wrap: nowrap; overflow-x: auto; min-width: 0; flex: 1; scrollbar-width: none; }
   .navlinks::-webkit-scrollbar { display: none; }
+  .langsw a { padding: 0 6px; }
+  .langsw .code { display: none; }
 }
 
 /* ---------- page header ---------- */
@@ -243,6 +262,7 @@ body.notes-on .note { display: block; }
   content: "Speaker notes"; display: block; color: var(--violet);
   font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; margin-bottom: .4em;
 }
+:lang(it) .note::before { content: "Note del relatore"; }
 .note ul { margin-bottom: 0; }
 
 /* ---------- controls ---------- */

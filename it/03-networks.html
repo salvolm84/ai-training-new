@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>3 · Dal neurone alla rete — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 340px; }
+  .cv-sm { width: 100%; height: 230px; }
+  .nsm { font: 11px system-ui, sans-serif; }
+  .nz  { font: 700 12px ui-monospace, monospace; }
+
+  .arch-editor { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  .layerbox {
+    border: 1px solid var(--line); border-radius: var(--r); background: var(--panel);
+    padding: 8px 10px; text-align: center; min-width: 78px;
+  }
+  .layerbox .cap { font-size: .66rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .layerbox .num { font-family: var(--mono); font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+  .layerbox .pm { display: flex; gap: 4px; justify-content: center; margin-top: 4px; }
+  .layerbox .pm button {
+    width: 22px; height: 20px; font: inherit; font-size: .8rem; line-height: 1; padding: 0;
+    border: 1px solid var(--line); background: var(--bg-2); border-radius: 5px; cursor: pointer; color: var(--ink-2);
+  }
+  .layerbox .pm button:hover { border-color: var(--accent); color: var(--accent); }
+  .layerbox.fixed { background: var(--bg-3); }
+  .layerbox.fixed .num { color: var(--ink-2); }
+
+  .fp-step { font-size: .93rem; }
+  .fp-step .eq { font-family: var(--mono); font-size: .95rem; background: var(--bg-3);
+    border-radius: 8px; padding: 8px 11px; margin: 8px 0; display: block; overflow-x: auto; }
+
+  .kgrid { display: grid; grid-template-columns: repeat(3, 42px); gap: 4px; }
+  .kgrid input {
+    width: 42px; padding: 5px 2px; text-align: center; font-family: var(--mono);
+    font-size: .82rem; border-radius: 6px;
+  }
+  .patch { display: grid; grid-template-columns: repeat(3, 42px); gap: 4px; }
+  .patch div {
+    width: 42px; height: 30px; display: grid; place-items: center; border-radius: 6px;
+    font-family: var(--mono); font-size: .78rem; background: var(--bg-3); border: 1px solid var(--line);
+  }
+  .convcv { image-rendering: pixelated; border: 1px solid var(--line); border-radius: 8px; cursor: crosshair; }
+
+  .gallery { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+  .gcard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; }
+  .gcard svg { height: 62px; margin-bottom: 8px; }
+  .gcard h3 { font-size: 1.05rem; margin-bottom: .1em; }
+  .gcard .sub { font-size: .78rem; color: var(--ink-3); font-weight: 600; margin-bottom: .7em; }
+  .gcard p { font-size: .88rem; margin-bottom: .6em; }
+  .gcard .use { font-size: .84rem; border-top: 1px solid var(--line-2); padding-top: .6em; margin-bottom: 0; color: var(--ink-2); }
+
+  .drawwrap { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  #drawCv { image-rendering: pixelated; border: 2px solid var(--line); border-radius: 10px; cursor: crosshair; background: #fff; touch-action: none; }
+  html[data-theme="dark"] #drawCv { background: #f4f6f9; }
+  .samples { display: flex; gap: 5px; flex-wrap: wrap; max-width: 260px; }
+  .samples canvas { image-rendering: pixelated; border-radius: 4px; border: 1px solid var(--line); }
+  .predbar { height: 26px; border-radius: 6px; background: var(--bg-3); overflow: hidden; border: 1px solid var(--line); position: relative; }
+  .predbar .f { height: 100%; background: var(--accent); transition: width .2s; }
+  .predbar .t { position: absolute; inset: 0; display: grid; place-items: center; font-size: .82rem; font-weight: 700; }
+</style>
+</head>
+<body data-page="p3">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 3</span>
+  <h1>Dal neurone alla rete</h1>
+  <p class="lead">Un neurone traccia una retta. Impilane diversi e puoi ritagliare qualsiasi forma nello
+  spazio degli input. In questo modulo addestri reti vere nel tuo browser — compreso il problema XOR
+  che nel 1969 bloccò l’intero settore.</p>
+</header>
+
+<main class="wrap">
+
+<!-- ============================================= 3.1 -->
+<section class="chapter" id="builder">
+  <h2>3.1 · Costruiscine una e addestrala</h2>
+  <p>Uno <strong>strato</strong> è una fila di neuroni che guardano tutti gli stessi input. Una
+  <strong>rete</strong> è una sequenza di strati: le uscite di uno strato diventano gli input del
+  successivo. Gli strati intermedi si chiamano <em>nascosti</em>, per la poco illuminante ragione che
+  non li osservi direttamente.</p>
+
+  <p>Qui sotto c’è una rete funzionante. Scegli un dataset, scegli una forma e premi Addestra. Il colore
+  di sfondo è ciò che la rete crede in quel momento: blu dove predice la classe 1, arancione dove
+  predice la classe 0. Guarda la frontiera che si piega.</p>
+
+  <div class="lab">
+    <div class="lab-head">
+      <h3>Laboratorio · Costruttore di reti</h3>
+      <span class="tag try">Inizia con XOR e uno strato nascosto da 2</span>
+    </div>
+
+    <div class="btnrow">
+      <span class="small muted" style="min-width:64px">Dataset</span>
+      <div class="segmented" id="dsSeg">
+        <button data-v="xor" class="on">XOR</button>
+        <button data-v="blobs">Due nuvole</button>
+        <button data-v="circles">Anelli</button>
+        <button data-v="moons">Lune</button>
+        <button data-v="spiral">Spirale</button>
+      </div>
+      <span class="small muted" style="margin-left:12px">Rumore</span>
+      <input type="range" id="noise" min="0" max="0.35" step="0.01" value="0.08" style="width:110px">
+      <span class="val mono small" id="noiseOut">0.08</span>
+    </div>
+
+    <div class="btnrow">
+      <span class="small muted" style="min-width:64px">Forma</span>
+      <div class="arch-editor" id="archEd"></div>
+      <button class="btn sm" id="addLayer">+ strato</button>
+      <button class="btn sm" id="delLayer">− strato</button>
+    </div>
+
+    <div class="btnrow">
+      <button class="btn primary" id="trainBtn">Addestra</button>
+      <button class="btn" id="stepBtn">1 epoca</button>
+      <button class="btn sm" id="reinitBtn">Reinizializza i pesi</button>
+      <span class="small muted" style="margin-left:8px">Learning rate</span>
+      <input type="range" id="nlr" min="0.01" max="1.2" step="0.01" value="0.35" style="width:110px">
+      <span class="val mono small" id="nlrOut">0.35</span>
+      <span class="small muted" style="margin-left:8px">Attivazione</span>
+      <div class="segmented" id="hactSeg">
+        <button data-v="tanh" class="on">tanh</button>
+        <button data-v="relu">ReLU</button>
+        <button data-v="sigmoid">sigmoide</button>
+      </div>
+    </div>
+
+    <div class="split-wide mt1">
+      <div>
+        <canvas id="netCv" class="cv"></canvas>
+      </div>
+      <div>
+        <div class="readout">
+          <div class="stat"><span class="k">epoca</span><span class="v" id="mEpoch">0</span></div>
+          <div class="stat hl"><span class="k">accuratezza</span><span class="v" id="mAcc">—</span></div>
+          <div class="stat"><span class="k">loss</span><span class="v" id="mLoss">—</span></div>
+          <div class="stat"><span class="k">parametri</span><span class="v" id="mParams">—</span></div>
+        </div>
+        <canvas id="lossCv" class="cv-sm mt1" style="height:150px"></canvas>
+        <svg viewBox="0 0 320 200" id="netDia" class="mt1" aria-label="Schema della rete"></svg>
+        <p class="small muted mb0">Le connessioni blu portano pesi positivi, quelle arancioni negativi; lo
+        spessore indica il modulo. Questo è l’intero modello — ognuna di quelle linee è un numero che viene
+        regolato.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Fai prima questo</span>
+      <p class="mb0">XOR, uno strato nascosto, <strong>2 neuroni</strong>. Lo risolve — di solito in
+      qualche centinaio di epoche. Ciò che ha bloccato le reti neurali per diciassette anni richiede circa
+      quattro secondi e due neuroni.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Poi questo</span>
+      <p class="mb0">Passa a <strong>Spirale</strong> con gli stessi 2 neuroni. Fallisce clamorosamente.
+      Sali a due strati da 8 e ci riesce. <strong>La forma della rete deve essere adeguata alla complessità
+      dei dati</strong> — non esiste una dimensione giusta in assoluto.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">E infine questo</span>
+      <p class="mb0">Premi <strong>Reinizializza i pesi</strong> qualche volta su Spirale senza cambiare
+      nient’altro. A volte converge, a volte si blocca. L’addestramento è stocastico — i numeri casuali di
+      partenza contano, ed è per questo che i risultati seri si riportano su più seed.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Esegui prima XOR con 1 neurone nascosto (non ce la fa), poi con 2 (ce la fa). Quel singolo clic
+      è la ricompensa per la frustrazione del modulo 2. Fanne un momento.</li>
+      <li>Guarda la curva della loss, non l’accuratezza: scende a plateau e a strapiombi improvvisi. Gli
+      addestramenti veri hanno esattamente questo aspetto, ed è per questo che c’è chi passa le giornate a
+      fissare queste curve.</li>
+      <li>Con ReLU su Spirale vedrai ogni tanto una frontiera fatta di sfaccettature rettilinee — un
+      promemoria visibile che le reti ReLU sono lineari a tratti. La curva è un’illusione costruita con
+      pezzi piatti.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 3.2 -->
+<section class="chapter" id="forward">
+  <h2>3.2 · Un forward pass, con i numeri veri</h2>
+  <p>Qui non c’è nulla di nuovo — è il modulo 2 ripetuto. Ma vale la pena farlo una volta, lentamente,
+  con l’aritmetica vera, perché è letteralmente tutto ciò che succede quando un modello ti risponde. Un
+  LLM moderno ripete questa stessa sequenza qualche centinaio di miliardi di volte per ogni parola.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Passo passo in una rete 2–3–1</h3><span class="tag try">Premi Avanti</span></div>
+    <div class="split">
+      <div>
+        <svg viewBox="0 0 400 230" id="fpSvg" aria-label="Forward pass attraverso una piccola rete"></svg>
+        <div class="btnrow">
+          <button class="btn primary" id="fpNext">Passo successivo →</button>
+          <button class="btn sm" id="fpBack">← Indietro</button>
+          <button class="btn sm" id="fpRst">Ricomincia</button>
+          <span class="pill" id="fpCount"></span>
+        </div>
+      </div>
+      <div>
+        <div class="grid g2" style="gap:10px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Input x₁</span><span class="val" id="fx1Out"></span></div>
+            <input type="range" id="fx1" min="-1" max="1" step="0.1" value="0.6">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Input x₂</span><span class="val" id="fx2Out"></span></div>
+            <input type="range" id="fx2" min="-1" max="1" step="0.1" value="-0.4">
+          </div>
+        </div>
+        <div class="card mt1 fp-step" id="fpText" style="min-height:230px"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 3.3 -->
+<section class="chapter" id="backprop">
+  <h2>3.3 · Backpropagation: attribuire le colpe</h2>
+  <p>L’addestramento ha bisogno della risposta a una sola domanda: <em>se modifico di poco questo
+  particolare peso, di quanto cambia l’errore totale?</em> Per una rete con cento milioni di pesi,
+  rispondere a quella domanda cento milioni di volte separatamente è impossibile. La backpropagation
+  risponde per ogni peso in un’unica passata all’indietro, a un costo pari a circa il doppio del forward
+  pass.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · La passata all’indietro</h3><span class="tag try">Percorri le cinque fasi</span></div>
+    <div class="split">
+      <div><svg viewBox="0 0 400 210" id="bpSvg" aria-label="Fasi della backpropagation"></svg></div>
+      <div>
+        <div class="card" id="bpText" style="min-height:200px"></div>
+        <div class="btnrow">
+          <button class="btn primary" id="bpNext">Fase successiva →</button>
+          <button class="btn sm" id="bpRst">Ricomincia</button>
+          <span class="pill" id="bpCount"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">Perché si chiama regola della catena</span>
+    <p class="mb0">Se l’errore dipende dall’uscita, l’uscita dipende dall’ultimo strato e l’ultimo strato
+    dipende da quello precedente, allora la sensibilità dell’errore a un peso iniziale è il
+    <em>prodotto</em> delle sensibilità lungo il percorso. Moltiplica tra loro le pendenze locali e hai
+    la risposta. Ne seguono direttamente due conseguenze: moltiplica tanti numeri minori di 1 e il segnale
+    svanisce (vanishing gradient — il motivo per cui esiste ReLU); moltiplica tanti numeri maggiori di 1 e
+    il segnale esplode (da qui il gradient clipping). Gran parte dell’ingegneria del deep learning consiste
+    nel tenere sotto controllo quel prodotto.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Un’analogia che funziona con gli ingegneri: una linea di produzione sforna un pezzo difettoso.
+      Non collaudi ogni macchina separatamente — risali al guasto lungo la linea, all’indietro, e ogni
+      stazione ti dice quanta parte dello scostamento ha introdotto. La backpropagation è quella risalita,
+      fatta con le derivate.</li>
+      <li>Insisti sull’asimmetria dei costi: un forward pass, un backward pass, e hai il gradiente per
+      <em>ogni</em> parametro. Senza quell’efficienza, nulla di ciò che è venuto dopo il 1986 esisterebbe.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 3.4 -->
+<section class="chapter" id="overfit">
+  <h2>3.4 · Il modo di fallire per eccellenza: memorizzare invece di imparare</h2>
+  <p>Ecco un modello con un input e un’uscita che approssima dodici misure rumorose. L’unica cosa che
+  controlli è la sua <strong>capacità</strong> — quanto gli è permesso di essere flessibile. I punti
+  grigi non gli sono mai stati mostrati.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Capacità, errore di training, errore di test</h3><span class="tag try">Porta il cursore fino a 14</span></div>
+    <div class="split">
+      <div><canvas id="ofCv" class="cv"></canvas></div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Capacità del modello (grado del polinomio)</span><span class="val" id="ofDegOut"></span></div>
+          <input type="range" id="ofDeg" min="1" max="14" step="1" value="3">
+        </div>
+        <div class="readout">
+          <div class="stat"><span class="k">errore di training</span><span class="v" id="ofTr">—</span></div>
+          <div class="stat"><span class="k">errore di test</span><span class="v" id="ofTe">—</span></div>
+          <div class="stat"><span class="k">parametri</span><span class="v" id="ofP">—</span></div>
+        </div>
+        <canvas id="ofCurve" class="cv-sm mt1" style="height:180px"></canvas>
+        <div class="btnrow">
+          <button class="btn sm" id="ofNew">Nuovo campione di dati</button>
+        </div>
+        <p class="small muted mb0" id="ofVerdict"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="card"><h4>Underfitting</h4><p class="small mb0">Grado 1. Il modello è troppo rigido per
+    rappresentare l’andamento, quindi sbaglia sui dati di training <em>e</em> su quelli di test. Entrambi
+    gli errori sono alti e simili. Il rimedio è un modello più grande o feature migliori.</p></div>
+    <div class="card"><h4>Il punto ottimale</h4><p class="small mb0">Qui intorno al grado 3–4. L’errore di
+    test è al minimo. Non lo trovi con la teoria ma misurando su dati tenuti da parte — ed è per questo che
+    la suddivisione training/validation/test non è negoziabile.</p></div>
+    <div class="card"><h4>Overfitting</h4><p class="small mb0">Grado 12–14. La curva passa quasi esattamente
+    per ogni punto di training, quindi l’errore di training è quasi zero — e tra un punto e l’altro oscilla
+    selvaggiamente. Il solo errore di training ti direbbe che questo è il tuo modello migliore. È il
+    peggiore.</p></div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Il modo più comune in cui fallisce un progetto di AI</span>
+    <p class="mb0">Qualcuno riporta un’accuratezza del 98%. È stata misurata sui dati su cui il modello si è
+    addestrato, oppure su dati trapelati attraverso la suddivisione — lo stesso veicolo presente in
+    entrambi gli insiemi, lo stesso documento spezzato in chunk finiti in entrambi. <strong>Chiedi sempre:
+    accuratezza su quali dati, e il modello li aveva mai visti?</strong> Nient’altro nel report conta
+    finché non c’è risposta a questa domanda.</p>
+  </div>
+
+  <details class="reveal deeper">
+    <summary>Approfondisci · ma i modelli moderni hanno miliardi di parametri, e l’intuizione costruita su dodici punti non vale</summary>
+    <div class="body">
+      <p>Vero, ed è una piega davvero interessante. La classica curva a U qui sopra prevede che un modello
+      con molti più parametri che punti dati debba essere inutile. Le reti neurali molto grandi non sono
+      inutili — un fenomeno a volte chiamato “double descent”: quando la capacità cresce oltre il punto in
+      cui il modello interpola esattamente i dati di training, l’errore di test può ricominciare a
+      <em>scendere</em>.</p>
+      <p>Il perché, a grandi linee: tra le moltissime configurazioni di parametri che approssimano
+      perfettamente i dati di training, la discesa del gradiente non ne sceglie una a caso. Ha una
+      preferenza per soluzioni semplici e regolari, e tecniche come weight decay, dropout e data
+      augmentation rafforzano quella preferenza. Così i modelli enormi si comportano come se fossero più
+      piccoli e meglio regolarizzati di quanto suggerisca il loro numero di parametri.</p>
+      <p class="mb0">Ciò che <em>non</em> è cambiato: non puoi comunque valutare sui dati di training,
+      l’overfitting resta reale quando i dati sono scarsi, e per gli LLM il fallimento equivalente è la
+      <strong>memorizzazione</strong> — riprodurre alla lettera testo del training, che è un problema sia
+      di qualità sia legale.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============================================= 3.5 -->
+<section class="chapter" id="cnn">
+  <h2>3.5 · Adattare l’architettura ai dati</h2>
+  <p>Una semplice pila di strati completamente connessi funziona su input privi di struttura. La maggior
+  parte dei dati reali ha una struttura: un’immagine ha dei vicinati, un segnale ha un ordine temporale,
+  un grafo ha una connettività. Ogni architettura famosa è un’idea su <strong>quale struttura incorporare
+  nei collegamenti</strong>, così che la rete non debba impararla da zero.</p>
+
+  <h3 class="mt2">La convoluzione, nelle tue mani</h3>
+  <p>Le immagini sono il caso più chiaro. Uno strato completamente connesso su un’immagine da 1 megapixel
+  richiederebbe un milione di pesi per neurone, e dovrebbe imparare separatamente che un bordo
+  nell’angolo in alto a sinistra è la stessa cosa di un bordo al centro. Una convoluzione risolve
+  entrambi i problemi in un colpo solo: usa un unico piccolo filtro e <strong>fallo scorrere
+  ovunque</strong>.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Fai scorrere un filtro 3×3 su un’immagine di ispezione</h3><span class="tag try">Muovi il mouse sull’immagine di sinistra</span></div>
+    <div class="split">
+      <div class="flex" style="gap:22px; align-items:flex-start">
+        <div>
+          <h4>Input</h4>
+          <canvas id="imgCv" class="convcv" width="28" height="28" style="width:224px;height:224px"></canvas>
+        </div>
+        <div>
+          <h4>Feature map (uscita)</h4>
+          <canvas id="outCv" class="convcv" width="26" height="26" style="width:208px;height:208px"></canvas>
+        </div>
+      </div>
+      <div>
+        <div class="flex" style="align-items:flex-start;gap:20px">
+          <div>
+            <h4>Filtro (kernel)</h4>
+            <div class="kgrid" id="kGrid"></div>
+          </div>
+          <div>
+            <h4>Patch sotto il cursore</h4>
+            <div class="patch" id="pGrid"></div>
+          </div>
+        </div>
+        <div class="segmented mt1" id="kSeg">
+          <button data-v="edgex" class="on">Bordi verticali</button>
+          <button data-v="edgey">Bordi orizzontali</button>
+          <button data-v="lap">Contorni</button>
+          <button data-v="blur">Sfocatura</button>
+          <button data-v="sharp">Nitidezza</button>
+          <button data-v="emboss">Rilievo</button>
+        </div>
+        <div class="card mt1" id="convInfo" style="min-height:120px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Il messaggio chiave</span>
+    <p class="mb0">In una CNN vera <strong>nessuno digita quei nove numeri</strong> — sono pesi, appresi
+    con la discesa del gradiente come tutti gli altri. Ciò che l’ingegnere sceglie è la <em>struttura</em>:
+    dimensione del filtro, quanti filtri, quanta profondità. Addestrane una su fotografie e il primo strato
+    impara sistematicamente rilevatori di bordi quasi identici a quelli che hai appena selezionato a mano.
+    Gli strati successivi li combinano in angoli, poi in texture, poi in oggetti. Quella gerarchia è
+    l’intera ragione per cui il deep learning ha battuto la visione artificiale progettata a mano.</p>
+  </div>
+
+  <h3 class="mt2">Sequenze: portare uno stato attraverso il tempo</h3>
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Una cella ricorrente srotolata</h3><span class="tag">Animato</span></div>
+    <svg viewBox="0 0 700 190" id="rnnSvg" aria-label="Rete ricorrente srotolata su cinque passi temporali"></svg>
+    <div class="btnrow">
+      <button class="btn sm" id="rnnPlay">Avvia</button>
+      <span class="small muted">La stessa cella, con gli stessi pesi, viene applicata a ogni passo temporale.
+      Il suo stato nascosto <span class="mono">h</span> è un riassunto progressivo di tutto ciò che ha visto
+      finora — ed è anche il suo punto debole: al passo 40, il passo 1 è in gran parte svanito. I
+      transformer esistono proprio per risolvere questo.</span>
+    </div>
+  </div>
+
+  <h3 class="mt2">La galleria</h3>
+  <div class="gallery" id="gallery"></div>
+</section>
+
+<!-- ============================================= 3.6 -->
+<section class="chapter" id="teach">
+  <h2>3.6 · Addestrane una tu, sui tuoi dati</h2>
+  <p>Ultimo laboratorio, e il più istruttivo. Disegna qualche forma, etichettala, premi Addestra. Stai per
+  creare un vero classificatore — una rete con 256 input, 16 neuroni nascosti e 1 uscita, addestrata con la
+  backpropagation nel tuo browser — a partire da una manciata di esempi prodotti a mano da te.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Il tuo classificatore</h3><span class="tag try">Almeno 4 esempi per classe, poi Addestra</span></div>
+    <div class="drawwrap">
+      <div>
+        <canvas id="drawCv" width="16" height="16" style="width:224px;height:224px"></canvas>
+        <div class="btnrow">
+          <button class="btn sm" id="dClear">Pulisci la tela</button>
+        </div>
+        <div class="btnrow">
+          <button class="btn" id="addA">Aggiungi come “cerchio”</button>
+          <button class="btn" id="addB">Aggiungi come “croce”</button>
+        </div>
+      </div>
+      <div style="flex:1;min-width:260px">
+        <h4>Training set <span class="muted" id="setCount"></span></h4>
+        <div class="samples" id="sampleStrip"></div>
+        <div class="btnrow mt1">
+          <button class="btn primary" id="tTrain">Addestra la rete</button>
+          <button class="btn sm" id="tWipe">Cancella tutti gli esempi</button>
+        </div>
+        <div class="card mt1">
+          <h4>Predizione per ciò che c’è sulla tela</h4>
+          <div class="predbar"><div class="f" id="predFill" style="width:50%"></div><div class="t" id="predTxt">disegna qualcosa</div></div>
+          <p class="small muted mt1 mb0" id="trainStatus">Non addestrata. Produrrà risultati privi di senso
+          finché non le darai degli esempi.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Ora rompila di proposito</span>
+      <p class="mb0">Addestrala con cerchi disegnati solo al <em>centro</em>, poi disegna un cerchio in un
+      angolo. Fallisce. La rete non ha mai imparato “cerchio” — ha imparato “pixel scuri nel mezzo”, perché
+      è questo che dicevano i tuoi dati. Non è un artefatto da giocattolo: è il motivo più comune in
+      assoluto per cui i modelli in produzione falliscono. <strong>Il modello impara il tuo dataset, non le
+      tue intenzioni.</strong></p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">E nota lo sforzo</span>
+      <p class="mb0">Disegnare otto esempi ha richiesto un minuto ed è stato noioso. Un modello di visione
+      in produzione ne richiede decine di migliaia, ciascuno etichettato in modo coerente da qualcuno che
+      conosce lo standard di accettazione. Quando metti a budget un progetto di machine learning,
+      <strong>l’etichettatura è il progetto</strong> — di solito costa molto più della modellazione.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Fai disegnare una persona del pubblico. La sua calligrafia è diversa dalla tua, ed è proprio
+      questo il punto sulla distribuzione dei dati — dimostralo dal vivo testando i suoi disegni sul modello
+      che hai addestrato tu.</li>
+      <li>Di’ ad alta voce che questa è una rete vera con una vera backpropagation, circa 4&#8239;000
+      parametri, addestrata in meno di un secondo. Il meccanismo è identico a quello di un modello di
+      frontiera; cambia solo la scala, di otto ordini di grandezza.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo adesso</h2>
+  <p>Ora sappiamo costruire reti che classificano. Il modulo 4 prende un’architettura specifica — il
+  transformer — e un compito specifico — predire la parola successiva — e mostra come quella
+  combinazione abbia prodotto sistemi che scrivono codice e riassumono documenti.</p>
+  <p><a href="04-llm.html"><strong>Modulo 4 · Come funziona un LLM →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+
+  /* ===================================================== MLP with backprop */
+  var ACT = {
+    tanh:    { f: function (z) { return Math.tanh(z); }, d: function (a) { return 1 - a * a; } },
+    relu:    { f: function (z) { return z > 0 ? z : 0; }, d: function (a) { return a > 0 ? 1 : 0; } },
+    sigmoid: { f: function (z) { return 1 / (1 + Math.exp(-z)); }, d: function (a) { return a * (1 - a); } }
+  };
+  function sig(z) { return 1 / (1 + Math.exp(-z)); }
+
+  function MLP(sizes, act) {
+    this.s = sizes.slice();
+    this.act = act || 'tanh';
+    this.init();
+  }
+  MLP.prototype.init = function () {
+    this.W = []; this.B = []; this.mW = []; this.mB = [];
+    for (var l = 1; l < this.s.length; l++) {
+      var nin = this.s[l - 1], nout = this.s[l];
+      var sc = Math.sqrt(2 / (nin + nout)) * 1.6;
+      var W = [], B = [], mW = [], mB = [];
+      for (var j = 0; j < nout; j++) {
+        var row = [], mrow = [];
+        for (var i = 0; i < nin; i++) { row.push((Math.random() * 2 - 1) * sc); mrow.push(0); }
+        W.push(row); mW.push(mrow); B.push(0); mB.push(0);
+      }
+      this.W.push(W); this.B.push(B); this.mW.push(mW); this.mB.push(mB);
+    }
+  };
+  MLP.prototype.nparams = function () {
+    var n = 0;
+    for (var l = 0; l < this.W.length; l++) n += this.W[l].length * (this.W[l][0].length + 1);
+    return n;
+  };
+  MLP.prototype.forward = function (x) {
+    var a = [x], L = this.W.length, fn = ACT[this.act].f;
+    for (var l = 0; l < L; l++) {
+      var prev = a[l], W = this.W[l], B = this.B[l], out = [];
+      for (var j = 0; j < W.length; j++) {
+        var z = B[j], row = W[j];
+        for (var i = 0; i < row.length; i++) z += row[i] * prev[i];
+        out.push(l === L - 1 ? sig(z) : fn(z));
+      }
+      a.push(out);
+    }
+    return a;
+  };
+  MLP.prototype.predict = function (x) { var a = this.forward(x); return a[a.length - 1][0]; };
+  /* one full-batch step, BCE loss, sigmoid output, momentum */
+  MLP.prototype.step = function (X, Y, lr, mom) {
+    var L = this.W.length, n = X.length, dfn = ACT[this.act].d;
+    var gW = [], gB = [], l, j, i;
+    for (l = 0; l < L; l++) {
+      var gw = [], gb = [];
+      for (j = 0; j < this.W[l].length; j++) {
+        var r = []; for (i = 0; i < this.W[l][j].length; i++) r.push(0);
+        gw.push(r); gb.push(0);
+      }
+      gW.push(gw); gB.push(gb);
+    }
+    var loss = 0;
+    for (var k = 0; k < n; k++) {
+      var a = this.forward(X[k]);
+      var out = a[L][0], y = Y[k];
+      loss += -(y * Math.log(Math.max(out, 1e-9)) + (1 - y) * Math.log(Math.max(1 - out, 1e-9)));
+      var delta = [out - y];                       /* dL/dz of output layer */
+      for (l = L - 1; l >= 0; l--) {
+        var prev = a[l];
+        for (j = 0; j < this.W[l].length; j++) {
+          gB[l][j] += delta[j];
+          for (i = 0; i < prev.length; i++) gW[l][j][i] += delta[j] * prev[i];
+        }
+        if (l > 0) {
+          var nd = [];
+          for (i = 0; i < prev.length; i++) {
+            var s = 0;
+            for (j = 0; j < this.W[l].length; j++) s += this.W[l][j][i] * delta[j];
+            nd.push(s * dfn(prev[i]));
+          }
+          delta = nd;
+        }
+      }
+    }
+    mom = mom == null ? 0.9 : mom;
+    for (l = 0; l < L; l++) {
+      for (j = 0; j < this.W[l].length; j++) {
+        for (i = 0; i < this.W[l][j].length; i++) {
+          this.mW[l][j][i] = mom * this.mW[l][j][i] - lr * gW[l][j][i] / n;
+          this.W[l][j][i] += this.mW[l][j][i];
+        }
+        this.mB[l][j] = mom * this.mB[l][j] - lr * gB[l][j] / n;
+        this.B[l][j] += this.mB[l][j];
+      }
+    }
+    return loss / n;
+  };
+
+  /* ===================================================== 3.1 builder */
+  var B = { ds: 'xor', arch: [2], act: 'tanh', lr: 0.35, noise: 0.08,
+            net: null, X: [], Y: [], epoch: 0, loss: 1, hist: [], timer: null };
+  var nplot, lplot;
+
+  function makeData() {
+    var X = [], Y = [], i, r, t, nz = B.noise;
+    function jit() { return (Math.random() - 0.5) * nz * 2.4; }
+    if (B.ds === 'xor') {
+      for (i = 0; i < 120; i++) {
+        var qx = Math.random() < 0.5 ? -0.55 : 0.55, qy = Math.random() < 0.5 ? -0.55 : 0.55;
+        X.push([qx + jit() + (Math.random() - .5) * .3, qy + jit() + (Math.random() - .5) * .3]);
+        Y.push(qx * qy > 0 ? 1 : 0);
+      }
+    } else if (B.ds === 'blobs') {
+      for (i = 0; i < 120; i++) {
+        var c = i % 2 ? 1 : 0, cx = c ? 0.5 : -0.5, cy = c ? 0.45 : -0.45;
+        X.push([cx + (Math.random() - .5) * .75 + jit(), cy + (Math.random() - .5) * .75 + jit()]);
+        Y.push(c);
+      }
+    } else if (B.ds === 'circles') {
+      for (i = 0; i < 140; i++) {
+        var inner = i % 2 === 0;
+        r = (inner ? 0.28 : 0.82) + jit();
+        t = Math.random() * 6.2832;
+        X.push([r * Math.cos(t), r * Math.sin(t)]);
+        Y.push(inner ? 1 : 0);
+      }
+    } else if (B.ds === 'moons') {
+      for (i = 0; i < 140; i++) {
+        var up = i % 2 === 0;
+        t = Math.random() * Math.PI;
+        if (up) X.push([0.75 * Math.cos(t) - 0.2 + jit(), 0.6 * Math.sin(t) - 0.25 + jit()]);
+        else X.push([0.75 * Math.cos(t + Math.PI) + 0.2 + jit(), 0.6 * Math.sin(t + Math.PI) + 0.3 + jit()]);
+        Y.push(up ? 1 : 0);
+      }
+    } else {
+      for (i = 0; i < 160; i++) {
+        var arm = i % 2;
+        var frac = (i / 160);
+        r = 0.12 + 0.85 * frac;
+        t = frac * 4.2 + arm * Math.PI + (Math.random() - .5) * 0.25 + jit() * 3;
+        X.push([r * Math.cos(t) + jit(), r * Math.sin(t) + jit()]);
+        Y.push(arm);
+      }
+    }
+    B.X = X; B.Y = Y;
+  }
+
+  function buildNet() {
+    B.net = new MLP([2].concat(B.arch).concat([1]), B.act);
+    B.epoch = 0; B.hist = []; B.loss = 1;
+    document.getElementById('mParams').textContent = B.net.nparams();
+  }
+
+  function archUI() {
+    var h = '';
+    h += '<div class="layerbox fixed"><span class="cap">input</span><span class="num">2</span></div>';
+    for (var i = 0; i < B.arch.length; i++) {
+      h += '<div class="layerbox"><span class="cap">nascosto ' + (i + 1) + '</span><span class="num">' + B.arch[i] + '</span>' +
+        '<span class="pm"><button data-l="' + i + '" data-d="-1">−</button><button data-l="' + i + '" data-d="1">+</button></span></div>';
+    }
+    h += '<div class="layerbox fixed"><span class="cap">uscita</span><span class="num">1</span></div>';
+    var ed = document.getElementById('archEd');
+    ed.innerHTML = h;
+  }
+
+  function drawNet() {
+    nplot.resize(); nplot.clear();
+    var cell = 7, net = B.net;
+    nplot.clip(function (ctx) {
+      for (var px = nplot.pad.l; px < nplot.pad.l + nplot.pw; px += cell) {
+        for (var py = nplot.pad.t; py < nplot.pad.t + nplot.ph; py += cell) {
+          var p = net.predict([nplot.iX(px + cell / 2), nplot.iY(py + cell / 2)]);
+          ctx.fillStyle = p >= 0.5 ? C('--accent-soft') : C('--warn-soft');
+          ctx.globalAlpha = 0.35 + Math.abs(p - 0.5) * 1.3;
+          ctx.fillRect(px, py, cell + 1, cell + 1);
+        }
+      }
+      ctx.globalAlpha = 1;
+    });
+    nplot.frame({ xticks: 4, yticks: 4, xlabel: 'feature 1', ylabel: 'feature 2' });
+    var wrong = 0;
+    for (var i = 0; i < B.X.length; i++) {
+      var p2 = net.predict(B.X[i]) >= 0.5 ? 1 : 0;
+      if (p2 !== B.Y[i]) wrong++;
+      nplot.dot(B.X[i][0], B.X[i][1], 5.5, B.Y[i] ? C('--accent') : C('--warn'),
+        p2 !== B.Y[i] ? C('--bad') : C('--panel'));
+    }
+    document.getElementById('mEpoch').textContent = B.epoch;
+    document.getElementById('mAcc').textContent = Math.round((B.X.length - wrong) / B.X.length * 100) + '%';
+    document.getElementById('mLoss').textContent = B.loss.toFixed(3);
+    drawLoss(); drawDia();
+  }
+
+  function drawLoss() {
+    lplot.resize(); lplot.clear();
+    var mx = 1;
+    for (var i = 0; i < B.hist.length; i++) mx = Math.max(mx, B.hist[i]);
+    lplot.dom = [0, Math.max(50, B.hist.length)];
+    lplot.ran = [0, mx * 1.05];
+    lplot.frame({ xticks: 4, yticks: 3, xlabel: 'epoca', ylabel: 'loss' });
+    var pts = [];
+    for (i = 0; i < B.hist.length; i++) pts.push([i, B.hist[i]]);
+    lplot.clip(function () { lplot.line(pts, C('--accent'), 2); });
+  }
+
+  function drawDia() {
+    var net = B.net, sizes = net.s, W = 320, H = 200, h = '';
+    var xs = [], i, j, l;
+    for (l = 0; l < sizes.length; l++) xs.push(26 + l * (W - 52) / Math.max(1, sizes.length - 1));
+    function ys(n, k) { var gap = Math.min(28, (H - 40) / Math.max(1, n)); return H / 2 + (k - (n - 1) / 2) * gap; }
+    for (l = 0; l < net.W.length; l++) {
+      var mx = 0.001;
+      for (j = 0; j < net.W[l].length; j++) for (i = 0; i < net.W[l][j].length; i++) mx = Math.max(mx, Math.abs(net.W[l][j][i]));
+      for (j = 0; j < net.W[l].length; j++) {
+        for (i = 0; i < net.W[l][j].length; i++) {
+          var w = net.W[l][j][i], t = Math.abs(w) / mx;
+          h += '<line x1="' + xs[l] + '" y1="' + ys(sizes[l], i) + '" x2="' + xs[l + 1] + '" y2="' + ys(sizes[l + 1], j) +
+            '" stroke="' + (w >= 0 ? C('--accent') : C('--warn')) + '" stroke-width="' + (0.4 + t * 2.6).toFixed(2) +
+            '" opacity="' + (0.18 + t * 0.66).toFixed(2) + '"/>';
+        }
+      }
+    }
+    for (l = 0; l < sizes.length; l++) {
+      for (i = 0; i < sizes[l]; i++) {
+        h += '<circle cx="' + xs[l] + '" cy="' + ys(sizes[l], i) + '" r="6" fill="' + C('--panel') +
+          '" stroke="' + C('--ink-3') + '" stroke-width="1.5"/>';
+      }
+    }
+    document.getElementById('netDia').innerHTML = h;
+  }
+
+  function trainEpochs(k) {
+    for (var i = 0; i < k; i++) {
+      B.loss = B.net.step(B.X, B.Y, B.lr, 0.9);
+      B.epoch++;
+      if (B.epoch % 2 === 0) B.hist.push(B.loss);
+      if (B.hist.length > 600) B.hist.shift();
+    }
+    drawNet();
+  }
+
+  function initBuilder() {
+    nplot = new AI.Plot(document.getElementById('netCv'),
+      { dom: [-1.25, 1.25], ran: [-1.25, 1.25], pad: { l: 44, r: 14, t: 14, b: 40 } });
+    lplot = new AI.Plot(document.getElementById('lossCv'),
+      { dom: [0, 50], ran: [0, 1], pad: { l: 42, r: 12, t: 12, b: 34 } });
+    archUI(); makeData(); buildNet();
+
+    document.getElementById('archEd').addEventListener('click', function (e) {
+      var b = e.target;
+      if (b.tagName !== 'BUTTON') return;
+      var l = parseInt(b.getAttribute('data-l'), 10), d = parseInt(b.getAttribute('data-d'), 10);
+      B.arch[l] = Math.max(1, Math.min(12, B.arch[l] + d));
+      archUI(); buildNet(); drawNet();
+    });
+    AI.on(document.getElementById('addLayer'), 'click', function () {
+      if (B.arch.length < 4) { B.arch.push(4); archUI(); buildNet(); drawNet(); }
+    });
+    AI.on(document.getElementById('delLayer'), 'click', function () {
+      if (B.arch.length > 1) { B.arch.pop(); archUI(); buildNet(); drawNet(); }
+    });
+    AI.segmented(document.getElementById('dsSeg'), function (v) { B.ds = v; makeData(); buildNet(); drawNet(); });
+    AI.segmented(document.getElementById('hactSeg'), function (v) { B.act = v; buildNet(); drawNet(); });
+    AI.bindRange('noise', function (v) { return v.toFixed(2); }, function (v) { B.noise = v; makeData(); drawNet(); });
+    AI.bindRange('nlr', function (v) { return v.toFixed(2); }, function (v) { B.lr = v; });
+    AI.on(document.getElementById('reinitBtn'), 'click', function () { buildNet(); drawNet(); });
+    AI.on(document.getElementById('stepBtn'), 'click', function () { trainEpochs(1); });
+    var tb = document.getElementById('trainBtn');
+    AI.on(tb, 'click', function () {
+      if (B.timer) {
+        cancelAnimationFrame(B.timer); B.timer = null;
+        tb.textContent = 'Addestra'; tb.classList.remove('on');
+        return;
+      }
+      tb.textContent = 'Ferma'; tb.classList.add('on');
+      (function loop() { trainEpochs(3); B.timer = requestAnimationFrame(loop); })();
+    });
+    AI.onRedraw(drawNet);
+    drawNet();
+  }
+
+  /* ===================================================== 3.2 forward pass */
+  var FP = {
+    W1: [[0.8, -1.2], [-0.5, 0.9], [1.1, 0.7]], b1: [0.1, -0.3, 0.2],
+    W2: [0.9, -1.4, 1.2], b2: -0.2,
+    x: [0.6, -0.4], step: 0
+  };
+  function fpCompute() {
+    var z = [], a = [], i;
+    for (i = 0; i < 3; i++) {
+      z.push(FP.W1[i][0] * FP.x[0] + FP.W1[i][1] * FP.x[1] + FP.b1[i]);
+      a.push(Math.tanh(z[i]));
+    }
+    var z2 = FP.W2[0] * a[0] + FP.W2[1] * a[1] + FP.W2[2] * a[2] + FP.b2;
+    return { z: z, a: a, z2: z2, y: sig(z2) };
+  }
+  function drawFP() {
+    var r = fpCompute(), s = FP.step, h = '', i;
+    var ink = C('--ink'), ink3 = C('--ink-3'), acc = C('--accent'), line = C('--line'),
+        panel = C('--panel'), good = C('--good'), bg3 = C('--bg-3');
+    var hx = 200, ox = 340, ix = 60;
+    var hy = [50, 115, 180];
+    /* connections */
+    for (i = 0; i < 3; i++) {
+      var lit = s >= 1 + i;
+      [[ix, 80], [ix, 150]].forEach(function (p, k) {
+        h += '<line x1="' + (p[0] + 20) + '" y1="' + p[1] + '" x2="' + (hx - 20) + '" y2="' + hy[i] +
+          '" stroke="' + (lit ? acc : line) + '" stroke-width="' + (lit ? 2.2 : 1.1) + '" opacity="' + (lit ? .9 : .5) + '"/>';
+      });
+      var lit2 = s >= 4;
+      h += '<line x1="' + (hx + 20) + '" y1="' + hy[i] + '" x2="' + (ox - 20) + '" y2="115" stroke="' +
+        (lit2 ? acc : line) + '" stroke-width="' + (lit2 ? 2.2 : 1.1) + '" opacity="' + (lit2 ? .9 : .5) + '"/>';
+    }
+    function node(x, y, top, bot, on) {
+      return '<circle cx="' + x + '" cy="' + y + '" r="20" fill="' + (on ? C('--accent-soft') : panel) +
+        '" stroke="' + (on ? acc : line) + '" stroke-width="' + (on ? 2.4 : 1.5) + '"/>' +
+        '<text x="' + x + '" y="' + (y - 3) + '" text-anchor="middle" class="nsm" fill="' + ink3 + '">' + top + '</text>' +
+        '<text x="' + x + '" y="' + (y + 11) + '" text-anchor="middle" class="nz" fill="' + ink + '">' + bot + '</text>';
+    }
+    h += node(ix, 80, 'x₁', FP.x[0].toFixed(2), s >= 0);
+    h += node(ix, 150, 'x₂', FP.x[1].toFixed(2), s >= 0);
+    for (i = 0; i < 3; i++) {
+      h += node(hx, hy[i], 'h' + (i + 1), s >= 1 + i ? r.a[i].toFixed(2) : '?', s >= 1 + i);
+    }
+    h += node(ox, 115, 'uscita', s >= 5 ? r.y.toFixed(3) : (s >= 4 ? r.z2.toFixed(2) : '?'), s >= 4);
+    h += '<text x="' + ix + '" y="24" text-anchor="middle" class="nsm" fill="' + ink3 + '">input</text>';
+    h += '<text x="' + hx + '" y="24" text-anchor="middle" class="nsm" fill="' + ink3 + '">strato nascosto (tanh)</text>';
+    h += '<text x="' + ox + '" y="24" text-anchor="middle" class="nsm" fill="' + ink3 + '">uscita (sigmoide)</text>';
+    document.getElementById('fpSvg').innerHTML = h;
+
+    var T = document.getElementById('fpText'), t = '';
+    if (s === 0) {
+      t = '<h3>Passo 0 · arrivano gli input</h3><p>Nella rete entrano due numeri: ' +
+        '<span class="mono">x₁ = ' + FP.x[0].toFixed(2) + '</span> e <span class="mono">x₂ = ' + FP.x[1].toFixed(2) +
+        '</span>. In un modello reale sarebbero la lettura normalizzata di un sensore, il valore di un pixel o un numero di un embedding.</p>' +
+        '<p class="small muted mb0">I nove pesi e i quattro bias qui sotto sono stati fissati in anticipo. È l’addestramento che li ha scelti; adesso ci limitiamo a usarli.</p>';
+    } else if (s >= 1 && s <= 3) {
+      i = s - 1;
+      t = '<h3>Passo ' + s + ' · neurone nascosto h' + (s) + '</h3>' +
+        '<span class="eq">z = (' + FP.W1[i][0].toFixed(2) + ' × ' + FP.x[0].toFixed(2) + ') + (' +
+        FP.W1[i][1].toFixed(2) + ' × ' + FP.x[1].toFixed(2) + ') + (' + FP.b1[i].toFixed(2) + ') = ' + r.z[i].toFixed(3) + '</span>' +
+        '<span class="eq">a = tanh(' + r.z[i].toFixed(3) + ') = ' + r.a[i].toFixed(3) + '</span>' +
+        '<p class="small mb0">Moltiplica, somma, comprimi. Esattamente il neurone del modulo 2. Nota che i tre neuroni nascosti hanno <b>pesi diversi</b>, quindi ognuno misura una diversa combinazione degli input — è questo che rende utile lo strato, invece di tre copie della stessa cosa.</p>';
+    } else if (s === 4) {
+      t = '<h3>Passo 4 · il neurone di uscita</h3>' +
+        '<p>I suoi input sono le tre attivazioni nascoste, non i dati originali. Non ha mai visto x₁ né x₂.</p>' +
+        '<span class="eq">z = (' + FP.W2[0].toFixed(2) + '×' + r.a[0].toFixed(2) + ') + (' + FP.W2[1].toFixed(2) + '×' + r.a[1].toFixed(2) +
+        ') + (' + FP.W2[2].toFixed(2) + '×' + r.a[2].toFixed(2) + ') + (' + FP.b2.toFixed(2) + ') = ' + r.z2.toFixed(3) + '</span>' +
+        '<p class="small mb0">È questa l’idea chiave della profondità: il secondo strato lavora su <b>feature inventate dal primo strato</b>. Nessuno ha stabilito che cosa debbano rappresentare h1, h2 e h3.</p>';
+    } else {
+      t = '<h3>Passo 5 · fatto</h3>' +
+        '<span class="eq">uscita = sigmoide(' + r.z2.toFixed(3) + ') = ' + r.y.toFixed(3) + '</span>' +
+        '<p>Si legge così: la rete assegna una probabilità del <b>' + (r.y * 100).toFixed(1) + '%</b> alla classe 1.</p>' +
+        '<p class="small mb0">Aritmetica totale: 9 moltiplicazioni, 13 addizioni, 4 funzioni di attivazione. Un modello linguistico di frontiera esegue circa mille miliardi di operazioni di questo tipo <i>per ogni token in uscita</i>. Il meccanismo è lo stesso; cambia solo il conto.</p>';
+    }
+    T.innerHTML = t;
+    document.getElementById('fpCount').textContent = 'passo ' + s + ' / 5';
+  }
+  function initFP() {
+    AI.bindRange('fx1', function (v) { return v.toFixed(2); }, function (v) { FP.x[0] = v; drawFP(); });
+    AI.bindRange('fx2', function (v) { return v.toFixed(2); }, function (v) { FP.x[1] = v; drawFP(); });
+    AI.on(document.getElementById('fpNext'), 'click', function () { FP.step = Math.min(5, FP.step + 1); drawFP(); });
+    AI.on(document.getElementById('fpBack'), 'click', function () { FP.step = Math.max(0, FP.step - 1); drawFP(); });
+    AI.on(document.getElementById('fpRst'), 'click', function () { FP.step = 0; drawFP(); });
+    AI.onRedraw(drawFP);
+    drawFP();
+  }
+
+  /* ===================================================== 3.3 backprop stages */
+  var BP = [
+    ['Forward pass', 'L’input attraversa la rete come hai appena visto e produce una predizione — diciamo <span class="mono">0.82</span>, quando la risposta corretta era <span class="mono">1</span>.', 'fwd'],
+    ['Misura l’errore', 'La funzione di perdita trasforma la discrepanza in un solo numero. Qui la predizione era troppo bassa, quindi l’errore in uscita è <span class="mono">0.82 − 1 = −0.18</span>. Tutto ciò che segue serve a ripartire la responsabilità di quel −0.18.', 'err'],
+    ['Colpevolizza l’ultimo strato', 'A ogni peso che alimenta l’uscita viene attribuita una quota proporzionale a <b>quanto era attivo il suo input</b>. Una connessione con input 0.9 riceve nove volte la colpa di una con input 0.1 — ha avuto nove volte l’influenza. Ecco perché la regola di aggiornamento moltiplica per l’input.', 'last'],
+    ['Propaga all’indietro', 'Ogni neurone nascosto riceve ora un segnale di errore: gli errori dei neuroni che alimenta, pesati per l’intensità di quelle connessioni e scalati per la pendenza della sua funzione di attivazione. Un neurone che ha influito appena su ciò che sta a valle non riceve quasi nessuna colpa.', 'back'],
+    ['Aggiorna tutto', 'Ogni peso della rete ha ora il proprio gradiente — la sua quota del −0.18. Fai un piccolo passo in direzione opposta e la loss scende leggermente. Ripeti qualche milione di volte.', 'upd']
+  ];
+  var bpI = 0;
+  function drawBP() {
+    var h = '', i, j, st = BP[bpI][2];
+    var line = C('--line'), acc = C('--accent'), bad = C('--bad'), ink3 = C('--ink-3'), panel = C('--panel'), ink = C('--ink');
+    var xs = [56, 175, 300], hy = [[70, 140], [45, 105, 165], [105]];
+    var lit = { fwd: acc, err: bad, last: bad, back: bad, upd: C('--good') }[st];
+    var dirFwd = st === 'fwd';
+    for (i = 0; i < hy[0].length; i++) for (j = 0; j < hy[1].length; j++) {
+      var on = st === 'fwd' || st === 'back' || st === 'upd';
+      h += '<line x1="' + xs[0] + '" y1="' + hy[0][i] + '" x2="' + xs[1] + '" y2="' + hy[1][j] + '" stroke="' +
+        (on ? (st === 'fwd' ? acc : lit) : line) + '" stroke-width="' + (on ? 2 : 1) + '" opacity="' + (on ? .8 : .4) + '"/>';
+    }
+    for (j = 0; j < hy[1].length; j++) {
+      var on2 = st !== 'err';
+      h += '<line x1="' + xs[1] + '" y1="' + hy[1][j] + '" x2="' + xs[2] + '" y2="' + hy[2][0] + '" stroke="' +
+        (on2 ? lit : line) + '" stroke-width="' + (on2 ? 2.4 : 1) + '" opacity="' + (on2 ? .9 : .4) + '"/>';
+    }
+    /* arrows */
+    var ay = 196, ax1 = dirFwd ? 60 : 300, ax2 = dirFwd ? 300 : 60;
+    h += '<line x1="' + ax1 + '" y1="' + ay + '" x2="' + ax2 + '" y2="' + ay + '" stroke="' + lit + '" stroke-width="2"/>';
+    h += '<polygon points="' + ax2 + ',' + ay + ' ' + (ax2 + (dirFwd ? -9 : 9)) + ',' + (ay - 5) + ' ' +
+      (ax2 + (dirFwd ? -9 : 9)) + ',' + (ay + 5) + '" fill="' + lit + '"/>';
+    h += '<text x="180" y="188" text-anchor="middle" class="nsm" fill="' + lit + '">' +
+      (dirFwd ? 'la predizione scorre in avanti' : (st === 'upd' ? 'pesi aggiornati ovunque' : 'l’errore scorre all’indietro')) + '</text>';
+    [0, 1, 2].forEach(function (l) {
+      hy[l].forEach(function (y) {
+        h += '<circle cx="' + xs[l] + '" cy="' + y + '" r="15" fill="' + panel + '" stroke="' + ink3 + '" stroke-width="1.5"/>';
+      });
+    });
+    if (st === 'err') {
+      h += '<circle cx="' + xs[2] + '" cy="' + hy[2][0] + '" r="22" fill="none" stroke="' + bad + '" stroke-width="2.5" stroke-dasharray="4 3"/>';
+      h += '<text x="' + (xs[2] + 34) + '" y="' + (hy[2][0] + 4) + '" class="nz" fill="' + bad + '">−0.18</text>';
+    }
+    h += '<text x="56" y="24" text-anchor="middle" class="nsm" fill="' + ink3 + '">input</text>';
+    h += '<text x="175" y="24" text-anchor="middle" class="nsm" fill="' + ink3 + '">nascosto</text>';
+    h += '<text x="300" y="24" text-anchor="middle" class="nsm" fill="' + ink3 + '">uscita</text>';
+    document.getElementById('bpSvg').innerHTML = h;
+    document.getElementById('bpText').innerHTML = '<h4>Fase ' + (bpI + 1) + ' di 5</h4><h3>' + BP[bpI][0] +
+      '</h3><p class="mb0">' + BP[bpI][1] + '</p>';
+    document.getElementById('bpCount').textContent = (bpI + 1) + ' / 5';
+  }
+  function initBP() {
+    AI.on(document.getElementById('bpNext'), 'click', function () { bpI = (bpI + 1) % BP.length; drawBP(); });
+    AI.on(document.getElementById('bpRst'), 'click', function () { bpI = 0; drawBP(); });
+    AI.onRedraw(drawBP);
+    drawBP();
+  }
+
+  /* ===================================================== 3.4 overfitting */
+  var OF = { tr: [], te: [], fits: [], errs: [], deg: 3 }, ofplot, ofcurve;
+  function trueF(x) { return Math.sin(x * 2.6) * 0.62 + x * 0.22; }
+  function solve(A, b) {                 /* gaussian elimination */
+    var n = b.length, i, j, k;
+    for (i = 0; i < n; i++) {
+      var p = i;
+      for (k = i + 1; k < n; k++) if (Math.abs(A[k][i]) > Math.abs(A[p][i])) p = k;
+      var tmp = A[i]; A[i] = A[p]; A[p] = tmp;
+      var tb = b[i]; b[i] = b[p]; b[p] = tb;
+      if (Math.abs(A[i][i]) < 1e-14) continue;
+      for (k = i + 1; k < n; k++) {
+        var f = A[k][i] / A[i][i];
+        for (j = i; j < n; j++) A[k][j] -= f * A[i][j];
+        b[k] -= f * b[i];
+      }
+    }
+    var x = new Array(n);
+    for (i = n - 1; i >= 0; i--) {
+      var s = b[i];
+      for (j = i + 1; j < n; j++) s -= A[i][j] * x[j];
+      x[i] = Math.abs(A[i][i]) < 1e-14 ? 0 : s / A[i][i];
+    }
+    return x;
+  }
+  function polyfit(pts, deg) {
+    var n = deg + 1, A = [], b = [], i, j, k;
+    for (i = 0; i < n; i++) {
+      A.push(new Array(n).fill(0)); b.push(0);
+    }
+    for (k = 0; k < pts.length; k++) {
+      var pw = [1];
+      for (i = 1; i < 2 * n; i++) pw.push(pw[i - 1] * pts[k][0]);
+      for (i = 0; i < n; i++) {
+        for (j = 0; j < n; j++) A[i][j] += pw[i + j];
+        b[i] += pw[i] * pts[k][1];
+      }
+    }
+    for (i = 0; i < n; i++) A[i][i] += 1e-9;
+    return solve(A, b);
+  }
+  function eval2(c, x) { var s = 0, p = 1; for (var i = 0; i < c.length; i++) { s += c[i] * p; p *= x; } return s; }
+  function rmse(c, pts) {
+    var s = 0;
+    for (var i = 0; i < pts.length; i++) { var d = eval2(c, pts[i][0]) - pts[i][1]; s += d * d; }
+    return Math.sqrt(s / pts.length);
+  }
+  function ofData() {
+    OF.tr = []; OF.te = [];
+    var i;
+    for (i = 0; i < 12; i++) {
+      var x = -1 + 2 * (i + 0.5 + (Math.random() - .5) * .5) / 12;
+      OF.tr.push([x, trueF(x) + (Math.random() - .5) * 0.34]);
+    }
+    for (i = 0; i < 60; i++) {
+      var xt = -1 + 2 * Math.random();
+      OF.te.push([xt, trueF(xt) + (Math.random() - .5) * 0.34]);
+    }
+    OF.fits = []; OF.errs = [];
+    for (var d = 1; d <= 14; d++) {
+      var c = polyfit(OF.tr, d);
+      OF.fits.push(c);
+      OF.errs.push([rmse(c, OF.tr), rmse(c, OF.te)]);
+    }
+  }
+  function drawOF() {
+    ofplot.resize(); ofplot.clear();
+    ofplot.frame({ xticks: 4, yticks: 4, xlabel: 'input x', ylabel: 'y misurata' });
+    var c = OF.fits[OF.deg - 1], pts = [], i;
+    for (i = 0; i <= 240; i++) { var x = -1.05 + 2.1 * i / 240; pts.push([x, trueF(x)]); }
+    ofplot.clip(function () {
+      ofplot.line(pts, C('--ink-3'), 1.6, [6, 4]);
+      var fp = [];
+      for (i = 0; i <= 360; i++) { var xx = -1.05 + 2.1 * i / 360; fp.push([xx, eval2(c, xx)]); }
+      ofplot.line(fp, C('--accent'), 2.8);
+      for (i = 0; i < OF.te.length; i++) ofplot.dot(OF.te[i][0], OF.te[i][1], 3, C('--ink-3'));
+      for (i = 0; i < OF.tr.length; i++) ofplot.dot(OF.tr[i][0], OF.tr[i][1], 6, C('--warn'), C('--panel'));
+    });
+    var e = OF.errs[OF.deg - 1];
+    document.getElementById('ofTr').textContent = e[0].toFixed(3);
+    document.getElementById('ofTe').textContent = e[1].toFixed(3);
+    document.getElementById('ofP').textContent = OF.deg + 1;
+    var best = 0;
+    for (i = 1; i < OF.errs.length; i++) if (OF.errs[i][1] < OF.errs[best][1]) best = i;
+    var v = document.getElementById('ofVerdict');
+    if (OF.deg - 1 === best) v.innerHTML = '<b style="color:var(--good)">Questo è il modello migliore qui</b> — l’errore più basso su dati che non ha mai visto.';
+    else if (e[1] > e[0] * 2.2) v.innerHTML = '<b style="color:var(--bad)">Overfitting.</b> L’errore di test è ' + (e[1] / Math.max(e[0], 1e-6)).toFixed(1) + '× l’errore di training. Il grado migliore per questo campione era ' + (best + 1) + '.';
+    else v.innerHTML = 'Underfitting — entrambi gli errori sono alti. Il grado migliore per questo campione era ' + (best + 1) + '.';
+
+    /* U-curve */
+    ofcurve.resize(); ofcurve.clear();
+    var mx = 0.1;
+    for (i = 0; i < OF.errs.length; i++) mx = Math.max(mx, Math.min(1.2, OF.errs[i][1]));
+    ofcurve.dom = [1, 14]; ofcurve.ran = [0, mx * 1.1];
+    ofcurve.frame({ xticks: 13, yticks: 3, xlabel: 'grado', ylabel: 'RMSE',
+      xfmt: function (x) { return Math.round(x); } });
+    var a = [], b2 = [];
+    for (i = 0; i < OF.errs.length; i++) {
+      a.push([i + 1, OF.errs[i][0]]);
+      b2.push([i + 1, Math.min(OF.errs[i][1], mx * 1.1)]);
+    }
+    ofcurve.clip(function (g) {
+      ofcurve.line(a, C('--good'), 2);
+      ofcurve.line(b2, C('--bad'), 2);
+      ofcurve.dot(OF.deg, Math.min(OF.errs[OF.deg - 1][1], mx * 1.1), 5, C('--accent'));
+      g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--good'); g.fillText('training', ofcurve.X(1.4), ofcurve.Y(mx * 0.95));
+      g.fillStyle = C('--bad'); g.fillText('test', ofcurve.X(1.4), ofcurve.Y(mx * 0.78));
+    });
+  }
+  function initOF() {
+    ofplot = new AI.Plot(document.getElementById('ofCv'),
+      { dom: [-1.1, 1.1], ran: [-1.3, 1.3], pad: { l: 44, r: 14, t: 14, b: 40 } });
+    ofcurve = new AI.Plot(document.getElementById('ofCurve'),
+      { dom: [1, 14], ran: [0, 1], pad: { l: 44, r: 14, t: 12, b: 34 } });
+    ofData();
+    AI.bindRange('ofDeg', function (v) { return v; }, function (v) { OF.deg = v; drawOF(); });
+    AI.on(document.getElementById('ofNew'), 'click', function () { ofData(); drawOF(); });
+    AI.onRedraw(drawOF);
+    drawOF();
+  }
+
+  /* ===================================================== 3.5 convolution */
+  var KER = {
+    edgex: [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]],
+    edgey: [[-1, -2, -1], [0, 0, 0], [1, 2, 1]],
+    lap:   [[0, -1, 0], [-1, 4, -1], [0, -1, 0]],
+    blur:  [[0.0625, 0.125, 0.0625], [0.125, 0.25, 0.125], [0.0625, 0.125, 0.0625]],
+    sharp: [[0, -1, 0], [-1, 5, -1], [0, -1, 0]],
+    emboss:[[-2, -1, 0], [-1, 1, 1], [0, 1, 2]]
+  };
+  var KINFO = {
+    edgex: ['Rilevatore di bordi verticali (Sobel)', 'Colonna sinistra negativa, colonna destra positiva: l’uscita è grande ovunque la luminosità cambi da sinistra a destra. Gli elementi verticali si accendono; le zone uniformi e gli elementi orizzontali danno zero.'],
+    edgey: ['Rilevatore di bordi orizzontali', 'Lo stesso filtro, ruotato. Nota che l’uscita è quasi il complemento della precedente — due filtri, due viste completamente diverse degli stessi pixel. Uno strato reale ne applica 64 o più in parallelo.'],
+    lap:   ['Contorni (laplaciano)', 'Centro positivo, vicini negativi: risponde a qualsiasi variazione rapida in qualsiasi direzione, quindi traccia i contorni. È un operatore di derivata seconda — sensibile, e quindi anche rumoroso.'],
+    blur:  ['Sfocatura gaussiana', 'Tutti i pesi positivi, con somma pari a uno: una media locale. Un filtro passa-basso, usato nelle reti per sopprimere il rumore prima di cercare una struttura.'],
+    sharp: ['Nitidezza', 'L’originale più il suo stesso contenuto ad alta frequenza. Utile da vedere, raramente appreso in questa forma esatta.'],
+    emboss:['Rilievo', 'Pesi asimmetrici creano un effetto di illuminazione direzionale che rende visibile il rilievo della superficie. Una buona dimostrazione che è la <i>disposizione</i> dei nove numeri, non la loro grandezza, a determinare che cosa trova il filtro.']
+  };
+  var IMG = null, kKind = 'edgex', FEAT = null;
+  var IW = 28, OW = 26;
+
+  function makeImage() {
+    IMG = new Float32Array(IW * IW);
+    var x, y;
+    for (y = 0; y < IW; y++) for (x = 0; x < IW; x++) {
+      var v = 0.22;
+      /* a bright rectangular part */
+      if (x > 5 && x < 23 && y > 6 && y < 22) v = 0.78;
+      /* a darker step down the middle-right */
+      if (x > 16 && x < 23 && y > 6 && y < 22) v = 0.55;
+      /* a diagonal crack */
+      if (Math.abs((x - 8) - (y - 9) * 0.75) < 0.7 && y > 8 && y < 20) v = 0.12;
+      v += (Math.random() - 0.5) * 0.045;
+      IMG[y * IW + x] = Math.max(0, Math.min(1, v));
+    }
+    drawImg();
+  }
+  function drawImg() {
+    var cv = document.getElementById('imgCv'), g = cv.getContext('2d');
+    var d = g.createImageData(IW, IW);
+    for (var i = 0; i < IW * IW; i++) {
+      var v = Math.round(IMG[i] * 255);
+      d.data[i * 4] = v; d.data[i * 4 + 1] = v; d.data[i * 4 + 2] = v; d.data[i * 4 + 3] = 255;
+    }
+    g.putImageData(d, 0, 0);
+  }
+  function conv() {
+    var K = KER[kKind];
+    FEAT = new Float32Array(OW * OW);
+    var mx = 1e-6;
+    for (var y = 0; y < OW; y++) for (var x = 0; x < OW; x++) {
+      var s = 0;
+      for (var j = 0; j < 3; j++) for (var i = 0; i < 3; i++) s += K[j][i] * IMG[(y + j) * IW + (x + i)];
+      FEAT[y * OW + x] = s;
+      mx = Math.max(mx, Math.abs(s));
+    }
+    var cv = document.getElementById('outCv'), g = cv.getContext('2d');
+    var d = g.createImageData(OW, OW);
+    for (var k = 0; k < OW * OW; k++) {
+      /* ReLU-style display of positive response, mid-grey for zero */
+      var v = Math.round(Math.max(0, Math.min(1, 0.5 + FEAT[k] / (mx * 2))) * 255);
+      d.data[k * 4] = v; d.data[k * 4 + 1] = v; d.data[k * 4 + 2] = v; d.data[k * 4 + 3] = 255;
+    }
+    g.putImageData(d, 0, 0);
+  }
+  function kerUI() {
+    var K = KER[kKind], h = '';
+    for (var j = 0; j < 3; j++) for (var i = 0; i < 3; i++) {
+      h += '<input type="number" step="0.25" data-j="' + j + '" data-i="' + i + '" value="' + K[j][i] + '">';
+    }
+    document.getElementById('kGrid').innerHTML = h;
+    var inf = KINFO[kKind];
+    document.getElementById('convInfo').innerHTML = '<h3 style="font-size:1rem">' + inf[0] + '</h3><p class="small mb0">' + inf[1] +
+      '</p><p class="small muted mb0 mt1">L’uscita è 26×26, non 28×28: un filtro 3×3 non può essere centrato sul bordo. Le reti profonde o aggiungono un padding ai bordi o accettano di rimpicciolirsi a ogni strato.</p>';
+  }
+  function patchAt(x, y) {
+    var K = KER[kKind], h = '', s = 0;
+    for (var j = 0; j < 3; j++) for (var i = 0; i < 3; i++) {
+      var v = IMG[(y + j) * IW + (x + i)];
+      s += K[j][i] * v;
+      h += '<div>' + v.toFixed(2) + '</div>';
+    }
+    document.getElementById('pGrid').innerHTML = h;
+    return s;
+  }
+  function initConv() {
+    makeImage(); kerUI(); conv();
+    var cv = document.getElementById('imgCv');
+    cv.addEventListener('mousemove', function (e) {
+      var r = cv.getBoundingClientRect();
+      var x = Math.floor((e.clientX - r.left) / r.width * IW) - 1;
+      var y = Math.floor((e.clientY - r.top) / r.height * IW) - 1;
+      x = Math.max(0, Math.min(IW - 3, x)); y = Math.max(0, Math.min(IW - 3, y));
+      var s = patchAt(x, y);
+      var inf = KINFO[kKind];
+      document.getElementById('convInfo').innerHTML = '<h3 style="font-size:1rem">' + inf[0] + '</h3>' +
+        '<p class="small mb0">Patch in (' + x + ', ' + y + '): moltiplica i nove valori dei pixel per i nove valori del filtro e sommali → <b class="mono" style="color:var(--accent)">' + s.toFixed(3) + '</b>. ' +
+        'Quel singolo numero diventa un pixel della feature map. Nove moltiplicazioni e otto addizioni, ripetute 676 volte per produrre l’intera mappa.</p>';
+    });
+    cv.addEventListener('mouseleave', kerUI);
+    document.getElementById('kGrid').addEventListener('input', function (e) {
+      var t = e.target;
+      KER[kKind][parseInt(t.getAttribute('data-j'), 10)][parseInt(t.getAttribute('data-i'), 10)] = parseFloat(t.value) || 0;
+      conv();
+    });
+    AI.segmented(document.getElementById('kSeg'), function (v) { kKind = v; kerUI(); conv(); });
+  }
+
+  /* ===================================================== RNN unroll */
+  var rnnT = -1, rnnTimer = null;
+  function drawRNN() {
+    var h = '', i;
+    var line = C('--line'), acc = C('--accent'), ink3 = C('--ink-3'), panel = C('--panel'),
+        ink = C('--ink'), good = C('--good'), soft = C('--accent-soft');
+    var words = ['temp.', 'cuscinetto', 'in', 'forte', 'aumento'];
+    for (i = 0; i < 5; i++) {
+      var x = 80 + i * 130, on = rnnT >= i;
+      /* input */
+      h += '<rect x="' + (x - 34) + '" y="140" width="68" height="26" rx="6" fill="' + panel + '" stroke="' + line + '"/>';
+      h += '<text x="' + x + '" y="157" text-anchor="middle" class="nsm" fill="' + ink3 + '">' + words[i] + '</text>';
+      h += '<line x1="' + x + '" y1="140" x2="' + x + '" y2="112" stroke="' + (on ? acc : line) + '" stroke-width="' + (on ? 2 : 1.2) + '"/>';
+      /* cell */
+      h += '<rect x="' + (x - 30) + '" y="70" width="60" height="42" rx="9" fill="' + (on ? soft : panel) +
+        '" stroke="' + (on ? acc : line) + '" stroke-width="' + (on ? 2.4 : 1.4) + '"/>';
+      h += '<text x="' + x + '" y="96" text-anchor="middle" class="nz" fill="' + (on ? acc : ink3) + '">cella</text>';
+      /* hidden state arrow */
+      if (i < 4) {
+        var on2 = rnnT > i;
+        h += '<line x1="' + (x + 30) + '" y1="91" x2="' + (x + 100) + '" y2="91" stroke="' + (on2 ? good : line) +
+          '" stroke-width="' + (on2 ? 2.4 : 1.2) + '"/>';
+        h += '<polygon points="' + (x + 100) + ',91 ' + (x + 92) + ',87 ' + (x + 92) + ',95" fill="' + (on2 ? good : line) + '"/>';
+        h += '<text x="' + (x + 65) + '" y="84" text-anchor="middle" class="nsm" fill="' + (on2 ? good : ink3) + '">h' + (i + 1) + '</text>';
+      }
+      /* output */
+      h += '<line x1="' + x + '" y1="70" x2="' + x + '" y2="46" stroke="' + (on ? acc : line) + '" stroke-width="' + (on ? 2 : 1.2) + '"/>';
+      h += '<circle cx="' + x + '" cy="34" r="12" fill="' + (on ? C('--good-soft') : panel) + '" stroke="' + (on ? good : line) + '" stroke-width="1.6"/>';
+      h += '<text x="' + x + '" y="38" text-anchor="middle" class="nsm" fill="' + (on ? good : ink3) + '">y' + (i + 1) + '</text>';
+    }
+    h += '<text x="350" y="182" text-anchor="middle" class="nsm" fill="' + ink3 + '">tempo →</text>';
+    document.getElementById('rnnSvg').innerHTML = h;
+  }
+  function initRNN() {
+    AI.on(document.getElementById('rnnPlay'), 'click', function () {
+      if (rnnTimer) clearInterval(rnnTimer);
+      rnnT = -1;
+      rnnTimer = setInterval(function () {
+        rnnT++; drawRNN();
+        if (rnnT >= 5) { clearInterval(rnnTimer); rnnTimer = null; }
+      }, 550);
+    });
+    AI.onRedraw(drawRNN);
+    drawRNN();
+  }
+
+  /* ===================================================== gallery */
+  var GAL = [
+    ['MLP', 'Percettrone multistrato · 1986', 'g_mlp',
+      'Ogni neurone è connesso a ogni neurone dello strato successivo. Nessuna ipotesi sui dati.',
+      'Ideale per input tabellari, a forma di foglio di calcolo. Avvertenza onesta: su quei dati gli alberi decisionali con gradient boosting di solito lo battono e si addestrano in pochi secondi — ricorri a una rete neurale quando l’input è segnale grezzo, non colonne.'],
+    ['CNN', 'Rete convoluzionale · 1989 / 2012', 'g_cnn',
+      'Fa scorrere piccoli filtri appresi su una griglia e riusa gli stessi pesi ovunque. Costruisce una gerarchia: bordi → texture → parti → oggetti.',
+      'Visione artificiale, rilevamento dei difetti, imaging medico, qualsiasi cosa su una griglia, compresi spettrogrammi e campi di simulazione 2D.'],
+    ['RNN / LSTM', 'Rete ricorrente · 1997', 'g_rnn',
+      'Elabora una sequenza un passo alla volta, portando avanti uno stato nascosto. Le LSTM aggiungono dei gate che decidono che cosa tenere e che cosa dimenticare.',
+      'Ancora una scelta sensata per dati di sensori in streaming e piccoli dispositivi embedded, dove non puoi permetterti di tenere in memoria l’intera sequenza.'],
+    ['Transformer', 'Rete ad attenzione · 2017', 'g_tr',
+      'Abbandona del tutto la ricorrenza: ogni elemento presta attenzione direttamente a ogni altro, in parallelo. Scala in modo eccellente sulle GPU, ed è per questo che ha vinto.',
+      'Linguaggio, codice, parlato, struttura delle proteine e, sempre più, visione. Ogni LLM. Il costo cresce con il quadrato della lunghezza della sequenza — il principale vincolo ingegneristico.'],
+    ['Autoencoder', 'Rete di compressione · anni ’80', 'g_ae',
+      'Addestrato a riprodurre il proprio input attraverso un collo di bottiglia voluto, così che il collo di bottiglia debba imparare una codifica compatta di ciò che conta.',
+      'Rilevamento delle anomalie senza guasti etichettati: addestri solo su dati sani, poi segnali tutto ciò che la rete ricostruisce male. Estremamente utile in ambito industriale.'],
+    ['GAN', 'Coppia avversaria · 2014', 'g_gan',
+      'Due reti competono: un generatore inventa campioni, un discriminatore cerca di scovare i falsi. Entrambe migliorano finché i falsi non diventano convincenti.',
+      'Dati di addestramento sintetici, super-risoluzione, generazione di texture. Risultati nitidi, addestramento notoriamente instabile — in gran parte soppiantate dai modelli di diffusione.'],
+    ['Modello di diffusione', 'Generatore per rimozione del rumore · 2020', 'g_dif',
+      'Impara a togliere il rumore da un’immagine, un piccolo passo alla volta. Parti da rumore puro, rimuovi il rumore ripetutamente, e compare un’immagine.',
+      'Quasi tutta la generazione attuale di immagini e video. Usato anche per l’esplorazione del design e per generare geometrie candidate.'],
+    ['Rete su grafo', 'GNN · 2017', 'g_gnn',
+      'Opera su nodi e archi invece che su griglie o sequenze; ogni nodo si aggiorna a partire dai suoi vicini.',
+      'Molecole, simulazione basata su mesh, reti di fornitura e di dipendenze, assiemi CAD — ovunque la connettività <i>sia</i> il dato.'],
+    ['Rete neurale informata dalla fisica', 'PINN · 2019', 'g_pinn',
+      'Aggiunge alla funzione di perdita le equazioni differenziali che governano il fenomeno, così la rete viene penalizzata per le uscite fisicamente impossibili oltre che per quelle sbagliate.',
+      'Modelli surrogati per CFD e analisi strutturale: servono molti meno campioni di addestramento, e il risultato rispetta le leggi di conservazione invece di limitarsi a interpolare.']
+  ];
+  function glyph(kind) {
+    var acc = C('--accent'), line = C('--line'), ink3 = C('--ink-3'), warn = C('--warn'), good = C('--good');
+    var s = '<svg viewBox="0 0 200 62">';
+    var i, j;
+    if (kind === 'g_mlp' || kind === 'g_tr') {
+      var cols = kind === 'g_mlp' ? [3, 4, 4, 2] : [4, 4, 4];
+      for (i = 0; i < cols.length - 1; i++) for (j = 0; j < cols[i]; j++) for (var k = 0; k < cols[i + 1]; k++) {
+        s += '<line x1="' + (24 + i * 50) + '" y1="' + (31 + (j - (cols[i] - 1) / 2) * 13) + '" x2="' + (24 + (i + 1) * 50) +
+          '" y2="' + (31 + (k - (cols[i + 1] - 1) / 2) * 13) + '" stroke="' + (kind === 'g_tr' ? acc : line) + '" stroke-width="' + (kind === 'g_tr' ? .7 : 1) + '" opacity=".6"/>';
+      }
+      for (i = 0; i < cols.length; i++) for (j = 0; j < cols[i]; j++) {
+        s += '<circle cx="' + (24 + i * 50) + '" cy="' + (31 + (j - (cols[i] - 1) / 2) * 13) + '" r="4.5" fill="' + acc + '"/>';
+      }
+    } else if (kind === 'g_cnn') {
+      for (i = 0; i < 4; i++) {
+        s += '<rect x="' + (14 + i * 44) + '" y="' + (14 + i * 4) + '" width="' + (34 - i * 6) + '" height="' + (34 - i * 8) +
+          '" rx="3" fill="none" stroke="' + acc + '" stroke-width="1.6"/>';
+        if (i < 3) s += '<line x1="' + (14 + i * 44 + 34 - i * 6) + '" y1="31" x2="' + (14 + (i + 1) * 44) + '" y2="31" stroke="' + line + '"/>';
+      }
+      s += '<rect x="16" y="16" width="10" height="10" fill="' + warn + '" opacity=".8"/>';
+    } else if (kind === 'g_rnn') {
+      for (i = 0; i < 4; i++) {
+        s += '<rect x="' + (16 + i * 46) + '" y="20" width="30" height="22" rx="5" fill="none" stroke="' + acc + '" stroke-width="1.6"/>';
+        if (i < 3) s += '<line x1="' + (46 + i * 46) + '" y1="31" x2="' + (16 + (i + 1) * 46) + '" y2="31" stroke="' + good + '" stroke-width="1.8"/>';
+        s += '<line x1="' + (31 + i * 46) + '" y1="42" x2="' + (31 + i * 46) + '" y2="54" stroke="' + line + '"/>';
+      }
+    } else if (kind === 'g_ae') {
+      s += '<polygon points="16,10 16,52 62,38 62,24" fill="none" stroke="' + acc + '" stroke-width="1.6"/>';
+      s += '<rect x="86" y="24" width="14" height="14" rx="3" fill="' + warn + '"/>';
+      s += '<polygon points="124,24 124,38 170,52 170,10" fill="none" stroke="' + acc + '" stroke-width="1.6"/>';
+      s += '<line x1="62" y1="31" x2="86" y2="31" stroke="' + line + '"/><line x1="100" y1="31" x2="124" y2="31" stroke="' + line + '"/>';
+    } else if (kind === 'g_gan') {
+      s += '<rect x="14" y="16" width="52" height="30" rx="6" fill="none" stroke="' + acc + '" stroke-width="1.6"/>';
+      s += '<rect x="130" y="16" width="52" height="30" rx="6" fill="none" stroke="' + warn + '" stroke-width="1.6"/>';
+      s += '<line x1="66" y1="26" x2="130" y2="26" stroke="' + acc + '" stroke-width="1.6"/>';
+      s += '<line x1="130" y1="38" x2="66" y2="38" stroke="' + warn + '" stroke-width="1.6" stroke-dasharray="4 3"/>';
+      s += '<text x="40" y="35" text-anchor="middle" class="nsm" fill="' + acc + '">G</text>';
+      s += '<text x="156" y="35" text-anchor="middle" class="nsm" fill="' + warn + '">D</text>';
+    } else if (kind === 'g_dif') {
+      for (i = 0; i < 5; i++) {
+        var op = 0.15 + i * 0.2;
+        s += '<rect x="' + (12 + i * 38) + '" y="18" width="28" height="28" rx="4" fill="' + acc + '" opacity="' + op.toFixed(2) + '"/>';
+        if (i < 4) s += '<line x1="' + (40 + i * 38) + '" y1="32" x2="' + (12 + (i + 1) * 38) + '" y2="32" stroke="' + line + '"/>';
+      }
+    } else if (kind === 'g_gnn') {
+      var nodes = [[40, 20], [30, 46], [85, 14], [95, 44], [140, 26], [160, 50]];
+      var edges = [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [2, 4], [4, 5]];
+      edges.forEach(function (e) {
+        s += '<line x1="' + nodes[e[0]][0] + '" y1="' + nodes[e[0]][1] + '" x2="' + nodes[e[1]][0] + '" y2="' + nodes[e[1]][1] +
+          '" stroke="' + line + '" stroke-width="1.4"/>';
+      });
+      nodes.forEach(function (n) { s += '<circle cx="' + n[0] + '" cy="' + n[1] + '" r="5.5" fill="' + acc + '"/>'; });
+    } else {
+      s += '<path d="M14 46 Q 60 4 104 32 T 186 20" fill="none" stroke="' + acc + '" stroke-width="2"/>';
+      s += '<path d="M14 52 Q 60 12 104 38 T 186 26" fill="none" stroke="' + ink3 + '" stroke-width="1.4" stroke-dasharray="5 4"/>';
+      s += '<text x="150" y="54" class="nsm" fill="' + ink3 + '">∇·u = 0</text>';
+    }
+    return s + '</svg>';
+  }
+  function drawGallery() {
+    var h = '';
+    GAL.forEach(function (g) {
+      h += '<div class="gcard">' + glyph(g[2]) + '<h3>' + g[0] + '</h3><div class="sub">' + g[1] + '</div>' +
+        '<p>' + g[3] + '</p><p class="use"><b>Dove si usa:</b> ' + g[4] + '</p></div>';
+    });
+    document.getElementById('gallery').innerHTML = h;
+  }
+
+  /* ===================================================== 3.6 teach it */
+  var D = { grid: new Float32Array(256), samples: [], net: null, drawing: false, trained: false };
+  function drawGrid() {
+    var cv = document.getElementById('drawCv'), g = cv.getContext('2d');
+    var d = g.createImageData(16, 16);
+    for (var i = 0; i < 256; i++) {
+      var v = Math.round((1 - D.grid[i]) * 255);
+      d.data[i * 4] = v; d.data[i * 4 + 1] = v; d.data[i * 4 + 2] = v; d.data[i * 4 + 3] = 255;
+    }
+    g.putImageData(d, 0, 0);
+    if (D.trained) predict();
+  }
+  function paint(e) {
+    var cv = document.getElementById('drawCv'), r = cv.getBoundingClientRect();
+    var cx = (e.clientX != null ? e.clientX : e.touches[0].clientX) - r.left;
+    var cy = (e.clientY != null ? e.clientY : e.touches[0].clientY) - r.top;
+    var x = cx / r.width * 16, y = cy / r.height * 16;
+    for (var j = -1; j <= 1; j++) for (var i = -1; i <= 1; i++) {
+      var px = Math.floor(x) + i, py = Math.floor(y) + j;
+      if (px < 0 || px > 15 || py < 0 || py > 15) continue;
+      var dist = Math.hypot(px + 0.5 - x, py + 0.5 - y);
+      var add = Math.max(0, 1 - dist / 1.5);
+      D.grid[py * 16 + px] = Math.min(1, D.grid[py * 16 + px] + add * 0.85);
+    }
+    drawGrid();
+  }
+  function thumb(vec) {
+    var c = document.createElement('canvas');
+    c.width = 16; c.height = 16; c.style.width = '34px'; c.style.height = '34px';
+    var g = c.getContext('2d'), d = g.createImageData(16, 16);
+    for (var i = 0; i < 256; i++) {
+      var v = Math.round((1 - vec[i]) * 255);
+      d.data[i * 4] = v; d.data[i * 4 + 1] = v; d.data[i * 4 + 2] = v; d.data[i * 4 + 3] = 255;
+    }
+    g.putImageData(d, 0, 0);
+    return c;
+  }
+  function refreshStrip() {
+    var host = document.getElementById('sampleStrip');
+    host.innerHTML = '';
+    D.samples.forEach(function (s) {
+      var c = thumb(s.v);
+      c.style.outline = '2px solid ' + (s.y ? C('--accent') : C('--warn'));
+      host.appendChild(c);
+    });
+    var a = D.samples.filter(function (s) { return s.y === 1; }).length;
+    document.getElementById('setCount').textContent = '— cerchio: ' + a + ', croce: ' + (D.samples.length - a);
+  }
+  function predict() {
+    if (!D.net) return;
+    var p = D.net.predict(Array.prototype.slice.call(D.grid));
+    var f = document.getElementById('predFill'), t = document.getElementById('predTxt');
+    f.style.width = Math.round(p * 100) + '%';
+    f.style.background = p >= 0.5 ? C('--accent') : C('--warn');
+    t.textContent = (p >= 0.5 ? 'cerchio' : 'croce') + ' — confidenza ' + Math.round(Math.max(p, 1 - p) * 100) + '%';
+  }
+  function initTeach() {
+    var cv = document.getElementById('drawCv');
+    cv.addEventListener('mousedown', function (e) { D.drawing = true; paint(e); });
+    window.addEventListener('mouseup', function () { D.drawing = false; });
+    cv.addEventListener('mousemove', function (e) { if (D.drawing) paint(e); });
+    cv.addEventListener('touchstart', function (e) { e.preventDefault(); D.drawing = true; paint(e); });
+    cv.addEventListener('touchmove', function (e) { e.preventDefault(); if (D.drawing) paint(e); });
+    cv.addEventListener('touchend', function () { D.drawing = false; });
+    AI.on(document.getElementById('dClear'), 'click', function () { D.grid = new Float32Array(256); drawGrid(); });
+    function add(y) {
+      var sum = 0;
+      for (var i = 0; i < 256; i++) sum += D.grid[i];
+      if (sum < 3) { document.getElementById('trainStatus').textContent = 'Prima disegna qualcosa sulla tela.'; return; }
+      D.samples.push({ v: Array.prototype.slice.call(D.grid), y: y });
+      D.grid = new Float32Array(256);
+      drawGrid(); refreshStrip();
+      document.getElementById('trainStatus').textContent = D.samples.length + ' esempi raccolti. Funziona meglio con quattro o più esempi per classe.';
+    }
+    AI.on(document.getElementById('addA'), 'click', function () { add(1); });
+    AI.on(document.getElementById('addB'), 'click', function () { add(0); });
+    AI.on(document.getElementById('tWipe'), 'click', function () {
+      D.samples = []; D.net = null; D.trained = false; refreshStrip();
+      document.getElementById('predTxt').textContent = 'disegna qualcosa';
+      document.getElementById('predFill').style.width = '50%';
+      document.getElementById('trainStatus').textContent = 'Esempi cancellati.';
+    });
+    AI.on(document.getElementById('tTrain'), 'click', function () {
+      var a = D.samples.filter(function (s) { return s.y === 1; }).length;
+      if (a < 2 || D.samples.length - a < 2) {
+        document.getElementById('trainStatus').textContent = 'Dagli almeno due esempi per ciascuna classe.';
+        return;
+      }
+      var X = D.samples.map(function (s) { return s.v; }), Y = D.samples.map(function (s) { return s.y; });
+      D.net = new MLP([256, 16, 1], 'relu');
+      var t0 = performance.now(), loss = 1;
+      for (var e = 0; e < 400; e++) loss = D.net.step(X, Y, 0.35, 0.9);
+      var ms = Math.round(performance.now() - t0);
+      D.trained = true;
+      var correct = 0;
+      for (var i = 0; i < X.length; i++) if ((D.net.predict(X[i]) >= 0.5 ? 1 : 0) === Y[i]) correct++;
+      document.getElementById('trainStatus').innerHTML = '<b>Addestrata.</b> ' + AI.F.n(D.net.nparams()) +
+        ' parametri, 400 epoche di backpropagation, ' + ms + ' ms. Loss finale ' + loss.toFixed(4) +
+        ', ' + correct + '/' + X.length + ' esempi di training corretti. Ora disegna qualcosa di nuovo.';
+      predict();
+    });
+    drawGrid(); refreshStrip();
+  }
+
+  window.PAGE_INIT = function () {
+    initBuilder();
+    initFP();
+    initBP();
+    initOF();
+    initConv();
+    initRNN();
+    drawGallery(); AI.onRedraw(drawGallery);
+    initTeach();
+  };
+})();
+</script>
+</body>
+</html>

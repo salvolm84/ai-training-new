@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>13 · Fattore umano e adozione — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .casebox {
+    border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); padding: 20px 22px;
+  }
+  .casebox .scen { font-size: .98rem; margin-bottom: 12px; }
+  .casedata {
+    font-family: var(--mono); font-size: .86rem; background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 12px 14px; white-space: pre-wrap; line-height: 1.8; margin-bottom: 14px;
+  }
+  .rec {
+    border: 1px solid var(--accent); border-left-width: 4px; background: var(--accent-soft);
+    border-radius: 0 var(--r) var(--r) 0; padding: 12px 15px; margin-bottom: 14px;
+  }
+  .rec .who {
+    font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--accent); display: block; margin-bottom: 4px;
+  }
+  .rec .v { font-weight: 700; font-size: 1.02rem; }
+  .rec .cf { font-family: var(--mono); font-size: .82rem; color: var(--ink-3); }
+  .dots { display: flex; gap: 5px; flex-wrap: wrap; }
+  .dots span {
+    width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center;
+    font-size: .7rem; font-weight: 800; border: 1px solid var(--line); background: var(--bg-3); color: var(--ink-3);
+  }
+  .dots span.acc { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .dots span.ovr { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+  .revrow {
+    display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center;
+    padding: 9px 12px; border-radius: 8px; margin-bottom: 5px; border: 1px solid var(--line); font-size: .86rem;
+  }
+  .revrow.ok { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 30%, transparent); }
+  .revrow.bad { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+  .revrow.meh { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+  .revrow .n { font-family: var(--mono); font-weight: 700; text-align: center; }
+  .bigstat { text-align: center; padding: 15px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); }
+  .bigstat .n { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.warn .n { color: var(--warn); }
+  .loopgrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 900px) { .loopgrid { grid-template-columns: 1fr; } }
+  .loopgrid .card { border-top: 3px solid var(--accent); }
+  .loopgrid .card:nth-child(2) { border-top-color: var(--warn); }
+  .loopgrid .card:nth-child(3) { border-top-color: var(--bad); }
+</style>
+</head>
+<body data-page="p13">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 13 · Parte III — Applicarla</span>
+  <h1>Fattore umano e adozione</h1>
+  <p class="lead">La maggior parte dei progetti pilota di AI che falliscono non fallisce per ragioni
+  tecniche. Fallisce per il modo in cui le persone li hanno usati, ignorati o hanno riposto in essi troppa
+  fiducia. Questo modulo parla della parte del sistema fatta di persone, e comincia dimostrando il problema
+  su di te.</p>
+</header>
+
+<main class="wrap">
+
+<!-- ============================================= 13.1 -->
+<section class="chapter" id="bias">
+  <h2>13.1 · L’esperimento</h2>
+  <p>Dieci decisioni. In ciascuna hai i dati <strong>e</strong> una raccomandazione di un sistema di AI
+  in funzione da sei mesi, con un buon storico. Accetta o respingi. Tutto ciò che ti serve per giudicare
+  ogni caso è sullo schermo.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Accetta o respingi</h3><span class="tag try">Non leggere oltre</span></div>
+    <div class="split-wide">
+      <div>
+        <div class="casebox" id="caseBox"></div>
+        <div class="btnrow" id="caseCtrl"></div>
+      </div>
+      <div>
+        <div class="pill" id="caseCount" style="margin-bottom:10px"></div>
+        <h4>Le tue decisioni</h4>
+        <div class="dots" id="caseDots"></div>
+        <div class="card mt1" id="caseSide" style="min-height:250px">
+          <p class="small mb0">Negli ultimi sei mesi l’accuratezza del sistema è stata del <b>91%</b>,
+          superiore alla media del team. Ogni raccomandazione riporta un valore di confidenza.</p>
+          <p class="small muted mb0 mt1">Nessuna domanda trabocchetto. Ogni caso si può decidere con le
+          informazioni fornite.</p>
+        </div>
+      </div>
+    </div>
+    <div id="revealHost" class="hidden mt1"></div>
+  </div>
+</section>
+
+<!-- ============================================= 13.2 -->
+<section class="chapter" id="calibration">
+  <h2>13.2 · Calibrare la fiducia</h2>
+  <p>Ci sono due modi di sbagliare e solo una fascia stretta in cui si fa la cosa giusta. L’eccesso e il
+  difetto di fiducia sono entrambi costosi, e di solito le organizzazioni oscillano dall’uno all’altro
+  invece di fermarsi nel mezzo.</p>
+
+  <div class="grid g2">
+    <div class="card" style="border-left:3px solid var(--bad)">
+      <h4 style="color:var(--bad)">Eccesso di fiducia: automation bias</h4>
+      <p class="small">La tendenza documentata ad accettare una raccomandazione automatica senza lo
+      scrutinio che applicheresti a quella di un collega: l’automation bias (bias da automazione).
+      Peggiora quando il sistema di solito ha ragione, quando la persona è sotto pressione, quando la
+      responsabilità è diffusa e quando l’interfaccia presenta un’unica risposta sicura invece di più opzioni.</p>
+      <p class="small mb0"><b>La parte crudele:</b> un sistema che ha ragione il 99% delle volte produce
+      <em>più</em> automation bias di uno che ha ragione l’80% delle volte, perché non c’è un errore
+      recente a tenerti scettico. <strong>L’affidabilità genera compiacenza.</strong></p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--warn)">
+      <h4 style="color:var(--warn)">Difetto di fiducia: avversione all’algoritmo</h4>
+      <p class="small">Le persone abbandonano un sistema dopo avergli visto commettere un errore, anche
+      quando è dimostrabilmente migliore dell’alternativa. Le stesse persone perdonano abitualmente lo
+      stesso errore ai colleghi umani, e ancora più volentieri a se stesse.</p>
+      <p class="small mb0"><b>La conseguenza pratica:</b> uno strumento migliore in media ma che
+      occasionalmente sbaglia in modo visibile viene spento, e il processo manuale, misurabilmente
+      peggiore, continua. Aspettatelo, e definisci le aspettative sul <em>tasso</em> di errore prima della
+      messa in servizio, non dopo il primo incidente.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Quanto dovresti affidarti al sistema?</h3><span class="tag try">Trova il picco, poi cambia l’accuratezza del modello</span></div>
+    <div class="split-wide">
+      <div><canvas id="relCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Blu: accuratezza del sistema combinato persona più macchina. Grigio:
+        la persona che lavora da sola. Arancione tratteggiato: sforzo di revisione. La linea verticale è la
+        tua impostazione attuale.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Quanto spesso si accetta senza controllare</span><span class="val" id="rRelOut"></span></div>
+          <input type="range" id="rRel" min="0" max="1" step="0.01" value="0.5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Accuratezza del modello</span><span class="val" id="rMOut"></span></div>
+          <input type="range" id="rM" min="0.5" max="0.999" step="0.005" value="0.91">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Accuratezza della persona da sola</span><span class="val" id="rHOut"></span></div>
+          <input type="range" id="rH" min="0.5" max="0.999" step="0.005" value="0.86">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Probabilità che un revisore noti un errore del modello</span><span class="val" id="rCOut"></span></div>
+          <input type="range" id="rC" min="0.1" max="1" step="0.02" value="0.6">
+        </div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsSys"><span class="n" id="oSys">—</span><span class="l">accuratezza del sistema</span></div>
+          <div class="bigstat"><span class="n" id="oOpt">—</span><span class="l">livello di affidamento ottimale</span></div>
+        </div>
+        <div class="card mt1" id="relNote" style="min-height:170px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Un modello volutamente semplice: ogni caso viene accettato alla cieca
+    oppure revisionato; un revisore intercetta un errore del modello con la probabilità indicata e poi
+    applica il proprio giudizio (imperfetto), e ogni tanto respinge una risposta corretta. Quello che conta
+    è la forma della curva, non i numeri esatti.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Il risultato su cui vale la pena discutere</span>
+    <p class="mb0">Nella maggior parte delle situazioni realistiche il risultato migliore non sta a
+    <strong>nessuno dei due estremi</strong>. Affidarsi totalmente butta via la capacità della persona di
+    intercettare gli errori; revisionare tutto butta via la velocità che giustificava il sistema e, peggio,
+    degenera in un timbro automatico, perché nessuno può revisionare con attenzione 400 elementi al giorno.
+    <strong>La domanda di progetto non è “ci fidiamo?” ma “quali casi vengono revisionati, e da
+    chi?”</strong>, e la risposta dovrebbe venire dal lavoro su calibrazione e costi del modulo 8, non da
+    una frase in una policy.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.3 -->
+<section class="chapter" id="review">
+  <h2>13.3 · Come revisionare un output che non puoi verificare completamente</h2>
+  <p>La difficoltà, detta onestamente: controllare a fondo un lungo documento scritto dall’AI può
+  richiedere quanto scriverlo, e questo annulla il vantaggio. Queste sono le strategie che funzionano
+  davvero, per tipo di compito.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4>Verifica la struttura, non la prosa</h4>
+      <p class="small mb0">Per estrazioni e tabelle, controlla un <strong>campione casuale di righe</strong>
+      rispetto alla fonte: cinque righe richiedono un minuto e ti danno un tasso di errore reale. Non leggere
+      mai l’intera tabella; campionala e annota il numero. Quel numero è l’inizio del modulo 8.</p>
+    </div>
+    <div class="card">
+      <h4>Pretendi le citazioni</h4>
+      <p class="small mb0">Fai in modo che ogni affermazione fattuale riporti la frase da cui proviene e il
+      riferimento alla clausola. A quel punto stai controllando una citazione, non valutando un
+      argomento: un ordine di grandezza più veloce, e intercetta la modalità di guasto che conta di più.</p>
+    </div>
+    <div class="card">
+      <h4>Controlla solo l’affermazione portante</h4>
+      <p class="small mb0">In un’analisi, individua uno o due fatti su cui la conclusione poggia davvero e
+      verifica quelli. Il resto è contesto, e un piccolo errore lì costa poco. È triage, ed è il modo in cui
+      i revisori esperti leggono qualsiasi cosa.</p>
+    </div>
+    <div class="card">
+      <h4>Ricalcola i numeri</h4>
+      <p class="small mb0">Non accettare mai l’aritmetica di un modello linguistico (modulo 4.11). Se un
+      numero conta, ricalcolalo in un foglio di calcolo, oppure fai usare al modello una calcolatrice e
+      fatti mostrare la chiamata.</p>
+    </div>
+    <div class="card">
+      <h4>Chiedi le ipotesi</h4>
+      <p class="small mb0">“Elenca tutto ciò che hai dovuto ipotizzare” trasforma le supposizioni nascoste in
+      un elenco breve e revisionabile. È la frase con il maggior effetto leva che tu possa aggiungere a
+      qualsiasi prompt di stesura.</p>
+    </div>
+    <div class="card">
+      <h4>Revisiona invece gli input</h4>
+      <p class="small mb0">A volte il controllo efficiente sta a monte: ha recuperato i documenti giusti? Se
+      le fonti sono corrette e il prompt vieta conoscenze esterne, l’output ha molte più probabilità di
+      essere corretto, e il retrieval è molto più facile da ispezionare.</p>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">L’anti-pattern</span>
+    <p class="mb0">“Una persona revisiona ogni output” scritto in un documento di processo, senza tempo
+    allocato e senza indicazioni su cosa guardare. Nel giro di tre settimane diventa un clic.
+    <strong>Una fase di revisione senza risorse non è un controllo: è un alibi</strong>, ed è peggio di
+    nessuna revisione, perché tutti credono che stia avvenendo.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.4 -->
+<section class="chapter" id="loop">
+  <h2>13.4 · Dove si colloca la persona</h2>
+  <div class="loopgrid">
+    <div class="card">
+      <h4>Human-in-the-loop</h4>
+      <p class="small">Il sistema propone; una persona decide e agisce. Non succede nulla senza un’azione
+      umana.</p>
+      <p class="small"><b>Da usare per:</b> tutto ciò che ha conseguenze, è irreversibile, esterno,
+      rilevante per la sicurezza o regolamentato. È anche il punto di partenza giusto per qualsiasi cosa,
+      perché genera i dati che ti dicono se un’autonomia maggiore è giustificata.</p>
+      <p class="small mb0"><b>Costo:</b> il tempo delle persone resta, quindi il beneficio è la qualità e la
+      velocità della stesura, non il numero di persone.</p>
+    </div>
+    <div class="card">
+      <h4>Human-on-the-loop</h4>
+      <p class="small">Il sistema agisce; una persona monitora, campiona e può intervenire o annullare.</p>
+      <p class="small"><b>Da usare per:</b> volumi alti, conseguenze individuali basse, azioni reversibili,
+      con un buon logging e un vero interruttore di arresto (modulo 9.8).</p>
+      <p class="small mb0"><b>Costo:</b> ti serve un monitoraggio vero: audit a campione con tassi di
+      errore registrati, non una dashboard che nessuno apre. Specifica il tasso di campionamento e chi lo
+      esegue.</p>
+    </div>
+    <div class="card">
+      <h4>Human-out-of-the-loop</h4>
+      <p class="small">Completamente automatico, revisionato solo in forma aggregata.</p>
+      <p class="small"><b>Da usare per:</b> compiti circoscritti, ben misurati, a bassa posta in gioco e ad
+      alto volume, in cui il tasso di errore è noto e il costo di un errore è limitato e accettabile.</p>
+      <p class="small mb0"><b>Costo:</b> l’onere della prova. Dovresti saper indicare il tasso di errore
+      misurato, il costo per errore e perché quel compromesso è accettabile, per iscritto.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">La gradualità che funziona, di nuovo</span>
+    <p class="mb0">Parti con la persona nel loop. Misura quanto spesso la persona concorda con il sistema, e
+    <strong>su quali tipi di caso</strong>. Dopo qualche centinaio di decisioni troverai un segmento in cui
+    l’accordo è quasi totale: quel segmento, e solo quello, è candidato a passare a human-on-the-loop. È lo
+    stesso argomento del modulo 9.8, ed è l’unica strada verso l’autonomia che sopravvive a una revisione
+    seria.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.5 -->
+<section class="chapter" id="skills">
+  <h2>13.5 · Perdita di competenze</h2>
+  <p>Un costo reale e poco discusso. Se il sistema svolge il compito, le persone smettono di esercitarsi
+  in quel compito, e la competenza che ti serve per <em>supervisionare</em> il sistema è proprio quella che
+  il sistema sta erodendo. L’aviazione studia il fenomeno da decenni con il nome di decadimento delle
+  abilità indotto dall’automazione, e le lezioni sono trasferibili.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <h4>Il rischio specifico</h4>
+      <p class="small mb0">Un ingegnere junior che non ha mai dimensionato un componente a mano non è in
+      grado di accorgersi quando la risposta dello strumento è assurda. Lo strumento funziona il 99% delle
+      volte, quindi la lacuna è invisibile, fino a quell’1%, che è proprio quando serve il giudizio.</p>
+    </div>
+    <div class="card">
+      <h4>Che cosa aiuta</h4>
+      <ul class="small mb0">
+        <li>Insegnare prima i fondamenti, poi gli strumenti: il motivo per cui questo corso comincia con un
+        percettrone e non con un prompt.</li>
+        <li>Lavoro periodico senza aiuti: stima prima di chiedere.</li>
+        <li>Far ruotare deliberatamente le persone sul processo manuale.</li>
+        <li>Conservare e mantenere la capacità di lavorare alla vecchia maniera.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Che cosa non aiuta</h4>
+      <p class="small mb0">Vietare lo strumento. Le persone lo useranno comunque, in modo meno visibile e
+      con meno formazione. L’obiettivo è una supervisione competente, non l’astinenza, e la supervisione
+      competente va costruita deliberatamente, perché non arriva più come sottoprodotto del fare il lavoro.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 13.6 -->
+<section class="chapter" id="pilots">
+  <h2>13.6 · Perché i progetti pilota falliscono</h2>
+  <p>Sei schemi ricorrenti. Nella mia esperienza di come vanno questi programmi, l’inadeguatezza tecnica
+  sta molto in basso nell’elenco.</p>
+
+  <div class="grid g2">
+    <div class="card"><h4 style="color:var(--bad)">1 · Risolveva un problema che nessuno aveva</h4>
+    <p class="small mb0">Costruito perché la tecnologia era interessante, non perché qualcuno si stava
+    lamentando. Il segnale: nessuno sa nominare la persona la cui settimana migliora. <b>Rimedio:</b> parti
+    da una lamentela, non da una capacità.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">2 · Ha fatto risparmiare i minuti sbagliati</h4>
+    <p class="small mb0">Ha automatizzato il passaggio da otto minuti in un processo il cui costo reale era
+    un’attesa di tre giorni per un’approvazione. Miglioramento reale, nessun effetto misurabile.
+    <b>Rimedio:</b> mappa i tempi end-to-end prima di scegliere dove intervenire.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">3 · Stava fuori dagli strumenti che le persone usano</h4>
+    <p class="small mb0">Un portale separato con un login separato, mentre il lavoro si svolge nel sistema
+    PLM e in Outlook. Nel giro di un mese l’adozione si riduce agli entusiasti. <b>Rimedio:</b> integralo nel
+    flusso di lavoro esistente, oppure accetta di aver costruito una demo.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">4 · Il primo errore visibile l’ha affossato</h4>
+    <p class="small mb0">L’avversione all’algoritmo vista in 13.2, di solito aggravata dall’aver promesso una
+    quasi perfezione. <b>Rimedio:</b> dichiara il tasso di errore atteso e la strategia di revisione
+    <em>prima</em> della messa in servizio, così che il primo errore confermi la tua descrizione invece di
+    contraddirla.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">5 · Nessuno era responsabile del risultato</h4>
+    <p class="small mb0">Costruito da un team centrale, consegnato a un reparto che non l’aveva chiesto e
+    che non ha alcun obiettivo a cui serva. <b>Rimedio:</b> un responsabile con nome e cognome nella funzione
+    che lo riceve, con un obiettivo che lo strumento muove davvero, fin da prima della prima riga di codice.</p></div>
+
+    <div class="card"><h4 style="color:var(--bad)">6 · Ha peggiorato il lavoro di qualcuno</h4>
+    <p class="small mb0">La stesura è diventata più veloce e la revisione più lunga, e il revisore non è stato
+    consultato. Ne segue una resistenza silenziosa ed efficace. <b>Rimedio:</b> chiediti il lavoro di chi
+    aumenta, e risolvilo prima del lancio. Se la risposta è “quello della persona più senior”, il progetto è
+    sbagliato.</p></div>
+  </div>
+
+  <div class="callout">
+    <span class="ctitle">La domanda diagnostica</span>
+    <p class="mb0">Prima di costruire qualsiasi cosa, chiedi: <strong>“La settimana di chi migliora in modo
+    misurabile, di quanto, e questa persona ci ha detto che lo vuole?”</strong> Se non sai rispondere a
+    tutte e tre le parti con un nome e un numero, hai un progetto tecnologico, non un progetto di
+    miglioramento. A volte è legittimo, come apprendimento, ma va etichettato onestamente e non va misurato
+    come se fosse l’altra cosa.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.7 -->
+<section class="chapter" id="measure">
+  <h2>13.7 · Misurare l’adozione senza ingannarsi</h2>
+  <div class="grid g2">
+    <div class="card" style="border-left:3px solid var(--bad)">
+      <h4 style="color:var(--bad)">Metriche di vanità</h4>
+      <ul class="small mb0">
+        <li><strong>Licenze assegnate.</strong> Misurano gli acquisti, non l’uso.</li>
+        <li><strong>Query totali.</strong> Crescono tanto con la curiosità quanto con i tentativi ripetuti per frustrazione.</li>
+        <li><strong>Utenti che l’hanno provato una volta.</strong> Tutti provano un nuovo strumento una volta.</li>
+        <li><strong>Punteggi di soddisfazione del primo mese.</strong> Misurano la novità.</li>
+        <li><strong>Tempo risparmiato, auto-dichiarato.</strong> Le persone sono pessime a stimarlo e sono
+        motivate a farti contento.</li>
+      </ul>
+    </div>
+    <div class="card" style="border-left:3px solid var(--good)">
+      <h4 style="color:var(--good)">Metriche che significano qualcosa</h4>
+      <ul class="small mb0">
+        <li><strong>Utenti che tornano ogni settimana</strong>, come quota di quelli che l’hanno provato. Fidelizzazione, non diffusione.</li>
+        <li><strong>Tasso di completamento dei compiti</strong>: delle cose che le persone hanno iniziato, quante si sono concluse in modo utile.</li>
+        <li><strong>Tasso di override, e il suo andamento.</strong> Alto e in calo significa apprendimento; alto e
+        piatto significa che il sistema sbaglia; vicino allo zero significa che nessuno controlla (13.1).</li>
+        <li><strong>Tempo di ciclo end-to-end</strong> del processo reale, misurato prima e dopo.</li>
+        <li><strong>Qualità dell’output del processo</strong>, giudicata come è sempre stata giudicata.</li>
+        <li><strong>Una qualitativa:</strong> ti darebbe fastidio se domani lo spegnessimo?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">I due numeri da riportare a un comitato di indirizzo</span>
+    <p class="mb0"><strong>Utenti che tornano ogni settimana</strong> e <strong>tempo di ciclo end-to-end
+    del processo</strong>. Il primo ti dice se lo strumento si è guadagnato un posto nelle abitudini delle
+    persone; il secondo ti dice se ha cambiato qualcosa che interessa all’azienda. Tutto il resto è dettaglio
+    di supporto, e un programma che dopo sei mesi sa riportare solo licenze e query totali ti sta dicendo
+    qualcosa che non intende dirti.</p>
+  </div>
+</section>
+
+<!-- ============================================= 13.8 -->
+<section class="chapter" id="design">
+  <h2>13.8 · Progetta il flusso di lavoro, non il modello</h2>
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Verifica del flusso di lavoro</h3><span class="tag try">Per un caso d’uso specifico</span></div>
+    <div class="split">
+      <div class="checklist" id="wfList"></div>
+      <div>
+        <div class="verdict info" id="wfVerdict"><span class="lvl">Nessuna voce spuntata</span>Procedi lungo l’elenco.</div>
+        <div class="card mt1" id="wfGaps" style="min-height:230px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Conduci l’esperimento di 13.1 dal vivo, facendo votare la sala. Non avvisarli. Il numero di persone
+      che ha accettato una raccomandazione contraddetta dai dati sullo stesso schermo è la statistica più
+      utile che produrrai in tutta la serie, e riguarda loro più che la tecnologia.</li>
+      <li>Di’ chiaramente che l’automation bias non è un difetto di intelligenza o di attenzione. È una
+      risposta universale e ben documentata all’automazione affidabile, e la risposta è la progettazione del
+      sistema, non le esortazioni.</li>
+      <li>La curva di affidamento di 13.2 vale la pena disegnarla alla lavagna per i manager. “Né sempre né
+      mai” è una posizione di policy più utile di entrambi gli estremi, ed è molto più facile da difendere
+      una volta che ne hanno visto la forma.</li>
+      <li>Se nel pubblico ci sono persone il cui lavoro è toccato da questi sistemi, affronta il tema
+      direttamente e presto. Essere evasivi su questo punto ti fa perdere la sala, e la versione onesta (cosa
+      cambia, cosa no, cosa è ancora da decidere) è in genere accolta meglio delle rassicurazioni.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo ora</h2>
+  <p>Manca un modulo prima del progetto finale: un resoconto onesto di ciò che questi sistemi non sanno
+  fare, e di dove stanno i veri disaccordi.</p>
+  <p><a href="14-limits.html"><strong>Modulo 14 · Limiti e questioni aperte →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar;
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  /* ============================================ 13.1 automation bias */
+  var CASES = [
+    { s: 'Ispezione dimensionale di una staffa lavorata a macchina.',
+      d: 'Disegno:   12.00 mm  +0.02 / −0.02\nMisurato:  12.04 mm  (CMM, calibrata)',
+      r: 'ACCETTA — entro tolleranza', cf: 94, ok: false,
+      why: '12.04 mm è fuori dal limite superiore +0.02, cioè 12.02 mm. La decisione corretta è scartare. La raccomandazione contraddice i due numeri stampati subito sopra.' },
+    { s: 'Verifica della coppia di serraggio su un fissaggio della sospensione posteriore.',
+      d: 'Specifica:  92 Nm ±4 Nm  (ENG-STD-114 §4.2)\nMisurato:   90.5 Nm',
+      r: 'ACCETTA — entro specifica', cf: 97, ok: true,
+      why: '90.5 Nm rientra in 88–96 Nm. Corretto, e la confidenza è adeguata.' },
+    { s: 'Revisione del ciclo di cura di un pannello in composito.',
+      d: 'Norma:     125 °C per 90 min a 6 bar; uno scostamento oltre 5 °C invalida il ciclo\nEffettivo: 118 °C per 90 min a 6 bar',
+      r: 'ACCETTA — lieve variazione di temperatura, entro la normale dispersione di processo', cf: 88, ok: false,
+      why: '118 °C è 7 °C sotto i 125 °C specificati, e la norma stabilisce che uno scostamento oltre 5 °C invalida la cura. L’espressione “entro la normale dispersione di processo” suona plausibile ma non ha alcun fondamento nella norma citata sulla stessa schermata.' },
+    { s: 'Revisione delle prestazioni di consegna di un fornitore.',
+      d: 'Consegne puntuali, ultimi 8 trimestri (%):\n  96, 94, 95, 92, 93, 95, 94, 93\nSoglia di escalation: sotto il 90% in un qualsiasi trimestre',
+      r: 'NESSUNA ESCALATION — prestazioni costantemente sopra la soglia', cf: 91, ok: true,
+      why: 'Ogni trimestre è sopra il 90%. Corretto. Nota la lieve deriva verso il basso, che merita un commento ma non un’escalation secondo la regola indicata.' },
+    { s: 'Ispezione superficiale di un getto.',
+      d: 'CAST-STD-051 §6.3: cricche accettabili fino a 2.0 mm, tranne nelle\nzone critiche per le sollecitazioni (Allegato B), dove qualsiasi\nlunghezza è motivo di scarto.\n\nRilievo: cricca di 1.4 mm, situata nella zona B-3 (elencata nell’Allegato B)',
+      r: 'ACCETTA — la lunghezza della cricca, 1.4 mm, è sotto il limite di 2.0 mm', cf: 96, ok: false,
+      why: 'La cricca è in una zona critica per le sollecitazioni, dove la norma la rende motivo di scarto a qualsiasi lunghezza. La raccomandazione ha applicato il limite generale e ha lasciato cadere in silenzio l’eccezione: il tipo di errore più comune e più pericoloso, perché il ragionamento che presenta è vero, fin dove arriva.' },
+    { s: 'Aggregazione delle richieste in garanzia per la revisione trimestrale.',
+      d: 'Richieste per regione: 412 + 388 + 205 + 117\nTotale indicato dall’AI: 1 122',
+      r: 'Totale richieste del trimestre: 1 122', cf: 99, ok: true,
+      why: '412 + 388 + 205 + 117 = 1 122. Corretto, ma hai fatto la somma o l’hai accettata? Una confidenza del 99% su un’affermazione aritmetica non è prova di nulla.' },
+    { s: 'Controllo del certificato del materiale.',
+      d: 'Richiesto: Al 7075-T6\nIl certificato riporta: Al 7075-T651',
+      r: 'SEGNALA ALL’INGEGNERIA — la designazione dello stato metallurgico differisce dal requisito', cf: 72, ok: true,
+      why: 'Corretto segnalarlo. T651 è una variante di T6 con distensione delle tensioni e potrebbe benissimo essere accettabile, ma è un giudizio ingegneristico, non un confronto formale tra stringhe. Nota la confidenza più bassa, giustamente più bassa.' },
+    { s: 'Allarme di anomalia al banco prova.',
+      d: 'Canale: temperatura olio in ingresso\nRiferimento: 88–92 °C\nUltime 6 letture: 91, 92, 94, 97, 101, 106 °C\nSoglia di allarme: 110 °C',
+      r: 'NESSUNA AZIONE — tutte le letture sotto la soglia di allarme di 110 °C', cf: 93, ok: false,
+      why: 'Tecnicamente vero e operativamente sbagliato. Le letture salgono in modo monotono e sono uscite del tutto dalla fascia di riferimento; a questo ritmo la soglia è a due letture di distanza. Un controllo di soglia non è un controllo di tendenza, e la raccomandazione ha risposto alla domanda per cui era stata progettata invece che a quella che contava.' },
+    { s: 'Iter di approvazione di una deroga.',
+      d: 'QMS-PROC-007 §3: le deroghe richiedono l’approvazione scritta\ndell’autorità di progetto responsabile E del responsabile qualità.\n\nLa richiesta ha: approvazione scritta dell’autorità di progetto.',
+      r: 'INCOMPLETA — serve ancora l’approvazione del responsabile qualità', cf: 95, ok: true,
+      why: 'Corretto. Servono entrambe le approvazioni ed è presente solo una.' },
+    { s: 'Valutazione della porosità su un carter di fusione.',
+      d: 'CAST-STD-051 §6.5: la porosità non deve superare il 2% in area in\nnessuna regione di 10 mm × 10 mm, con ispezione radiografica.\n\nMisurato: 1.6% in area sull’intero componente, a ultrasuoni',
+      r: 'ACCETTA — 1.6% è sotto il limite del 2%', cf: 90, ok: false,
+      why: 'Due problemi che la raccomandazione ignora. Il limite vale per ogni regione di 10 mm × 10 mm, non come media sull’intero componente: una concentrazione locale può superare il 2% mentre la media è 1.6%. E la norma prescrive l’ispezione radiografica, non a ultrasuoni. Il numero tornava; nient’altro sì.' }
+  ];
+  var CS = { i: 0, ans: [], done: false };
+  function drawCase() {
+    var box = document.getElementById('caseBox'), ctrl = document.getElementById('caseCtrl');
+    if (CS.done) {
+      box.innerHTML = '<h3>Finito</h3><p class="small mb0">I tuoi risultati sono qui sotto.</p>';
+      ctrl.innerHTML = '<button class="btn sm" id="cAgain">Ricomincia</button>';
+      var a = document.getElementById('cAgain');
+      if (a) a.addEventListener('click', resetCases);
+      reveal();
+      drawDots();
+      return;
+    }
+    var c = CASES[CS.i];
+    box.innerHTML = '<div class="scen">' + c.s + '</div>' +
+      '<div class="casedata">' + esc(c.d) + '</div>' +
+      '<div class="rec"><span class="who">Raccomandazione dell’AI</span>' +
+      '<span class="v">' + c.r + '</span><br><span class="cf">confidenza dichiarata ' + c.cf + '%</span></div>';
+    ctrl.innerHTML = '<button class="btn primary" id="cAcc" style="background:var(--accent);border-color:var(--accent)">Accetta la raccomandazione</button>' +
+      '<button class="btn primary" id="cOvr" style="background:var(--warn);border-color:var(--warn)">Respingila</button>';
+    document.getElementById('cAcc').addEventListener('click', function () { answer(true); });
+    document.getElementById('cOvr').addEventListener('click', function () { answer(false); });
+    document.getElementById('caseCount').textContent = 'Decisione ' + (CS.i + 1) + ' di ' + CASES.length;
+    drawDots();
+  }
+  function answer(accepted) {
+    CS.ans[CS.i] = accepted;
+    CS.i++;
+    if (CS.i >= CASES.length) CS.done = true;
+    drawCase();
+  }
+  function drawDots() {
+    document.getElementById('caseDots').innerHTML = CASES.map(function (c, i) {
+      var a = CS.ans[i];
+      return '<span class="' + (a === undefined ? '' : (a ? 'acc' : 'ovr')) + '">' + (i + 1) + '</span>';
+    }).join('');
+  }
+  function resetCases() {
+    CS = { i: 0, ans: [], done: false };
+    document.getElementById('revealHost').classList.add('hidden');
+    document.getElementById('caseSide').innerHTML =
+      '<p class="small mb0">Negli ultimi sei mesi l’accuratezza del sistema è stata del <b>91%</b>, superiore alla media del team. Ogni raccomandazione riporta un valore di confidenza.</p>' +
+      '<p class="small muted mb0 mt1">Nessuna domanda trabocchetto. Ogni caso si può decidere con le informazioni fornite.</p>';
+    drawCase();
+  }
+  function reveal() {
+    var wrongAccepted = 0, rightOverridden = 0, wrongCaught = 0, nWrong = 0;
+    var rows = '';
+    CASES.forEach(function (c, i) {
+      if (!c.ok) nWrong++;
+      var a = CS.ans[i];
+      var cls, verdict;
+      if (!c.ok && a) { cls = 'bad'; verdict = 'Hai accettato una raccomandazione sbagliata'; wrongAccepted++; }
+      else if (!c.ok && !a) { cls = 'ok'; verdict = 'L’hai intercettata'; wrongCaught++; }
+      else if (c.ok && !a) { cls = 'meh'; verdict = 'Hai respinto una raccomandazione corretta'; rightOverridden++; }
+      else { cls = 'ok'; verdict = 'Accettata correttamente'; }
+      rows += '<div class="revrow ' + cls + '"><span class="n">' + (i + 1) + '</span>' +
+        '<span><b>' + verdict + '.</b> ' + c.why + '</span>' +
+        '<span class="pill ' + (cls === 'bad' ? 'no' : cls === 'ok' ? 'ok' : '') + '">' +
+        (c.ok ? 'era giusta' : 'era SBAGLIATA') + '</span></div>';
+    });
+    var pct = nWrong ? wrongCaught / nWrong : 0;
+    var h = '<h3>Ecco com’è andata</h3>';
+    h += '<div class="grid g3" style="gap:10px;margin-bottom:14px">' +
+      '<div class="bigstat ' + (wrongAccepted > 1 ? 'bad' : wrongAccepted ? 'warn' : 'good') + '"><span class="n">' +
+      wrongAccepted + '</span><span class="l">raccomandazioni sbagliate che hai accettato</span></div>' +
+      '<div class="bigstat ' + (pct >= 0.75 ? 'good' : 'warn') + '"><span class="n">' +
+      wrongCaught + '/' + nWrong + '</span><span class="l">errori che hai intercettato</span></div>' +
+      '<div class="bigstat"><span class="n">' + rightOverridden + '</span><span class="l">corrette che hai respinto</span></div>' +
+      '</div>';
+    h += rows;
+    var comment;
+    if (wrongAccepted === 0 && rightOverridden <= 1) {
+      comment = '<b style="color:var(--good)">Eccellente, e nota quanta attenzione ha richiesto.</b> Hai confrontato ogni numero con ogni limite indicato, per dieci casi, sapendo di essere messo alla prova. Ora immagina il caso numero 340 di un venerdì pomeriggio, con il sistema che ha avuto ragione per tutta la settimana. <b>È in quella condizione che si misura l’automation bias, ed è la condizione in cui lavoreranno davvero i tuoi colleghi.</b>';
+    } else if (wrongAccepted <= 1) {
+      comment = '<b>Uno scivolone su dieci, in condizioni di test.</b> È un buon risultato, ed è anche il punto: il tasso di errore di un revisore attento, avvisato e senza fretta non è zero. Progetta il processo dando per scontato che il revisore se ne lasci sfuggire qualcuno, perché il revisore reale non è nessuna di queste tre cose.';
+    } else {
+      comment = '<b style="color:var(--bad)">' + wrongAccepted + ' raccomandazioni sbagliate accettate</b>, con i dati che le contraddicevano sulla stessa schermata, in un test che sapevi essere un test. È il risultato normale, non è un giudizio su di te, ed è la scoperta più importante di questo modulo. Una raccomandazione sicura trasforma il compito del revisore da <i>decidere</i> a <i>cercare un motivo per dissentire</i>, che è una forma di attenzione molto più debole.';
+    }
+    if (rightOverridden >= 3) {
+      comment += '<br><br>Hai anche respinto ' + rightOverridden + ' raccomandazioni corrette. Anche l’eccesso di scetticismo ha un costo: è il lato dell’avversione all’algoritmo visto nella sezione 13.2 e, nel complesso, può rendere il sistema combinato peggiore sia della persona sia della macchina da sole.';
+    }
+    h += '<div class="callout key mt1" style="margin-bottom:0"><span class="ctitle">Che cosa significa</span><p class="mb0">' + comment + '</p></div>';
+    h += '<p class="small muted mt1 mb0">Nota quali errori sono stati i più difficili: i casi 5 e 10, in cui la raccomandazione applicava correttamente una regola reale ma <b>lasciava cadere un’eccezione o una condizione</b>. Il suo ragionamento era vero, fin dove arrivava. Sono questi gli errori che superano la revisione, e nessuna visualizzazione della confidenza avrebbe aiutato.</p>';
+    document.getElementById('revealHost').innerHTML = h;
+    document.getElementById('revealHost').classList.remove('hidden');
+    document.getElementById('caseSide').innerHTML =
+      '<h4>Risultati</h4><p class="small">Delle dieci raccomandazioni, <b>' + nWrong +
+      ' erano sbagliate</b> in modi rilevabili dai dati che ti sono stati mostrati.</p>' +
+      '<p class="small mb0">Ne hai accettate ' + wrongAccepted + '.</p>';
+  }
+
+  /* ============================================ 13.2 reliance curve */
+  var RL = { r: 0.5, m: 0.91, h: 0.86, c: 0.6, f: 0.06 }, relPlot;
+  function sysAcc(r) {
+    var m = RL.m, h = RL.h, c = RL.c, f = RL.f;
+    /* accepted blindly */
+    var blind = r * m;
+    /* reviewed: correct answers may be wrongly overridden (then human answers, accuracy h);
+       wrong answers are caught with prob c (then human answers, accuracy h) */
+    var rev = (1 - r) * (m * ((1 - f) + f * h) + (1 - m) * c * h);
+    return blind + rev;
+  }
+  function drawRel() {
+    relPlot.resize(); relPlot.clear();
+    var pts = [], eff = [], i, best = 0, bv = -1;
+    for (i = 0; i <= 100; i++) {
+      var r = i / 100, v = sysAcc(r);
+      pts.push([r, v]);
+      eff.push([r, 1 - r]);
+      if (v > bv) { bv = v; best = r; }
+    }
+    var lo = Math.min(0.6, Math.min(RL.h, RL.m) - 0.05);
+    relPlot.dom = [0, 1]; relPlot.ran = [lo, 1];
+    relPlot.frame({ xticks: 5, yticks: 5, xlabel: 'quota accettata senza controllo', ylabel: 'accuratezza',
+      yfmt: function (y) { return (y * 100).toFixed(0) + '%'; },
+      xfmt: function (x) { return (x * 100).toFixed(0) + '%'; } });
+    relPlot.clip(function (g) {
+      relPlot.line([[0, RL.h], [1, RL.h]], C('--ink-3'), 1.8, [5, 4]);
+      relPlot.line(eff.map(function (p) { return [p[0], lo + p[1] * (1 - lo)]; }), C('--warn'), 1.6, [4, 4]);
+      relPlot.line(pts, C('--accent'), 3);
+      relPlot.line([[RL.r, lo], [RL.r, 1]], C('--ink-3'), 1.4);
+      relPlot.dot(best, bv, 6, C('--good'), C('--panel'));
+      relPlot.dot(RL.r, sysAcc(RL.r), 6, C('--accent'), C('--panel'));
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--ink-3'); g.fillText('persona da sola', relPlot.X(0.03), relPlot.Y(RL.h) - 8);
+      g.fillStyle = C('--warn'); g.fillText('sforzo di revisione', relPlot.X(0.52), relPlot.Y(lo + 0.42 * (1 - lo)));
+      g.fillStyle = C('--good'); g.textAlign = 'center';
+      g.fillText('ottimo', relPlot.X(best), relPlot.Y(bv) - 12);
+    });
+    var cur = sysAcc(RL.r);
+    document.getElementById('oSys').textContent = (cur * 100).toFixed(1) + '%';
+    document.getElementById('oOpt').textContent = (best * 100).toFixed(0) + '%';
+    document.getElementById('bsSys').className = 'bigstat ' + (cur >= bv - 0.005 ? 'good' : cur < RL.h ? 'bad' : 'warn');
+    var n = '<h4>Con questa impostazione</h4>';
+    n += '<p class="small">Accuratezza del sistema <b>' + (cur * 100).toFixed(1) + '%</b>, contro il <b>' +
+      (RL.h * 100).toFixed(1) + '%</b> di una persona che lavora da sola e il <b>' + (RL.m * 100).toFixed(1) +
+      '%</b> del modello da solo.</p>';
+    if (cur < RL.h) n += '<p class="small mb0" style="color:var(--bad)"><b>La combinazione è peggiore della persona da sola.</b> Non è un’ipotesi: succede quando le persone accettano con alta frequenza un modello solo di poco migliore di loro, o quando l’eccesso di scetticismo sostituisce risposte corrette con risposte peggiori. Aggiungere un buono strumento a un processo può peggiorare il processo.</p>';
+    else if (RL.r > best + 0.15) n += '<p class="small mb0" style="color:var(--warn)"><b>Affidamento eccessivo.</b> Passare dal ' +
+      (RL.r * 100).toFixed(0) + '% al ' + (best * 100).toFixed(0) + '% di accettazione farebbe guadagnare ' +
+      ((bv - cur) * 100).toFixed(1) + ' punti di accuratezza. La domanda è quali casi revisionare: usa la confidenza calibrata del modello stesso (modulo 8.4) per mandare a una persona quelli incerti.</p>';
+    else if (RL.r < best - 0.15) n += '<p class="small mb0" style="color:var(--warn)"><b>Più revisione di quanta ne convenga.</b> Stai destinando alla revisione umana il ' +
+      ((1 - RL.r) * 100).toFixed(0) + '% dei casi, per un’accuratezza inferiore a quella che darebbe il ' +
+      ((1 - best) * 100).toFixed(0) + '%. In pratica, poi, una revisione pesante si degrada: nessuno controlla con attenzione 400 elementi al giorno, quindi la revisione nominale diventa un timbro automatico e l’affidamento reale è più alto di quanto dica la policy.</p>';
+    else n += '<p class="small mb0" style="color:var(--good)"><b>Vicino all’ottimo.</b> Nota che non si trova a nessuno dei due estremi, e che si sposta quando si sposta uno qualsiasi dei quattro input: ecco perché dovrebbe essere un’impostazione misurata e revisionata, non una frase in un documento di policy.</p>';
+    document.getElementById('relNote').innerHTML = n;
+  }
+
+  /* ============================================ 13.8 workflow checklist */
+  var WF = [
+    ['Qualcuno si è lamentato per primo', 'Tutto è partito dal problema di una persona con nome e cognome, non da una capacità disponibile.', 3, 'Vai a cercare la lamentela. Se non c’è, etichetta il progetto come esplorazione e misuralo come esplorazione.'],
+    ['I tempi end-to-end sono mappati', 'Sai dove vanno davvero le ore e le attese nel processo attuale.', 3, 'Mappali prima di scegliere dove intervenire, o automatizzerai il passaggio da otto minuti in un processo di tre giorni.'],
+    ['Vive dentro gli strumenti esistenti', 'Le persone lo trovano dove già lavorano, senza login aggiuntivi.', 3, 'L’integrazione non è una rifinitura: è la differenza tra adozione e demo.'],
+    ['Si sa il lavoro di chi aumenta', 'Hai individuato chi ora ha più da fare (di solito il revisore) e te ne sei occupato.', 3, 'Chiedilo a loro. Se il carico extra ricade sulla persona più senior, riprogetta.'],
+    ['La revisione ha risorse ed è specifica', 'Il tempo di revisione è allocato e ci sono indicazioni su cosa guardare.', 3, 'Una fase di revisione senza risorse è un alibi (13.3). Specifica il tasso di campionamento e che cosa si controlla.'],
+    ['Il tasso di errore atteso è dichiarato', 'Prima della messa in servizio è stato detto alle persone quanto spesso sbaglierà e che cosa fare in quel caso.', 2, 'Dillo presto. Il primo errore visibile deve confermare la tua descrizione, non contraddirla.'],
+    ['Un responsabile con nome e cognome nella funzione ricevente', 'Non il team centrale: qualcuno i cui obiettivi vengono mossi dallo strumento.', 2, 'Senza questo, il passaggio di consegne è un abbandono.'],
+    ['Baseline misurata prima del lancio', 'Tempo di ciclo e qualità misurati alla vecchia maniera, così da poter confrontare.', 3, 'Non puoi rivendicare un miglioramento che non hai misurato prima. Questa finestra si chiude con la messa in servizio.'],
+    ['Il tasso di override è monitorato', 'Saprai quanto spesso le persone non sono d’accordo con il sistema, e su quali tipi di caso.', 2, 'È il tuo segnale più prezioso: ti dice dove migliorare, e se qualcuno sta controllando davvero.'],
+    ['Il mantenimento delle competenze è previsto', 'Chi lo supervisiona continua a esercitare il giudizio di fondo.', 2, 'La perdita di competenze è lenta e invisibile (13.5). Decidi ora che cosa resta fatto a mano.'],
+    ['Un modo per segnalare i problemi', 'Un canale ovvio, e qualcuno che agisce di conseguenza.', 2, 'Includi i guasti banali: una risposta sbagliata su cui si è agito, un loop frustrante.'],
+    ['Un interruttore di spegnimento e un piano di riserva', 'Il vecchio processo si può ancora eseguire, e qualcuno sa come.', 2, 'Provalo. Dipendere da uno strumento non collaudato senza piano di riserva è un rischio operativo, non un’innovazione.']
+  ];
+  function drawWf() {
+    var host = document.getElementById('wfList');
+    if (!host.innerHTML) {
+      host.innerHTML = WF.map(function (r, i) {
+        return '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b><span class="sub">' + r[1] + '</span></span></label>';
+      }).join('');
+      host.addEventListener('change', drawWf);
+    }
+    var got = 0, total = 0, gaps = [];
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      var i = parseInt(cb.getAttribute('data-i'), 10);
+      total += WF[i][2];
+      if (cb.checked) got += WF[i][2]; else gaps.push(WF[i]);
+    });
+    var pct = got / total, v = document.getElementById('wfVerdict');
+    if (!got) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Nessuna voce spuntata</span>Procedi lungo l’elenco.';
+    } else if (pct >= 0.85) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Probabilmente attecchirà — ' + Math.round(pct * 100) + '%</span>' +
+        'È stato progettato il flusso di lavoro, non solo il modello. È questa la differenza tra i progetti pilota che sopravvivono e quelli che vengono spenti in silenzio.';
+    } else if (pct >= 0.5) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">A rischio — ' + Math.round(pct * 100) + '%</span>' +
+        'Il lato tecnico può anche andare bene; le lacune qui accanto sono quelle che uccidono i progetti pilota. Per lo più richiedono una conversazione, non un work package.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Probabile fallimento sull’adozione — ' + Math.round(pct * 100) + '%</span>' +
+        'Niente qui riguarda il modello. Ogni voce riguarda persone, processo e misura, ed è da qui che arriverà il fallimento, mesi dopo che la tecnologia avrà funzionato.';
+    }
+    var g = '<h4>Correggi in questo ordine</h4>';
+    if (!gaps.length) g += '<p class="small mb0" style="color:var(--good)">Nulla in sospeso. Ricontrolla dopo la messa in servizio: diverse di queste voci si degradano nel tempo.</p>';
+    else {
+      g += '<ul class="small mb0">';
+      gaps.sort(function (a, b) { return b[2] - a[2]; }).slice(0, 5).forEach(function (r) {
+        g += '<li><b>' + r[0] + ':</b> ' + r[3] + '</li>';
+      });
+      g += '</ul>';
+    }
+    document.getElementById('wfGaps').innerHTML = g;
+  }
+
+  window.PAGE_INIT = function () {
+    resetCases();
+    relPlot = new AI.Plot(document.getElementById('relCv'),
+      { dom: [0, 1], ran: [0.5, 1], pad: { l: 54, r: 16, t: 20, b: 44 } });
+    AI.bindRange('rRel', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { RL.r = v; drawRel(); });
+    AI.bindRange('rM', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { RL.m = v; drawRel(); });
+    AI.bindRange('rH', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { RL.h = v; drawRel(); });
+    AI.bindRange('rC', function (v) { return (v * 100).toFixed(0) + '%'; }, function (v) { RL.c = v; drawRel(); });
+    AI.onRedraw(drawRel); drawRel();
+    drawWf();
+  };
+})();
+</script>
+</body>
+</html>

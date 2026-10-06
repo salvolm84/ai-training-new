@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>7 · Dati — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cv { width: 100%; height: 320px; }
+  .cv-sm { width: 100%; height: 200px; }
+  #partCv {
+    image-rendering: pixelated; border: 2px solid var(--line); border-radius: 10px;
+    width: 300px; height: 300px; background: #f0f0f0;
+  }
+  .partwrap { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+  .judged { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 10px; }
+  .judged span {
+    width: 22px; height: 22px; border-radius: 5px; display: grid; place-items: center;
+    font-size: .68rem; font-weight: 800; border: 1px solid var(--line); background: var(--bg-3);
+    color: var(--ink-3);
+  }
+  .judged span.acc { background: var(--good-soft); color: var(--good); border-color: var(--good); }
+  .judged span.rej { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+  .revtable td.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .revtable tr.dis { background: var(--warn-soft); }
+  .split3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+  @media (max-width: 900px) { .split3 { grid-template-columns: 1fr; } }
+  .bigstat {
+    text-align: center; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-lg);
+    background: var(--panel);
+  }
+  .bigstat .n { font-family: var(--mono); font-size: 2.1rem; font-weight: 700; display: block; line-height: 1.1; }
+  .bigstat .l { font-size: .78rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 700; }
+  .bigstat.good .n { color: var(--good); }
+  .bigstat.bad .n { color: var(--bad); }
+  .bigstat.warn .n { color: var(--warn); }
+</style>
+</head>
+<body data-page="p7">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 7 · Parte II — Progettarla</span>
+  <h1>Dati</h1>
+  <p class="lead">Cinque moduli sui modelli, e ognuno dipendeva da qualcosa che abbiamo continuato a
+  rimandare. Questo è il modulo che decide se il tuo progetto funziona — e non contiene quasi
+  matematica, ed è proprio per questo che viene saltato.</p>
+</header>
+
+<main class="wrap">
+
+<div class="callout key">
+  <span class="ctitle">La frase da portarsi a casa</span>
+  <p class="mb0">Un modello non impara la tua intenzione. <strong>Impara il tuo dataset</strong> — compresa
+  ogni incoerenza, ogni scorciatoia, ogni correlazione accidentale e ogni disaccordo tra le
+  persone che lo hanno etichettato. Tutto ciò che c’è in questo modulo è una conseguenza di questo solo fatto.</p>
+</div>
+
+<!-- ============================================= 7.1 -->
+<section class="chapter" id="arithmetic">
+  <h2>7.1 · Dove va davvero il tempo</h2>
+  <p>Chiedi a un team che ha messo in produzione un sistema di machine learning come ha speso il
+  progetto, e la risposta è sempre poco affascinante. La modellazione — la parte che viene presentata —
+  è una frazione minoritaria dello sforzo.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Un tipico progetto di visione supervisionato</h3><span class="tag">Riferimento</span></div>
+    <canvas id="effortCv" class="cv-sm" style="height:230px"></canvas>
+    <p class="small muted mt1 mb0">Valori indicativi, non misurati — le proporzioni variano — ma l’ordine è
+    straordinariamente stabile tra un’organizzazione e l’altra. Nota che le due barre più grandi sono
+    entrambe lavoro sui dati, e nessuna delle due richiede un data scientist.</p>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><h4>La buona notizia</h4><p class="small mb0">La maggior parte di questo lavoro non
+    richiede specialisti introvabili. Richiede esperti di dominio, una specifica chiara e gestione di
+    progetto — cose che hai già.</p></div>
+    <div class="card"><h4>La cattiva notizia</h4><p class="small mb0">Non si può esternalizzare a un
+    fornitore, perché la conoscenza di che cosa conta come difetto sta nella testa dei tuoi ispettori. Un
+    fornitore può costruire il modello; solo tu puoi definire l’etichetta.</p></div>
+    <div class="card"><h4>La conseguenza</h4><p class="small mb0">Quando qualcuno propone un progetto di AI
+    con una tempistica di tre mesi e nessun responsabile dei dati con nome e cognome, la tempistica è
+    sbagliata. Chiedi chi farà l’etichettatura, e quante ore gli sono state assegnate.</p></div>
+  </div>
+</section>
+
+<!-- ============================================= 7.2 -->
+<section class="chapter" id="labelling">
+  <h2>7.2 · L’esercizio di etichettatura</h2>
+  <p>L’ispettore sei tu. La norma dice: <strong>scarta un getto se la cricca superficiale supera
+  2.0 mm</strong>. Seguono dieci pezzi. Valuta ciascuno, poi ti confronteremo con la specifica e
+  con un secondo ispettore.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Etichetta dieci pezzi</h3><span class="tag try">Accetta o scarta</span></div>
+    <div class="partwrap">
+      <div>
+        <canvas id="partCv" width="60" height="60"></canvas>
+        <div class="judged" id="judged"></div>
+      </div>
+      <div style="flex:1; min-width:270px">
+        <div class="pill" id="partCount" style="margin-bottom:10px">Pezzo 1 di 10</div>
+        <p class="small">Limite di lunghezza della cricca: <strong>2.0 mm</strong>. La barra di scala è 1 mm.
+        Valuta a occhio, come farebbe un ispettore in linea, in pochi secondi.</p>
+        <div class="btnrow">
+          <button class="btn primary" id="jAcc" style="background:var(--good);border-color:var(--good)">Accetta</button>
+          <button class="btn primary" id="jRej" style="background:var(--bad);border-color:var(--bad)">Scarta</button>
+          <button class="btn sm" id="jRestart">Ricomincia</button>
+        </div>
+        <div class="card mt1" id="labResult" style="min-height:190px">
+          <p class="small mb0">I tuoi dieci giudizi diventano un training set. Quello che succede dopo dipende
+          interamente da quanto sono coerenti — con la specifica e con i tuoi colleghi.</p>
+        </div>
+      </div>
+    </div>
+    <div id="labTableWrap" class="hidden">
+      <h4 class="mt1">Il verdetto</h4>
+      <div class="tablewrap">
+        <table class="revtable"><thead><tr>
+          <th>Pezzo</th><th class="num">Lunghezza reale</th><th>Secondo la specifica</th><th>Secondo te</th><th>Secondo l’ispettore B</th><th></th>
+        </tr></thead><tbody id="revBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Perché questo conta più del modello</span>
+    <p class="mb0">Se tu e l’ispettore B siete in disaccordo sul 20% dei pezzi, allora <strong>nessun modello
+    addestrato sulle vostre etichette combinate può superare circa l’80% di accordo con ciascuno di voi</strong> —
+    non perché il modello sia debole, ma perché l’obiettivo è incoerente. Si chiama <em>tetto del rumore
+    di etichettatura</em> (label noise ceiling), ed è in assoluto la grandezza meno misurata nel machine
+    learning applicato. Prima di finanziare un modello, ripeti esattamente l’esercizio che hai appena fatto
+    con tre dei tuoi esperti su 100 pezzi reali. Se concordano al 95%, hai un progetto fattibile. Se
+    concordano al 70%, hai prima un problema di specifica da risolvere — e risolverlo costa meno e vale
+    di più di qualsiasi modello.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Fallo dal vivo, con la sala che vota per alzata di mano. Il disaccordo nella sala <em>è</em>
+      la dimostrazione, ed è molto più convincente della statistica.</li>
+      <li>Vale la pena spiegare il kappa di Cohen in una frase: è l’accordo corretto per l’accordo che
+      otterresti per puro caso. Due ispettori che scartano entrambi il 90% dei pezzi concorderanno l’82% delle
+      volte solo per caso.</li>
+      <li>Se qualcuno dice “ma la specifica è oggettiva” — indica la tabella del verdetto. La specifica è
+      oggettiva; misurare a occhio una cricca capillare in quattro secondi no.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 7.3 -->
+<section class="chapter" id="imbalance">
+  <h2>7.3 · Il paradosso dell’accuratezza</h2>
+  <p>I difetti sono rari. Questo solo fatto manda in pezzi la metrica più intuitiva che esista.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Eventi rari e accuratezza inutile</h3><span class="tag try">Imposta il tasso di difetti all’1%</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="imbCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Le due distribuzioni di punteggio prodotte dal modello. La linea
+        verticale è la tua soglia di decisione. Nota la scala verticale: la popolazione difettosa è davvero minuscola.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Tasso di difetti in produzione</span><span class="val" id="iRateOut"></span></div>
+          <input type="range" id="iRate" min="0.001" max="0.25" step="0.001" value="0.01">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Quanto bene il modello li separa</span><span class="val" id="iSepOut"></span></div>
+          <input type="range" id="iSep" min="0.4" max="4" step="0.05" value="2">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Soglia di decisione</span><span class="val" id="iThOut"></span></div>
+          <input type="range" id="iTh" min="-2" max="5" step="0.05" value="1.2">
+        </div>
+        <div class="cm">
+          <div class="h"></div><div class="h">segnalati</div><div class="h">passati</div>
+          <div class="h side">difettosi</div>
+          <div class="c tp"><span class="n" id="cTP">0</span><span class="l">intercettati</span></div>
+          <div class="c fn"><span class="n" id="cFN">0</span><span class="l">mancati</span></div>
+          <div class="h side">sani</div>
+          <div class="c fp"><span class="n" id="cFP">0</span><span class="l">falsi allarmi</span></div>
+          <div class="c tn"><span class="n" id="cTN">0</span><span class="l">corretti</span></div>
+        </div>
+        <p class="small muted mt1 mb0">Su 100&#8239;000 pezzi.</p>
+      </div>
+    </div>
+
+    <div class="split3 mt1">
+      <div class="bigstat" id="bsAcc"><span class="n" id="mAcc">—</span><span class="l">accuratezza</span></div>
+      <div class="bigstat" id="bsNull"><span class="n" id="mNull">—</span><span class="l">accuratezza di “passa sempre”</span></div>
+      <div class="bigstat" id="bsRec"><span class="n" id="mRec">—</span><span class="l">recall — difetti intercettati</span></div>
+    </div>
+    <div class="metrics mt1">
+      <div class="m"><span class="k">precision</span><span class="v" id="mPre">—</span></div>
+      <div class="m"><span class="k">recall</span><span class="v" id="mRec2">—</span></div>
+      <div class="m"><span class="k">F1</span><span class="v" id="mF1">—</span></div>
+      <div class="m"><span class="k">accuratezza bilanciata</span><span class="v" id="mBal">—</span></div>
+      <div class="m"><span class="k">falsi allarmi / giorno</span><span class="v" id="mFad">—</span></div>
+    </div>
+    <div class="card mt1" id="imbNote" style="min-height:90px"></div>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">La trappola, detta senza giri di parole</span>
+      <p class="mb0">Con un tasso di difetti dell’1%, un modello che si limita a <strong>rispondere “passa” per tutto</strong>
+      è accurato al 99%. Supererebbe quasi ogni modello di reportistica, e non rileva assolutamente nulla. Se
+      un fornitore o un team interno ti presenta un dato di accuratezza su un problema sbilanciato senza la
+      recall, o non ha capito il problema o spera che non l’abbia capito tu.</p>
+    </div>
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Che cosa chiedere invece</span>
+      <ul class="mb0">
+        <li><strong>Recall</strong> — quale frazione dei difetti reali ha intercettato?</li>
+        <li><strong>Precision</strong> — dei pezzi che ha segnalato, quanti erano davvero difettosi?</li>
+        <li><strong>La matrice di confusione</strong>, in conteggi assoluti, su un volume realistico.</li>
+        <li><strong>Il punto di lavoro</strong>, e chi lo ha scelto.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 7.4 -->
+<section class="chapter" id="leakage">
+  <h2>7.4 · Leakage: il 98% che non significa nulla</h2>
+  <p>È l’errore più costoso di questo modulo, perché non sembra un errore. Il modello riporta
+  un’accuratezza eccellente sui dati tenuti da parte, tutti approvano, e in produzione fallisce.</p>
+
+  <p>Ecco un dataset con una struttura voluta: 40 veicoli, 20 misure ciascuno. L’etichetta dipende
+  <strong>solo da quale veicolo</strong> proviene la misura — non c’è alcun segnale generalizzabile.
+  Un modello che ha visto altre righe dello stesso veicolo può riconoscerlo e recitare la risposta. Un
+  modello davanti a un veicolo davvero nuovo non può fare meglio del caso.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Split casuale contro split per gruppi</h3><span class="tag try">Addestra entrambi</span></div>
+    <div class="btnrow">
+      <button class="btn primary" id="lkRun">Addestra entrambi i modelli</button>
+      <span class="small muted">Stessi dati, stesso modello, stessa quantità di addestramento. Cambia solo
+      il modo in cui sono state suddivise le righe.</span>
+    </div>
+    <div class="split-wide">
+      <div><canvas id="lkCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Ogni cluster è un veicolo; il colore è la sua etichetta. I cluster
+        sono le “impronte digitali” che il modello può memorizzare.</p>
+      </div>
+      <div>
+        <div class="card" style="border-left:3px solid var(--bad)">
+          <h4 style="color:var(--bad)">Split casuale — righe mescolate</h4>
+          <div class="metrics">
+            <div class="m"><span class="k">acc. di test riportata</span><span class="v" id="lkRand">—</span></div>
+          </div>
+          <p class="small mb0 mt1">Train e test contengono righe degli stessi veicoli. È il numero
+          che finisce sulla slide.</p>
+        </div>
+        <div class="card mt1" style="border-left:3px solid var(--good)">
+          <h4 style="color:var(--good)">Split per gruppi — veicoli interi tenuti da parte</h4>
+          <div class="metrics">
+            <div class="m"><span class="k">acc. di test onesta</span><span class="v" id="lkGrp">—</span></div>
+          </div>
+          <p class="small mb0 mt1">Nessun veicolo compare da entrambe le parti. Ecco come appare la produzione.</p>
+        </div>
+        <div class="card mt1" id="lkNote" style="min-height:110px">Premi <b>Addestra entrambi i modelli</b>.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt2">Da dove arriva davvero il leakage nei progetti reali</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Leakage di raggruppamento</h4>
+      <p class="small mb0">Più fotografie dello stesso pezzo; diverse misure di un solo motore;
+      chunk dello stesso documento; visite ripetute di uno stesso cliente. Suddividi per <em>entità</em>, mai
+      per riga.</p>
+    </div>
+    <div class="card">
+      <h4>Leakage temporale</h4>
+      <p class="small mb0">Addestrare sui dati del 2024 e testare sul 2023. In produzione prevedi sempre
+      in avanti, quindi valuta in avanti: addestra sul passato, testa sul futuro, sempre.</p>
+    </div>
+    <div class="card">
+      <h4>Leakage del target</h4>
+      <p class="small mb0">Una feature che è una conseguenza dell’etichetta anziché una causa. Il “numero di
+      ordini di riparazione” predice in modo eccellente il guasto in garanzia — ed è registrato solo dopo il
+      guasto. Il killer classico: sopravvive a ogni strategia di split.</p>
+    </div>
+    <div class="card">
+      <h4>Leakage di pre-elaborazione</h4>
+      <p class="small mb0">Scalare, imputare o selezionare feature usando statistiche calcolate
+      sull’<em>intero</em> dataset prima della suddivisione. Sottile, comune, e gonfia silenziosamente ogni risultato.</p>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Le due domande che lo intercettano quasi tutto</span>
+    <p class="mb0"><strong>1. Qual è l’unità che non deve comparire da entrambe le parti dello split?</strong>
+    (Un pezzo, un veicolo, un cliente, un documento, una settimana.) <strong>2. Questa feature sarebbe stata
+    disponibile, con questo valore, nel momento in cui serve la previsione?</strong> Se rendi queste due
+    domande un punto fisso di ogni revisione di modello, intercetterai la maggior parte del leakage prima
+    che arrivi a un comitato direttivo.</p>
+  </div>
+</section>
+
+<!-- ============================================= 7.5 -->
+<section class="chapter" id="drift">
+  <h2>7.5 · Drift: l’anno scorso il modello aveva ragione</h2>
+  <p>Un modello è una fotografia di una relazione in un dato momento. I fornitori cambiano, gli utensili
+  si usurano, i sensori vengono ricalibrati, arriva una nuova variante di prodotto — e i dati in ingresso
+  smettono di somigliare ai dati di addestramento. L’accuratezza decade in silenzio, perché nel sistema
+  nessuno conosce più le etichette.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Sposta il mondo e guardalo fallire</h3><span class="tag try">Alza il drift</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="drCv" class="cv"></canvas>
+        <p class="small muted mt1 mb0">Grigio: la distribuzione su cui il modello è stato addestrato. Blu: ciò
+        che arriva adesso. La frontiera del modello, fissata al momento dell’addestramento, è la linea tratteggiata.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Drift (spostamento dei dati in ingresso)</span><span class="val" id="dShOut"></span></div>
+          <input type="range" id="dSh" min="0" max="1.6" step="0.02" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Allarga anche la dispersione</span><span class="val" id="dSpOut"></span></div>
+          <input type="range" id="dSp" min="1" max="2.6" step="0.05" value="1">
+        </div>
+        <div class="split3" style="grid-template-columns:1fr 1fr">
+          <div class="bigstat" id="bsDacc"><span class="n" id="dAcc">—</span><span class="l">accuratezza attuale</span></div>
+          <div class="bigstat" id="bsPsi"><span class="n" id="dPsi">—</span><span class="l">indice di drift (PSI)</span></div>
+        </div>
+        <canvas id="drHist" class="cv-sm mt1" style="height:150px"></canvas>
+        <div class="card mt1" id="drNote" style="min-height:130px"></div>
+      </div>
+    </div>
+    <p class="small muted mt1 mb0">Il population stability index (indice di stabilità della popolazione) è
+    calcolato in tempo reale su dieci intervalli della prima feature. La lettura convenzionale: sotto 0.1
+    nessun cambiamento rilevante, 0.1–0.25 da approfondire, sopra 0.25 spostamento significativo. Non richiede
+    <strong>alcuna etichetta</strong>, ed è per questo che è il cavallo da tiro del monitoraggio in produzione.</p>
+  </div>
+
+  <div class="grid g3 mt2">
+    <div class="callout key" style="margin:0">
+      <span class="ctitle">Il punto operativo</span>
+      <p class="mb0">Di solito non saprai che l’accuratezza è calata, perché le etichette arrivano con
+      settimane di ritardo o mai. Quindi monitora gli <strong>input</strong>, non solo gli output: la
+      distribuzione di ogni feature, la frequenza dei valori mancanti e la distribuzione dei punteggi di
+      confidenza del modello stesso. Sono tutti e tre gratuiti, e tutti e tre si muovono prima che il danno si veda.</p>
+    </div>
+    <div class="callout" style="margin:0">
+      <span class="ctitle">Riaddestrare non basta da solo</span>
+      <p class="mb0">Riaddestrare su dati recenti corregge un drift graduale. Non può correggere un cambiamento
+      di <em>concetto</em> — quando è la relazione stessa a essere diversa, non solo gli input. E il
+      riaddestramento automatico senza valutazione è un modo per rilasciare più in fretta un modello peggiore.</p>
+    </div>
+    <div class="callout caution" style="margin:0">
+      <span class="ctitle">Vale anche per i sistemi basati su LLM</span>
+      <p class="mb0">I tuoi prompt sono stati messi a punto su una versione del modello. Il fornitore la
+      aggiorna. I tuoi documenti vengono riorganizzati. Gli utenti iniziano a fare domande diverse. Stesso
+      guasto, costume diverso — ed è per questo che il modulo 8 insiste su un set di valutazione fisso da
+      rieseguire a ogni modifica.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================= 7.6 -->
+<section class="chapter" id="causal">
+  <h2>7.6 · La correlazione non è una manopola: la causalità</h2>
+  <p>Finora si è parlato solo di <em>previsione</em>: dato ciò che vedo, che cosa devo aspettarmi?
+  Gli ingegneri di solito vogliono porre una domanda diversa: <strong>se cambio questo parametro, che cosa
+  succederà?</strong> È una domanda su un <em>intervento</em>, e un modello addestrato su dati registrati,
+  osservazionali, in generale non può rispondere — per quanto sia accurato. Il modello impara come le cose
+  si muovono insieme nei dati che hai raccolto. Non ha modo di sapere <em>perché</em> si muovono insieme.</p>
+
+  <p>Il colpevole abituale è un <strong>confondente</strong>: una terza variabile che determina sia la cosa
+  che regoleresti sia il risultato che ti interessa. Due esempi che riconoscerai:</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4>Piloti esperti e la regolazione</h4>
+      <p class="small mb0">I piloti più veloci ed esperti preferiscono una certa opzione di assetto. Sono
+      anche più veloci per tutte le altre ragioni. Nei dati registrati, “usa la regolazione” è fortemente
+      correlato con “tempo sul giro più basso”. Un modello ne predirà benissimo il tempo sul giro — e la
+      regolazione in sé potrebbe non fare nulla, o addirittura far perdere tempo. Dalla a un pilota alle
+      prime armi e non guadagnerà quanto promettevano i dati.</p>
+    </div>
+    <div class="card">
+      <h4>Temperatura ambiente, pneumatici e mescola</h4>
+      <p class="small mb0">Nelle giornate calde i pneumatici lavorano più caldi, <em>e</em> il team sceglie una
+      mescola più dura. Nei dati, la mescola più dura “va insieme” alle temperature elevate dei pneumatici.
+      Letto ingenuamente, significa che la mescola dura scalda. È la temperatura ambiente a determinare
+      entrambe; l’effetto proprio della mescola resta sepolto sotto e potrebbe benissimo andare nella direzione opposta.</p>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Un parametro di assetto confuso</h3><span class="tag try">Alza il confondente, poi dividi per gruppo</span></div>
+    <div class="split-wide">
+      <div>
+        <canvas id="caCv" class="cv" style="height:340px"></canvas>
+        <p class="small muted mt1 mb0">Ogni punto è uno stint registrato: la regolazione della manopola contro la
+        variazione del tempo sul giro. Linea rossa: che cosa fa la manopola secondo un modello stimato su
+        questi dati. Verde tratteggiata: che cosa fa davvero la manopola, misurato intervenendo.</p>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Confondimento: quanto l’esperienza determina la manopola</span><span class="val" id="caAOut"></span></div>
+          <input type="range" id="caA" min="0" max="2.5" step="0.05" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Effetto reale della manopola (impostato)</span><span class="val" id="caBOut"></span></div>
+          <input type="range" id="caB" min="-0.5" max="0.5" step="0.01" value="0.25">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Vista</span></div>
+          <div class="segmented" id="caViewSeg">
+            <button data-v="pool" class="on">Aggregata</button>
+            <button data-v="split">Divisa per gruppo di piloti</button>
+          </div>
+        </div>
+        <div class="btnrow"><button class="btn sm" id="caNew">Nuovo campione di dati</button></div>
+        <div class="grid g2" style="gap:10px">
+          <div class="bigstat" id="bsCaNaive"><span class="n" id="caNaive">—</span><span class="l">pendenza ingenua (modello)</span></div>
+          <div class="bigstat" id="bsCaAdj"><span class="n" id="caAdj">—</span><span class="l">corretta per l’esperienza</span></div>
+          <div class="bigstat good"><span class="n" id="caDo">—</span><span class="l">do(manopola): randomizzato</span></div>
+          <div class="bigstat"><span class="n" id="caTrue">—</span><span class="l">effetto reale (impostato sopra)</span></div>
+        </div>
+        <div class="metrics mt1">
+          <div class="m"><span class="k">tra i principianti</span><span class="v" id="caWN">—</span></div>
+          <div class="m"><span class="k">tra gli esperti</span><span class="v" id="caWE">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt1" id="caNote" style="min-height:120px"></div>
+    <p class="small muted mt1 mb0">I dati provengono da un piccolo modello causale strutturale, scritto per
+    esteso perché tu possa verificarlo: l’esperienza <i>Z</i> è formata da due gruppi di piloti con una certa
+    dispersione; la manopola è <i>X = a·Z + rumore</i>; la variazione del tempo sul giro è
+    <i>Y = β·X − 0.8·Z + rumore</i>, quindi più esperienza significa un giro più veloce. I coefficienti del
+    modello sono impostati a mano; i 600 stint, ogni pendenza e l’esperimento sono campionati e stimati in
+    tempo reale. Le pendenze sono in secondi per scatto: negativo significa più veloce. Il valore
+    “do(manopola)” è un esperimento simulato separato in cui la manopola è impostata a caso,
+    indipendentemente dal pilota — che è esattamente ciò che fa un A/B test.</p>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">Il paradosso di Simpson</span>
+    <p class="mb0">Passa il laboratorio su <b>Divisa per gruppo di piloti</b> con le impostazioni predefinite.
+    Tra i principianti, più manopola significa un giro <em>più lento</em>. Tra i piloti esperti, lo stesso.
+    Aggregali e più manopola significa un giro <em>più veloce</em>. L’aritmetica non ha nulla di sbagliato: il
+    gruppo esperto usa più manopola ed è anche più veloce, e la retta aggregata è soprattutto il divario tra i
+    due gruppi. Quando un andamento si inverte dividendo i dati, di solito è la divisione a dire la verità
+    sulla manopola — <strong>ma solo se dividi secondo la variabile giusta</strong>, e i dati da soli non possono
+    dirti quale sia. Questo viene dal sapere come funziona il sistema.</p>
+  </div>
+
+  <div class="grid g2 mt2">
+    <div class="card">
+      <h3>La previsione va bene per…</h3>
+      <ul class="small mb0">
+        <li>Prevedere che cosa succederà se nel processo non cambia nulla: il tempo sul giro di questo stint,
+        il rischio di guasto di questo pezzo, il costo in garanzia di questo lotto.</li>
+        <li>Monitoraggio, screening, classifiche e segnalazioni (moduli 6 e 8).</li>
+        <li>Qualsiasi uso in cui gli input del modello sono <em>osservati</em>, non <em>impostati</em> da te.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>L’intervento richiede di più</h3>
+      <ul class="small mb0">
+        <li>“Dovremmo cambiare questa regolazione / tolleranza / fornitore / fase di processo?” è una domanda causale.</li>
+        <li>Una feature con un punteggio di importanza elevato (o un coefficiente elevato) non è una leva.
+        L’importanza misura quanto è utile per la previsione, non che cosa succede quando la sposti.</li>
+        <li>Non appena l’output di un modello viene usato per scegliere una regolazione, lo stai usando in senso
+        causale — che qualcuno lo dica o no.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Come si ottiene davvero una risposta causale</span>
+    <ul class="mb0">
+      <li><strong>Esegui un esperimento progettato.</strong> Imposta il parametro deliberatamente, secondo un
+      piano, invece di imparare da ciò che è capitato di registrare. È la progettazione degli esperimenti — la
+      stessa disciplina del <a href="11-engineering.html#doe">modulo 11.2</a> — e su un banco prova o in
+      simulazione di solito è sostenibile.</li>
+      <li><strong>Randomizza quando ci sono di mezzo le persone.</strong> Un A/B test assegna la modifica a caso,
+      quindi esperienza, meteo e umore sono bilanciati tra i bracci per costruzione. La randomizzazione è ciò
+      che taglia la freccia dal confondente alla manopola; è il numero “do(manopola)” del laboratorio.</li>
+      <li><strong>Se puoi solo osservare, correggi — onestamente.</strong> Una regressione che include il
+      confondente (il numero “corretto”) funziona <em>se</em> hai misurato ogni confondente importante, lo hai
+      misurato bene, e non hai corretto per qualcosa che è causato dalla manopola stessa. È un’ipotesi forte.
+      Scrivila, e tratta il risultato come un’ipotesi da confermare con un esperimento.</li>
+    </ul>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Parti con il laboratorio a confondimento 1.0 ed effetto reale +0.25. Il modello dice che la manopola
+      fa guadagnare circa 0.3 s per scatto; in realtà ne fa perdere circa 0.25. Chiedi alla sala quale numero
+      avrebbe messo nella scheda di assetto.</li>
+      <li>Poi porta il confondimento a zero. La pendenza ingenua e l’effetto reale coincidono: quando la
+      manopola non è scelta dal pilota, osservazione ed esperimento danno la stessa risposta. È l’intero
+      argomento a favore della randomizzazione in un solo movimento del cursore.</li>
+      <li>“Divisa per gruppo di piloti” fa gran parte della strada, non tutta, perché l’esperienza varia ancora
+      un po’ all’interno di ciascun gruppo — il valore corretto, che usa il punteggio continuo di esperienza, ci
+      va più vicino. Una correzione grossolana lascia un confondimento residuo; vale la pena dirlo ad alta voce.</li>
+      <li>Domanda probabile: “Un modello abbastanza grande non risolve il problema?” No. Più dati e più
+      parametri rendono migliore la <em>previsione</em> e più precisa la pendenza confusa. Non la rendono
+      causale.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================= 7.7 -->
+<section class="chapter" id="cost">
+  <h2>7.7 · Quanto ti costerà davvero l’etichettatura</h2>
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Budget di etichettatura</h3><span class="tag try">Prova 3 annotatori per elemento</span></div>
+    <div class="split-wide">
+      <div class="grid g2" style="gap:14px">
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Elementi da etichettare</span><span class="val" id="nItOut"></span></div>
+          <input type="range" id="nIt" min="200" max="200000" step="200" value="20000">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Secondi per elemento</span><span class="val" id="nSecOut"></span></div>
+          <input type="range" id="nSec" min="2" max="300" step="1" value="20">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Annotatori per elemento (ridondanza)</span><span class="val" id="nRedOut"></span></div>
+          <input type="range" id="nRed" min="1" max="5" step="1" value="1">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Costo di un’ora di un esperto</span><span class="val" id="nRateOut"></span></div>
+          <input type="range" id="nRate" min="15" max="180" step="5" value="65">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Persone disponibili</span><span class="val" id="nPplOut"></span></div>
+          <input type="range" id="nPpl" min="1" max="30" step="1" value="3">
+        </div>
+        <div class="ctrl mb0">
+          <div class="ctrl-label"><span>Ore a settimana per persona su questa attività</span><span class="val" id="nHrsOut"></span></div>
+          <input type="range" id="nHrs" min="1" max="35" step="1" value="6">
+        </div>
+      </div>
+      <div>
+        <div class="readout">
+          <div class="stat"><span class="k">ore di annotazione</span><span class="v" id="oHrs">—</span></div>
+          <div class="stat hl"><span class="k">costo diretto</span><span class="v" id="oCost">—</span></div>
+          <div class="stat hl"><span class="k">tempo di calendario</span><span class="v" id="oWeeks">—</span><span class="u">settimane</span></div>
+          <div class="stat"><span class="k">con un giro di ri-etichettatura</span><span class="v" id="oRe">—</span></div>
+        </div>
+        <div class="card mt1" id="costNote" style="min-height:190px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout caution">
+    <span class="ctitle">La voce che nessuno mette a budget</span>
+    <p class="mb0">Prevedi <strong>almeno un giro completo di ri-etichettatura</strong>. Non è un segno di
+    fallimento — è ciò che succede quando le prime 500 etichette rivelano che la tassonomia era sbagliata, che
+    “difetto superficiale” doveva essere quattro categorie, o che due ispettori hanno interpretato la linea
+    guida in modo diverso. I team che lo mettono a budget arrivano in produzione; quelli che non lo fanno
+    consumano in silenzio il tempo di sviluppo del modello per farlo comunque.</p>
+  </div>
+</section>
+
+<!-- ============================================= 7.8 -->
+<section class="chapter" id="ready">
+  <h2>7.8 · I tuoi dati sono pronti?</h2>
+  <p>Spunta ciò che è vero oggi, non ciò che è pianificato.</p>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Laboratorio · Verifica di prontezza</h3><span class="tag try">Sii onesto</span></div>
+    <div class="split">
+      <div class="checklist" id="rdList"></div>
+      <div>
+        <div class="verdict info" id="rdVerdict"><span class="lvl">Ancora niente di spuntato</span>
+        Scorri l’elenco a sinistra.</div>
+        <div class="card mt1" id="rdGaps" style="min-height:200px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Questa checklist è lo strumento più utile in pratica di tutta la serie. Distribuiscila. Chiedi alle
+      persone di compilarla per un caso d’uso che sta loro a cuore, e raccogli i risultati — otterrai una
+      mappa realistica di dove si trova davvero l’organizzazione.</li>
+      <li>La voce che più spesso le persone non riescono a spuntare è la definizione scritta dell’etichetta. È
+      questo il risultato da portare più in alto, perché costa poco da sistemare e blocca tutto ciò che viene dopo.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Dove andiamo ora</h2>
+  <p>Supponiamo che i dati siano buoni e il modello sia addestrato. Come sai che funziona, come lo dimostri a
+  qualcuno che ne risponde, e come eviti di ingannare te stesso? È il modulo 8, ed è quello che rende
+  tutto questo difendibile.</p>
+  <p><a href="08-evaluation.html"><strong>Modulo 8 · Valutazione →</strong></a></p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var C = AI.cssVar, F = AI.F;
+  function randn() {
+    var u = 0, v = 0;
+    while (!u) u = Math.random();
+    while (!v) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+  }
+  function normPdf(x, m, s) { return Math.exp(-0.5 * Math.pow((x - m) / s, 2)) / (s * 2.5066); }
+  function normCdf(x) {
+    /* Abramowitz & Stegun 7.1.26 on erf */
+    var t = 1 / (1 + 0.3275911 * Math.abs(x) / Math.SQRT2);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t
+      * Math.exp(-x * x / 2);
+    return x >= 0 ? 0.5 * (1 + y) : 0.5 * (1 - y);
+  }
+
+  /* ============================================ 7.1 effort chart */
+  var EFFORT = [
+    ['Inquadrare il problema, definire l’etichetta', 12],
+    ['Trovare, estrarre e pulire i dati', 26],
+    ['Etichettare e controllare le etichette', 28],
+    ['Modellazione e messa a punto', 12],
+    ['Valutazione e validazione', 9],
+    ['Deployment, monitoraggio, integrazione', 13]
+  ];
+  var effPlot;
+  function drawEffort() {
+    effPlot.resize(); effPlot.clear();
+    var g = effPlot.ctx;
+    var h = effPlot.ph / EFFORT.length;
+    g.save();
+    EFFORT.forEach(function (e, i) {
+      var y = effPlot.pad.t + i * h + 4;
+      var w = e[1] / 32 * effPlot.pw;
+      var isData = i === 1 || i === 2;
+      g.fillStyle = isData ? C('--accent') : C('--ink-3');
+      g.globalAlpha = isData ? 1 : 0.5;
+      g.fillRect(effPlot.pad.l, y, w, h - 8);
+      g.globalAlpha = 1;
+      g.fillStyle = C('--ink');
+      g.font = '600 12px system-ui, sans-serif';
+      g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText(e[0], effPlot.pad.l + 8, y + (h - 8) / 2);
+      g.fillStyle = isData ? C('--accent') : C('--ink-3');
+      g.font = '700 12px ui-monospace, monospace';
+      g.fillText(e[1] + '%', effPlot.pad.l + w + 8, y + (h - 8) / 2);
+    });
+    g.restore();
+    g.fillStyle = C('--accent');
+    g.font = '700 11px system-ui, sans-serif';
+    g.textAlign = 'right';
+    g.fillText('il 54% del progetto è lavoro sui dati', effPlot.pad.l + effPlot.pw, effPlot.pad.t + effPlot.ph + 16);
+  }
+
+  /* ============================================ 7.2 labelling */
+  var LB = { parts: [], i: 0, mine: [], done: false };
+  var LIMIT = 2.0;
+  function makeParts() {
+    LB.parts = []; LB.mine = []; LB.i = 0; LB.done = false;
+    for (var i = 0; i < 10; i++) {
+      /* cluster lengths near the 2.0 mm limit so the judgement is genuinely hard */
+      var len = 0.9 + Math.random() * 2.4;
+      if (i < 6) len = LIMIT + (Math.random() - 0.5) * 1.1;
+      LB.parts.push({
+        len: Math.max(0.5, Math.min(3.6, len)),
+        seed: Math.random() * 1000,
+        ang: (Math.random() - 0.5) * 1.1,
+        b: Math.random() * 0.12
+      });
+    }
+    /* second inspector: same spec, human measurement error */
+    LB.parts.forEach(function (p) {
+      p.bJudge = (p.len + randn() * 0.42) > LIMIT ? 1 : 0;
+    });
+    document.getElementById('labTableWrap').classList.add('hidden');
+    document.getElementById('labResult').innerHTML =
+      '<p class="small mb0">I tuoi dieci giudizi diventano un training set. Quello che succede dopo dipende ' +
+      'interamente da quanto sono coerenti — con la specifica e con i tuoi colleghi.</p>';
+    drawPart(); drawJudged();
+  }
+  function drawPart() {
+    var cv = document.getElementById('partCv'), g = cv.getContext('2d'), N = 60;
+    var p = LB.parts[Math.min(LB.i, 9)];
+    var d = g.createImageData(N, N), i, x, y;
+    function rnd(k) { var s = Math.sin(p.seed + k * 12.9898) * 43758.5453; return s - Math.floor(s); }
+    for (y = 0; y < N; y++) for (x = 0; x < N; x++) {
+      var v = 0.72 + p.b - 0.08 * (y / N);
+      v += (rnd(x * 60 + y) - 0.5) * 0.10;
+      /* cast texture */
+      v += Math.sin(x * 0.7 + p.seed) * 0.015 + Math.cos(y * 0.9) * 0.012;
+      i = (y * N + x) * 4;
+      var c = Math.max(0, Math.min(255, Math.round(v * 255)));
+      d.data[i] = c; d.data[i + 1] = c; d.data[i + 2] = c; d.data[i + 3] = 255;
+    }
+    /* crack: 1 mm = 8 px */
+    var pxLen = p.len * 8, cx = 30 - Math.cos(p.ang) * pxLen / 2, cy = 32 - Math.sin(p.ang) * pxLen / 2;
+    for (var t = 0; t <= pxLen * 3; t++) {
+      var f = t / (pxLen * 3);
+      var jx = cx + Math.cos(p.ang) * pxLen * f + (rnd(t * 3.1) - 0.5) * 1.4;
+      var jy = cy + Math.sin(p.ang) * pxLen * f + (rnd(t * 7.7) - 0.5) * 1.4;
+      var ix = Math.round(jx), iy = Math.round(jy);
+      if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
+      i = (iy * N + ix) * 4;
+      var dark = 40 + rnd(t) * 60;
+      d.data[i] = dark; d.data[i + 1] = dark; d.data[i + 2] = dark;
+    }
+    g.putImageData(d, 0, 0);
+    /* 1 mm scale bar drawn in device pixels */
+    g.fillStyle = '#1b1b1b';
+    g.fillRect(6, 52, 8, 1);
+    g.fillRect(6, 51, 1, 3); g.fillRect(13, 51, 1, 3);
+    document.getElementById('partCount').textContent = LB.done ? 'Finito' : 'Pezzo ' + (LB.i + 1) + ' di 10';
+  }
+  function drawJudged() {
+    var h = '';
+    for (var i = 0; i < 10; i++) {
+      var m = LB.mine[i];
+      h += '<span class="' + (m === undefined ? '' : (m ? 'rej' : 'acc')) + '">' + (i + 1) + '</span>';
+    }
+    document.getElementById('judged').innerHTML = h;
+  }
+  function judge(rej) {
+    if (LB.done) return;
+    LB.mine[LB.i] = rej ? 1 : 0;
+    LB.i++;
+    drawJudged();
+    if (LB.i >= 10) { LB.done = true; reveal(); }
+    drawPart();
+  }
+  function kappa(a, b) {
+    var n = a.length, agree = 0, pa1 = 0, pb1 = 0, i;
+    for (i = 0; i < n; i++) {
+      if (a[i] === b[i]) agree++;
+      pa1 += a[i]; pb1 += b[i];
+    }
+    var po = agree / n;
+    pa1 /= n; pb1 /= n;
+    var pe = pa1 * pb1 + (1 - pa1) * (1 - pb1);
+    return { po: po, k: pe >= 1 ? 1 : (po - pe) / (1 - pe) };
+  }
+  function reveal() {
+    var spec = LB.parts.map(function (p) { return p.len > LIMIT ? 1 : 0; });
+    var mine = LB.mine, bb = LB.parts.map(function (p) { return p.bJudge; });
+    var vsSpec = kappa(mine, spec), vsB = kappa(mine, bb), bVsSpec = kappa(bb, spec);
+    var tb = '';
+    LB.parts.forEach(function (p, i) {
+      var dis = mine[i] !== bb[i];
+      tb += '<tr class="' + (dis ? 'dis' : '') + '"><td>' + (i + 1) + '</td><td class="num mono">' +
+        p.len.toFixed(2) + ' mm</td><td>' + (spec[i] ? 'scarta' : 'accetta') + '</td><td><b>' +
+        (mine[i] ? 'scarta' : 'accetta') + '</b></td><td>' + (bb[i] ? 'scarta' : 'accetta') + '</td><td>' +
+        (dis ? '<span class="pill no">disaccordo</span>' : '') + '</td></tr>';
+    });
+    document.getElementById('revBody').innerHTML = tb;
+    document.getElementById('labTableWrap').classList.remove('hidden');
+
+    var ceiling = vsB.po;
+    var h = '<h4>Risultati</h4>';
+    h += '<div class="metrics"><div class="m"><span class="k">tu vs specifica</span><span class="v">' +
+      (vsSpec.po * 100).toFixed(0) + '%</span></div>' +
+      '<div class="m"><span class="k">tu vs ispettore B</span><span class="v">' + (vsB.po * 100).toFixed(0) + '%</span></div>' +
+      '<div class="m"><span class="k">κ di Cohen</span><span class="v">' + vsB.k.toFixed(2) + '</span></div></div>';
+    h += '<p class="small mt1">L’ispettore B ha concordato con la specifica nel ' + (bVsSpec.po * 100).toFixed(0) +
+      '% dei casi. Tu hai concordato con B sul ' + (ceiling * 100).toFixed(0) + '% dei pezzi.</p>';
+    if (ceiling >= 0.9) h += '<p class="small mb0" style="color:var(--good)"><b>Accordo alto.</b> Un modello addestrato su etichette così coerenti ha un tetto realistico sopra il 90%. È un progetto fattibile.</p>';
+    else if (ceiling >= 0.7) h += '<p class="small mb0" style="color:var(--warn)"><b>Accordo moderato.</b> Le tue etichette e quelle di B sono in disaccordo su ' +
+      Math.round((1 - ceiling) * 10) + ' pezzi su 10. Nessun modello può superare quel tetto — dovrebbe indovinare chi di voi due imitare. Rendi più rigorosa la procedura di misura prima di raccoglierne 20 000.</p>';
+    else h += '<p class="small mb0" style="color:var(--bad)"><b>Accordo basso.</b> Di fatto voi due state etichettando problemi diversi. Addestrare su questi dati produrrebbe un modello arbitrario con grande sicurezza. <b>Correggi la specifica, non il modello.</b></p>';
+    h += '<p class="small muted mb0 mt1">Un κ sotto 0.4 indica di solito un accordo scarso, 0.6–0.8 sostanziale, sopra 0.8 quasi perfetto.</p>';
+    document.getElementById('labResult').innerHTML = h;
+  }
+
+  /* ============================================ 7.3 imbalance */
+  var IM = { rate: 0.01, sep: 2, th: 1.2 }, imbPlot;
+  var TOTAL = 100000;
+  function calcImb() {
+    var nF = TOTAL * IM.rate, nH = TOTAL - nF;
+    /* healthy ~ N(0,1), faulty ~ N(sep,1); flag if score > th */
+    var tp = nF * (1 - normCdf(IM.th - IM.sep));
+    var fn = nF - tp;
+    var fp = nH * (1 - normCdf(IM.th));
+    var tn = nH - fp;
+    return { tp: tp, fn: fn, fp: fp, tn: tn, nF: nF, nH: nH };
+  }
+  function drawImb() {
+    imbPlot.resize(); imbPlot.clear();
+    var r = calcImb();
+    var maxD = Math.max(r.nH * normPdf(0, 0, 1), r.nF * normPdf(IM.sep, IM.sep, 1)) * 1.12;
+    imbPlot.dom = [-3.2, 6.2]; imbPlot.ran = [0, maxD];
+    imbPlot.frame({ xticks: 5, yticks: 4, xlabel: 'punteggio del modello', ylabel: 'pezzi (scala non logaritmica)',
+      yfmt: function (y) { return F.c(y); } });
+    var hp = [], fpv = [], i;
+    for (i = 0; i <= 260; i++) {
+      var x = -3.2 + 9.4 * i / 260;
+      hp.push([x, r.nH * normPdf(x, 0, 1)]);
+      fpv.push([x, r.nF * normPdf(x, IM.sep, 1)]);
+    }
+    imbPlot.clip(function (g) {
+      imbPlot.line(hp, C('--good'), 2.4);
+      imbPlot.line(fpv, C('--bad'), 2.4);
+      imbPlot.line([[IM.th, 0], [IM.th, maxD]], C('--accent'), 2.4, [5, 4]);
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--good'); g.fillText('sani (' + F.c(r.nH) + ')', imbPlot.X(-3.05), imbPlot.Y(maxD * 0.92));
+      g.fillStyle = C('--bad'); g.fillText('difettosi (' + F.c(r.nF) + ')', imbPlot.X(-3.05), imbPlot.Y(maxD * 0.82));
+      g.fillStyle = C('--accent'); g.textAlign = 'center';
+      g.fillText('soglia', imbPlot.X(IM.th), imbPlot.Y(maxD * 0.98));
+    });
+    document.getElementById('cTP').textContent = F.c(r.tp);
+    document.getElementById('cFN').textContent = F.c(r.fn);
+    document.getElementById('cFP').textContent = F.c(r.fp);
+    document.getElementById('cTN').textContent = F.c(r.tn);
+
+    var accv = (r.tp + r.tn) / TOTAL, nullv = r.nH / TOTAL;
+    var pre = r.tp / Math.max(1e-9, r.tp + r.fp), rec = r.tp / Math.max(1e-9, r.nF);
+    var f1 = 2 * pre * rec / Math.max(1e-9, pre + rec);
+    var spec = r.tn / Math.max(1e-9, r.nH);
+    document.getElementById('mAcc').textContent = (accv * 100).toFixed(2) + '%';
+    document.getElementById('mNull').textContent = (nullv * 100).toFixed(2) + '%';
+    document.getElementById('mRec').textContent = (rec * 100).toFixed(1) + '%';
+    document.getElementById('mPre').textContent = (pre * 100).toFixed(1) + '%';
+    document.getElementById('mRec2').textContent = (rec * 100).toFixed(1) + '%';
+    document.getElementById('mF1').textContent = f1.toFixed(3);
+    document.getElementById('mBal').textContent = ((rec + spec) / 2 * 100).toFixed(1) + '%';
+    document.getElementById('mFad').textContent = F.c(r.fp / 100000 * 2000);
+
+    document.getElementById('bsAcc').className = 'bigstat ' + (accv < nullv ? 'bad' : '');
+    document.getElementById('bsNull').className = 'bigstat warn';
+    document.getElementById('bsRec').className = 'bigstat ' + (rec > 0.85 ? 'good' : rec > 0.5 ? 'warn' : 'bad');
+
+    var n = '';
+    if (accv <= nullv + 0.0005) {
+      n = '<p class="small mb0"><b style="color:var(--bad)">Il tuo modello è meno accurato che non fare nulla.</b> Prevedere “passa” per ogni singolo pezzo otterrebbe il ' +
+        (nullv * 100).toFixed(2) + '%, e il tuo modello ottiene il ' + (accv * 100).toFixed(2) +
+        '%. Eppure è il sistema più utile, perché intercetta il ' + (rec * 100).toFixed(0) +
+        '% dei difetti — cosa che l’accuratezza non vede. <b>È la dimostrazione più chiara possibile che qui l’accuratezza è la metrica sbagliata.</b></p>';
+    } else if (IM.rate < 0.03 && pre < 0.3) {
+      n = '<p class="small mb0">L’accuratezza sembra rispettabile, al ' + (accv * 100).toFixed(2) +
+        '%, ma la precision è solo del ' + (pre * 100).toFixed(1) + '%: <b>' +
+        Math.round((1 - pre) * 100) + ' pezzi su 100 che segnali sono in realtà sani</b>. A 2000 pezzi al giorno sono ' +
+        F.c(r.fp / 100000 * 2000) + ' ispezioni inutili. Gli eventi rari rendono la precision brutalmente difficile — è aritmetica, non un fallimento della modellazione.</p>';
+    } else {
+      n = '<p class="small mb0">Un punto di lavoro praticabile: ' + (rec * 100).toFixed(0) + '% dei difetti intercettati, ' +
+        (pre * 100).toFixed(0) + '% delle segnalazioni fondate. Nota quanto poco si è mosso il dato di accuratezza in evidenza (' +
+        (accv * 100).toFixed(2) + '%) mentre trascinavi la soglia lungo tutto l’intervallo. <b>Sui problemi sbilanciati l’accuratezza è quasi cieca.</b></p>';
+    }
+    document.getElementById('imbNote').innerHTML = n;
+  }
+
+  /* ============================================ 7.4 leakage */
+  var LK = { groups: [], rows: [] }, lkPlot;
+  function lkData() {
+    LK.groups = []; LK.rows = [];
+    for (var g = 0; g < 40; g++) {
+      var fp = [(Math.random() * 2 - 1) * 0.95, (Math.random() * 2 - 1) * 0.95];
+      var y = Math.random() < 0.5 ? 1 : 0;
+      LK.groups.push({ fp: fp, y: y });
+      for (var i = 0; i < 20; i++) {
+        LK.rows.push({ x: [fp[0] + randn() * 0.045, fp[1] + randn() * 0.045], y: y, g: g });
+      }
+    }
+  }
+  function drawLk() {
+    lkPlot.resize(); lkPlot.clear();
+    lkPlot.frame({ xticks: 4, yticks: 4, xlabel: 'misura 1', ylabel: 'misura 2' });
+    lkPlot.clip(function () {
+      LK.rows.forEach(function (r) {
+        lkPlot.dot(r.x[0], r.x[1], 3, r.y ? C('--accent') : C('--warn'));
+      });
+    });
+  }
+  function runLeak() {
+    var i;
+    /* --- random split --- */
+    var sh = LK.rows.slice();
+    for (i = sh.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = sh[i]; sh[i] = sh[j]; sh[j] = t; }
+    var k = Math.floor(sh.length * 0.7);
+    var trR = sh.slice(0, k), teR = sh.slice(k);
+    var netR = new AI.MLP([2, 24, 12, 1], 'relu');
+    for (i = 0; i < 700; i++) netR.step(trR.map(function (r) { return r.x; }), trR.map(function (r) { return r.y; }), 0.5, 0.9);
+    var accR = teR.filter(function (r) { return (netR.predict(r.x) >= 0.5 ? 1 : 0) === r.y; }).length / teR.length;
+
+    /* --- grouped split: whole vehicles held out --- */
+    var gidx = [];
+    for (i = 0; i < 40; i++) gidx.push(i);
+    for (i = gidx.length - 1; i > 0; i--) { var j2 = Math.floor(Math.random() * (i + 1)); var t2 = gidx[i]; gidx[i] = gidx[j2]; gidx[j2] = t2; }
+    var trG = new Set(gidx.slice(0, 28));
+    var trRows = LK.rows.filter(function (r) { return trG.has(r.g); });
+    var teRows = LK.rows.filter(function (r) { return !trG.has(r.g); });
+    var netG = new AI.MLP([2, 24, 12, 1], 'relu');
+    for (i = 0; i < 700; i++) netG.step(trRows.map(function (r) { return r.x; }), trRows.map(function (r) { return r.y; }), 0.5, 0.9);
+    var accG = teRows.filter(function (r) { return (netG.predict(r.x) >= 0.5 ? 1 : 0) === r.y; }).length / teRows.length;
+
+    document.getElementById('lkRand').textContent = (accR * 100).toFixed(1) + '%';
+    document.getElementById('lkGrp').textContent = (accG * 100).toFixed(1) + '%';
+    document.getElementById('lkNote').innerHTML =
+      '<p class="small"><b>Lo split casuale riporta il ' + (accR * 100).toFixed(1) + '%. Lo split onesto riporta il ' +
+      (accG * 100).toFixed(1) + '%.</b> Stessi dati, stesso modello, stesso budget di addestramento.</p>' +
+      '<p class="small mb0">Il divario è di ' + ((accR - accG) * 100).toFixed(0) +
+      ' punti di puro autoinganno. Il modello non stava imparando nulla sulle misure — stava imparando a riconoscere <i>da quale veicolo</i> veniva una riga e a ricordarne l’etichetta. Tieni da parte veicoli interi e quel trucco non vale più nulla, ed è esattamente ciò che succede il primo giorno in cui vede un’auto nuova.</p>';
+  }
+
+  /* ============================================ 7.5 drift */
+  var DR = { sh: 0, sp: 1, ref: [], cur: [], w: null }, drPlot, drHist;
+  function drData() {
+    DR.ref = [];
+    for (var i = 0; i < 400; i++) {
+      var a = randn() * 0.45, b = randn() * 0.45;
+      var y = (0.9 * a + 0.8 * b + 0.12) > 0 ? 1 : 0;
+      if (Math.random() < 0.05) y = 1 - y;
+      DR.ref.push({ x: [a, b], y: y });
+    }
+    /* fit a simple logistic boundary by gradient descent (fixed at training time) */
+    var w = [0, 0, 0];
+    for (var it = 0; it < 900; it++) {
+      var gw = [0, 0, 0];
+      DR.ref.forEach(function (r) {
+        var z = w[0] * r.x[0] + w[1] * r.x[1] + w[2];
+        var p = AI.sigmoid(z), e = p - r.y;
+        gw[0] += e * r.x[0]; gw[1] += e * r.x[1]; gw[2] += e;
+      });
+      for (var j = 0; j < 3; j++) w[j] -= 0.6 * gw[j] / DR.ref.length;
+    }
+    DR.w = w;
+    drCur();
+  }
+  function drCur() {
+    DR.cur = [];
+    for (var i = 0; i < 400; i++) {
+      var a = randn() * 0.45 * DR.sp + DR.sh, b = randn() * 0.45 * DR.sp + DR.sh * 0.35;
+      var y = (0.9 * a + 0.8 * b + 0.12) > 0 ? 1 : 0;
+      if (Math.random() < 0.05) y = 1 - y;
+      DR.cur.push({ x: [a, b], y: y });
+    }
+    drawDr();
+  }
+  function psi(ref, cur) {
+    var bins = 10, lo = -1.6, hi = 1.6, i;
+    var rc = new Array(bins).fill(0), cc = new Array(bins).fill(0);
+    function bin(v) { return Math.max(0, Math.min(bins - 1, Math.floor((v - lo) / (hi - lo) * bins))); }
+    ref.forEach(function (r) { rc[bin(r.x[0])]++; });
+    cur.forEach(function (r) { cc[bin(r.x[0])]++; });
+    var s = 0;
+    for (i = 0; i < bins; i++) {
+      var p = Math.max(rc[i] / ref.length, 0.0015), q = Math.max(cc[i] / cur.length, 0.0015);
+      s += (q - p) * Math.log(q / p);
+    }
+    return { psi: s, rc: rc, cc: cc, lo: lo, hi: hi, bins: bins };
+  }
+  function drawDr() {
+    drPlot.resize(); drPlot.clear();
+    drPlot.frame({ xticks: 4, yticks: 4, xlabel: 'feature 1', ylabel: 'feature 2' });
+    var w = DR.w;
+    drPlot.clip(function () {
+      DR.ref.forEach(function (r) { drPlot.dot(r.x[0], r.x[1], 2.4, C('--ink-3') + '55'); });
+      DR.cur.forEach(function (r) {
+        var p = AI.sigmoid(w[0] * r.x[0] + w[1] * r.x[1] + w[2]);
+        var wrong = (p >= 0.5 ? 1 : 0) !== r.y;
+        drPlot.dot(r.x[0], r.x[1], wrong ? 4.6 : 3.4, r.y ? C('--accent') : C('--warn'),
+          wrong ? C('--bad') : null);
+      });
+      if (Math.abs(w[1]) > 1e-6) {
+        drPlot.line([[-2, -(w[0] * -2 + w[2]) / w[1]], [2.6, -(w[0] * 2.6 + w[2]) / w[1]]], C('--ink'), 2, [6, 4]);
+      }
+    });
+    var okc = DR.cur.filter(function (r) {
+      return (AI.sigmoid(w[0] * r.x[0] + w[1] * r.x[1] + w[2]) >= 0.5 ? 1 : 0) === r.y;
+    }).length;
+    var accv = okc / DR.cur.length;
+    var P = psi(DR.ref, DR.cur);
+    document.getElementById('dAcc').textContent = (accv * 100).toFixed(1) + '%';
+    document.getElementById('dPsi').textContent = P.psi.toFixed(3);
+    document.getElementById('bsDacc').className = 'bigstat ' + (accv > 0.85 ? 'good' : accv > 0.7 ? 'warn' : 'bad');
+    document.getElementById('bsPsi').className = 'bigstat ' + (P.psi < 0.1 ? 'good' : P.psi < 0.25 ? 'warn' : 'bad');
+
+    /* histogram */
+    drHist.resize(); drHist.clear();
+    var mx = Math.max(Math.max.apply(null, P.rc), Math.max.apply(null, P.cc)) * 1.15;
+    drHist.dom = [P.lo, P.hi]; drHist.ran = [0, mx];
+    drHist.frame({ xticks: 4, yticks: 3, xlabel: 'feature 1', ylabel: 'conteggio' });
+    var bw = drHist.pw / P.bins;
+    drHist.clip(function (g) {
+      for (var i = 0; i < P.bins; i++) {
+        var x0 = drHist.pad.l + i * bw;
+        g.fillStyle = C('--ink-3') + '66';
+        g.fillRect(x0 + 1, drHist.Y(P.rc[i]), bw - 2, drHist.Y(0) - drHist.Y(P.rc[i]));
+        g.fillStyle = C('--accent') + 'aa';
+        g.fillRect(x0 + bw * 0.25, drHist.Y(P.cc[i]), bw * 0.5, drHist.Y(0) - drHist.Y(P.cc[i]));
+      }
+      g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'left';
+      g.fillStyle = C('--ink-3'); g.fillText('addestramento', drHist.X(P.lo) + 4, drHist.Y(mx * 0.93));
+      g.fillStyle = C('--accent'); g.fillText('adesso', drHist.X(P.lo) + 4, drHist.Y(mx * 0.78));
+    });
+
+    var n = '<h4>Come leggerlo</h4>';
+    if (P.psi < 0.1) n += '<p class="small mb0">Nessun drift rilevante (PSI ' + P.psi.toFixed(3) +
+      '), e l’accuratezza tiene al ' + (accv * 100).toFixed(1) + '%. Ecco come appare un mese in salute.</p>';
+    else if (P.psi < 0.25) n += '<p class="small mb0" style="color:var(--warn)"><b>Da approfondire.</b> Il PSI è ' + P.psi.toFixed(3) +
+      ' e l’accuratezza è scesa al ' + (accv * 100).toFixed(1) + '%. Punto cruciale: <b>il PSI è stato calcolato senza una sola etichetta</b> — ha visto il cambiamento dai soli input. In produzione è l’unico avvertimento che ricevi.</p>';
+    else n += '<p class="small mb0" style="color:var(--bad)"><b>Spostamento significativo.</b> PSI ' + P.psi.toFixed(3) +
+      ', accuratezza scesa al ' + (accv * 100).toFixed(1) + '%. La frontiera appresa dal modello ora è nel posto sbagliato, e ogni punto cerchiato di rosso è una decisione sbagliata. Nel modello non è cambiato nulla — è cambiato il mondo.</p>';
+    document.getElementById('drNote').innerHTML = n;
+  }
+
+  /* ============================================ 7.6 causality */
+  /* seeded generator so a given slider position always shows the same sample */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function gaussR(r) {
+    var u = 0, v = 0;
+    while (!u) u = r();
+    while (!v) v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+  }
+  /* ordinary least squares via normal equations (Gaussian elimination, partial pivoting) */
+  function olsFit(rows, y) {
+    var n = rows[0].length, A = [], b = [], i, j, k;
+    for (i = 0; i < n; i++) { A.push(new Array(n).fill(0)); b.push(0); }
+    for (k = 0; k < rows.length; k++) for (i = 0; i < n; i++) {
+      b[i] += rows[k][i] * y[k];
+      for (j = 0; j < n; j++) A[i][j] += rows[k][i] * rows[k][j];
+    }
+    for (i = 0; i < n; i++) {
+      var p = i;
+      for (k = i + 1; k < n; k++) if (Math.abs(A[k][i]) > Math.abs(A[p][i])) p = k;
+      var t = A[i]; A[i] = A[p]; A[p] = t; var tb = b[i]; b[i] = b[p]; b[p] = tb;
+      if (Math.abs(A[i][i]) < 1e-12) A[i][i] = 1e-12;
+      for (k = i + 1; k < n; k++) {
+        var f = A[k][i] / A[i][i];
+        for (j = i; j < n; j++) A[k][j] -= f * A[i][j];
+        b[k] -= f * b[i];
+      }
+    }
+    var x = new Array(n).fill(0);
+    for (i = n - 1; i >= 0; i--) {
+      var s = b[i];
+      for (j = i + 1; j < n; j++) s -= A[i][j] * x[j];
+      x[i] = s / A[i][i];
+    }
+    return x;
+  }
+  var CA = { a: 1, beta: 0.25, view: 'pool', seed: 11, D: [], fit: null }, caPlot;
+  var CA_N = 600, CA_ZC = -0.8;   /* stints; effect of experience on lap time (s per unit) */
+  function caSim() {
+    var r = mulberry32(CA.seed), D = [], i;
+    for (i = 0; i < CA_N; i++) {
+      var g = r() < 0.5 ? 1 : 0;                       /* 1 = experienced group */
+      var z = (g ? 0.9 : -0.9) + 0.15 * gaussR(r);      /* experience score */
+      var x = CA.a * z + 0.6 * gaussR(r);               /* knob: chosen partly by experience */
+      var y = CA.beta * x + CA_ZC * z + 0.25 * gaussR(r);
+      D.push({ g: g, z: z, x: x, y: y });
+    }
+    CA.D = D;
+    /* fits on the observational log */
+    var naive = olsFit(D.map(function (d) { return [1, d.x]; }), D.map(function (d) { return d.y; }));
+    var adj = olsFit(D.map(function (d) { return [1, d.x, d.z]; }), D.map(function (d) { return d.y; }));
+    var within = [0, 1].map(function (G) {
+      var S = D.filter(function (d) { return d.g === G; });
+      return olsFit(S.map(function (d) { return [1, d.x]; }), S.map(function (d) { return d.y; }));
+    });
+    /* do(knob): a separate simulated experiment, knob set at random, independent of the driver */
+    var R = [];
+    for (i = 0; i < CA_N; i++) {
+      var g2 = r() < 0.5 ? 1 : 0;
+      var z2 = (g2 ? 0.9 : -0.9) + 0.15 * gaussR(r);
+      var x2 = (r() * 2 - 1) * 1.6;
+      R.push([x2, CA.beta * x2 + CA_ZC * z2 + 0.25 * gaussR(r)]);
+    }
+    var rct = olsFit(R.map(function (p) { return [1, p[0]]; }), R.map(function (p) { return p[1]; }));
+    var mx = 0, my = 0;
+    D.forEach(function (d) { mx += d.x; my += d.y; });
+    CA.fit = { naive: naive, adj: adj, within: within, rct: rct[1], mx: mx / CA_N, my: my / CA_N };
+  }
+  function caFmt(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2); }
+  function drawCa() {
+    if (!CA.fit) return;
+    caPlot.resize(); caPlot.clear();
+    var D = CA.D, F2 = CA.fit, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    D.forEach(function (d) { x0 = Math.min(x0, d.x); x1 = Math.max(x1, d.x); y0 = Math.min(y0, d.y); y1 = Math.max(y1, d.y); });
+    var px = (x1 - x0) * 0.06 + 0.1, py = (y1 - y0) * 0.08 + 0.1;
+    caPlot.dom = [x0 - px, x1 + px]; caPlot.ran = [y0 - py, y1 + py];
+    caPlot.frame({ xticks: 4, yticks: 4, xlabel: 'regolazione manopola (scatti dalla baseline)', ylabel: 'variazione tempo sul giro (s)',
+      xfmt: function (v) { return v.toFixed(1); }, yfmt: function (v) { return v.toFixed(1); } });
+    var split = CA.view === 'split';
+    var colN = C('--warn'), colE = C('--accent');
+    caPlot.clip(function (g) {
+      D.forEach(function (d) {
+        var col = split ? (d.g ? colE : colN) : C('--ink-3');
+        caPlot.dot(d.x, d.y, 2.6, col + (split ? 'aa' : '77'));
+      });
+      var xa = caPlot.dom[0], xb = caPlot.dom[1];
+      function ln(c, colr, w, dash) { caPlot.line([[xa, c[0] + c[1] * xa], [xb, c[0] + c[1] * xb]], colr, w, dash); }
+      if (split) {
+        [0, 1].forEach(function (G) {
+          var S = D.filter(function (d) { return d.g === G; }), lo = 1e9, hi = -1e9;
+          S.forEach(function (d) { lo = Math.min(lo, d.x); hi = Math.max(hi, d.x); });
+          var c = F2.within[G];
+          caPlot.line([[lo, c[0] + c[1] * lo], [hi, c[0] + c[1] * hi]], G ? colE : colN, 3);
+        });
+      }
+      ln(F2.naive, C('--bad'), split ? 2 : 3, split ? [7, 5] : null);
+      /* true interventional line through the data mean */
+      caPlot.line([[xa, F2.my + CA.beta * (xa - F2.mx)], [xb, F2.my + CA.beta * (xb - F2.mx)]], C('--good'), 2.4, [6, 4]);
+      g.font = '600 11px system-ui,sans-serif'; g.textAlign = 'left';
+      /* legend in the empty corner: data run top-left to bottom-right when the pooled slope is negative */
+      var nl = split ? 3 : 2, lx = caPlot.pad.l + 8;
+      var ly = F2.naive[1] < 0 ? caPlot.pad.t + caPlot.ph - 10 - (nl - 1) * 15 : caPlot.pad.t + 14;
+      g.fillStyle = C('--bad'); g.fillText('modello stimato sul log', lx, ly);
+      g.fillStyle = C('--good'); g.fillText('effetto reale di girare la manopola', lx, ly + 15);
+      if (split) {
+        g.fillStyle = colN; g.fillText('principianti', lx, ly + 30);
+        g.fillStyle = colE; g.fillText('esperti', lx + 72, ly + 30);
+      }
+    });
+
+    var naive = F2.naive[1], adj = F2.adj[1];
+    document.getElementById('caNaive').textContent = caFmt(naive);
+    document.getElementById('caAdj').textContent = caFmt(adj);
+    document.getElementById('caDo').textContent = caFmt(F2.rct);
+    document.getElementById('caTrue').textContent = caFmt(CA.beta);
+    document.getElementById('caWN').textContent = caFmt(F2.within[0][1]);
+    document.getElementById('caWE').textContent = caFmt(F2.within[1][1]);
+    var flip = naive * CA.beta < 0 && Math.abs(naive) > 0.04 && Math.abs(CA.beta) > 0.04;
+    var err = Math.abs(naive - CA.beta);
+    document.getElementById('bsCaNaive').className = 'bigstat ' + (flip ? 'bad' : err > 0.1 ? 'warn' : 'good');
+    document.getElementById('bsCaAdj').className = 'bigstat ' + (Math.abs(adj - CA.beta) < 0.06 ? 'good' : 'warn');
+
+    function said(v) { return v < 0 ? 'rende il giro <b>più veloce</b> di ' + Math.abs(v).toFixed(2) + ' s per scatto' : 'rende il giro <b>più lento</b> di ' + v.toFixed(2) + ' s per scatto'; }
+    var n = '<h4>Come leggerlo</h4>';
+    if (CA.a < 0.08) {
+      n += '<p class="small mb0"><b style="color:var(--good)">Nessun confondimento.</b> La manopola è impostata indipendentemente dal pilota, quindi la pendenza nel log (' +
+        caFmt(naive) + ') coincide con l’esperimento (' + caFmt(F2.rct) + ') entro il rumore di campionamento. Qui i dati osservazionali possono rispondere alla domanda causale — ma solo perché nessuno ha scelto la manopola in base a qualcosa che influisce anche sul tempo sul giro. Nei dati reali registrati non puoi quasi mai darlo per scontato.</p>';
+    } else if (flip) {
+      n += '<p class="small mb0"><b style="color:var(--bad)">Il segno è sbagliato.</b> Stimato sul log, il modello dice che la manopola ' + said(naive) +
+        '. Impostandola deliberatamente si vede che ' + said(F2.rct) + '. Il modello non è guasto — predice benissimo il tempo sul giro dal log, perché nel log le regolazioni alte della manopola vanno davvero insieme a giri veloci. Vanno insieme a <em>piloti</em> veloci. Correggendo per l’esperienza si ottiene ' +
+        caFmt(adj) + ' s per scatto, vicino al vero, perché questo punteggio di esperienza è l’unico confondente e lo abbiamo misurato.</p>';
+    } else {
+      n += '<p class="small mb0"><b style="color:var(--warn)">Direzione giusta, entità sbagliata.</b> Il log dice ' + caFmt(naive) + ' s per scatto; l’esperimento dice ' +
+        caFmt(F2.rct) + '. La differenza, ' + err.toFixed(2) + ' s per scatto, è il contributo del confondente che filtra nel coefficiente della manopola. Una decisione di assetto dimensionata sul numero ingenuo sbaglierebbe per eccesso o per difetto esattamente di tanto.</p>';
+    }
+    if (split) n += '<p class="small mb0 mt1">Divisi per gruppo: principianti ' + caFmt(F2.within[0][1]) + ', esperti ' + caFmt(F2.within[1][1]) +
+      ', aggregato ' + caFmt(naive) + '.' + ((F2.within[0][1] * naive < 0 && F2.within[1][1] * naive < 0) ? ' <b>Entrambi i gruppi contraddicono l’andamento aggregato — è il paradosso di Simpson.</b>' : '') +
+      (CA.a >= 0.08 ? ' Le pendenze all’interno dei gruppi pendono ancora un po’ verso quella aggregata, perché l’esperienza varia leggermente anche dentro ciascun gruppo; dividere è una correzione grossolana.' : '') + '</p>';
+    document.getElementById('caNote').innerHTML = n;
+  }
+
+  /* ============================================ 7.7 cost */
+  var CO = { n: 20000, sec: 20, red: 1, rate: 65, ppl: 3, hrs: 6 };
+  function calcCost() {
+    var hours = CO.n * CO.sec * CO.red / 3600;
+    var cost = hours * CO.rate;
+    var weeks = hours / Math.max(1, CO.ppl * CO.hrs);
+    document.getElementById('oHrs').textContent = F.c(hours);
+    document.getElementById('oCost').textContent = '€' + F.c(cost);
+    document.getElementById('oWeeks').textContent = weeks < 1 ? weeks.toFixed(1) : F.c(weeks);
+    document.getElementById('oRe').textContent = '€' + F.c(cost * 1.45);
+
+    var n = '<h4>Che cosa significa</h4>';
+    n += '<p class="small">' + F.c(CO.n) + ' elementi × ' + CO.sec + ' s × ' + CO.red +
+      (CO.red > 1 ? ' annotatori' : ' annotatore') + ' = <b>' + F.c(hours) + ' ore</b> di tempo di esperti, ovvero <b>' +
+      (hours / 1600).toFixed(1) + ' anni-persona</b>.</p>';
+    if (weeks > 26) n += '<p class="small" style="color:var(--bad)"><b>' + F.c(weeks) +
+      ' settimane di calendario</b> con le persone che hai assegnato. Non è un piano di etichettatura, è il motivo per cui il progetto verrà cancellato. Riduci il numero di elementi, usa una pre-etichettatura fatta da un modello debole con revisione umana, oppure allarga il team.</p>';
+    else if (weeks > 10) n += '<p class="small" style="color:var(--warn)"><b>' + weeks.toFixed(0) +
+      ' settimane di calendario.</b> Fattibile, ma deve stare nel piano come un filone di lavoro esplicito, con persone indicate per nome — non come un’ipotesi.</p>';
+    else n += '<p class="small" style="color:var(--good)"><b>' + weeks.toFixed(1) +
+      ' settimane di calendario.</b> Raggiungibile. Proteggi quelle ore — sono il tempo con la leva più alta dell’intero progetto.</p>';
+    if (CO.red === 1) n += '<p class="small mb0"><b>Non hai ridondanza.</b> Con un solo annotatore per elemento non puoi misurare l’accordo, e quindi non puoi conoscere il tetto del rumore di etichettatura visto nella sezione 7.2. Fai etichettare due volte almeno il 5% degli elementi come campione di qualità permanente — non costa quasi nulla ed è l’unico modo per sapere quanto valgono i tuoi dati.</p>';
+    else n += '<p class="small mb0">Con ' + CO.red + ' annotatori per elemento puoi misurare l’accordo e dirimere i disaccordi. Il costo è ' + CO.red +
+      ' volte più alto, e il dataset che ne risulta vale molto più di ' + CO.red + ' volte tanto.</p>';
+    document.getElementById('costNote').innerHTML = n;
+  }
+
+  /* ============================================ 7.8 readiness */
+  var RD = [
+    ['L’etichetta è scritta', 'Esiste un documento che definisce esattamente che cosa significa ogni classe, con esempi di casi limite, e che due esperti applicherebbero in modo identico.', 3, 'Scrivilo. È un lavoro di una settimana che sblocca tutto, e di solito è il motivo per cui nient’altro funziona.'],
+    ['I dati esistono già', 'I dati storici sono conservati, recuperabili e coprono le condizioni che ti interessano — non solo gli ultimi tre mesi.', 3, 'Scopri fin dove arriva davvero la conservazione dei dati prima di progettare qualsiasi cosa. Spesso questo uccide o ridisegna un progetto nella prima settimana.'],
+    ['Abbastanza esempi della classe rara', 'Non semplicemente dati — dati che contengono ciò che vuoi rilevare. Centinaia di esempi reali di difetti, non otto.', 3, 'Valuta invece il rilevamento delle anomalie sui dati sani (modulo 6.6), o l’aumento sintetico dei dati, oppure accetta un periodo di raccolta più lungo.'],
+    ['Conosci il raggruppamento naturale', 'Sai indicare l’unità — pezzo, veicolo, cliente, documento — che non deve mai comparire da entrambe le parti dello split train/test.', 2, 'Rispondi prima che qualcuno riporti un dato di accuratezza, altrimenti quel dato sarà fantasia (sezione 7.4).'],
+    ['Feature disponibili al momento della previsione', 'Ogni input usato dal modello sarebbe davvero noto nel momento in cui serve la previsione.', 3, 'Verifica l’elenco delle feature rispetto alla cronologia reale degli eventi. Il leakage del target sopravvive a ogni altro controllo.'],
+    ['Baseline umana misurata', 'Sai con quale accuratezza e con quale coerenza le persone svolgono oggi questo compito.', 2, 'Misurala su 100 casi. Senza di essa non puoi dire se il modello è buono, e non puoi costruire un business case.'],
+    ['Un responsabile dei dati con nome e cognome', 'Una persona risponde del dataset, della sua qualità e delle sue regole di accesso.', 2, 'Nominala. Una responsabilità condivisa su un dataset significa nessuna responsabilità.'],
+    ['L’accesso è effettivamente concesso', 'Non “abbiamo i dati” ma “la pipeline può leggerli, legalmente e tecnicamente, oggi”.', 2, 'Avvia subito la richiesta di accesso; nella maggior parte delle organizzazioni è la voce con i tempi più lunghi del progetto.'],
+    ['I dati personali sono gestiti', 'Sai se i dati contengono dati personali, e su quale base giuridica vengono usati.', 2, 'Coinvolgi subito privacy e ufficio legale. Rimediare a posteriori costa molto di più che progettarlo fin dall’inizio.'],
+    ['Un set di valutazione tenuto da parte', 'Un insieme di casi reali, mai usati per l’addestramento o la messa a punto, che userai per giudicare il sistema finale.', 3, 'Ritaglialo prima di iniziare a modellare e mettilo sotto chiave. Il modulo 8 dipende interamente da questo.']
+  ];
+  function drawRd() {
+    var host = document.getElementById('rdList');
+    if (!host.innerHTML) {
+      var h = '';
+      RD.forEach(function (r, i) {
+        h += '<label><input type="checkbox" data-i="' + i + '"><span><b>' + r[0] + '</b>' +
+          '<span class="sub">' + r[1] + '</span></span></label>';
+      });
+      host.innerHTML = h;
+      host.addEventListener('change', drawRd);
+    }
+    var got = 0, total = 0, gaps = [];
+    AI.qsa('input[type=checkbox]', host).forEach(function (cb) {
+      var i = parseInt(cb.getAttribute('data-i'), 10);
+      total += RD[i][2];
+      if (cb.checked) got += RD[i][2]; else gaps.push(RD[i]);
+    });
+    var pct = got / total;
+    var v = document.getElementById('rdVerdict');
+    if (!got) {
+      v.className = 'verdict info';
+      v.innerHTML = '<span class="lvl">Ancora niente di spuntato</span>Scorri l’elenco a sinistra.';
+    } else if (pct >= 0.85) {
+      v.className = 'verdict ok';
+      v.innerHTML = '<span class="lvl">Pronto per costruire — ' + Math.round(pct * 100) + '%</span>' +
+        'Hai a posto le cose poco affascinanti, che sono gran parte della battaglia. Parti in piccolo, valuta onestamente e tieni sigillato il set messo da parte.';
+    } else if (pct >= 0.55) {
+      v.className = 'verdict mid';
+      v.innerHTML = '<span class="lvl">Quasi — ' + Math.round(pct * 100) + '%</span>' +
+        'Fattibile, con lacune note. Chiudi le più pesanti qui sotto prima di impegnarti su una data di consegna, perché ognuna di esse può invalidare i risultati a posteriori.';
+    } else {
+      v.className = 'verdict hi';
+      v.innerHTML = '<span class="lvl">Non ancora — ' + Math.round(pct * 100) + '%</span>' +
+        'Prima di essere un progetto di AI, questo è un progetto sui dati. Non è una cattiva notizia: il lavoro qui sotto costa meno, è più certo e più riutilizzabile dello sviluppo del modello, e senza di esso nulla di ciò che ci costruirai sopra reggerà.';
+    }
+    var g = '<h4>Che cosa fare per le lacune</h4>';
+    if (!gaps.length) g += '<p class="small mb0" style="color:var(--good)">Nessuna lacuna registrata. Rileggi l’elenco tra un mese, con onestà.</p>';
+    else {
+      g += '<ul class="small mb0">';
+      gaps.sort(function (a, b) { return b[2] - a[2]; }).slice(0, 5).forEach(function (r) {
+        g += '<li><b>' + r[0] + ':</b> ' + r[3] + '</li>';
+      });
+      g += '</ul>';
+      if (gaps.length > 5) g += '<p class="small muted mb0 mt1">' + (gaps.length - 5) + ' ulteriori lacune non mostrate.</p>';
+    }
+    document.getElementById('rdGaps').innerHTML = g;
+  }
+
+  window.PAGE_INIT = function () {
+    effPlot = new AI.Plot(document.getElementById('effortCv'),
+      { dom: [0, 1], ran: [0, 1], pad: { l: 10, r: 10, t: 8, b: 26 } });
+    AI.onRedraw(drawEffort); drawEffort();
+
+    makeParts();
+    AI.on(document.getElementById('jAcc'), 'click', function () { judge(false); });
+    AI.on(document.getElementById('jRej'), 'click', function () { judge(true); });
+    AI.on(document.getElementById('jRestart'), 'click', makeParts);
+
+    imbPlot = new AI.Plot(document.getElementById('imbCv'),
+      { dom: [-3.2, 6.2], ran: [0, 1], pad: { l: 56, r: 14, t: 16, b: 42 } });
+    AI.bindRange('iRate', function (v) { return (v * 100).toFixed(1) + '%'; }, function (v) { IM.rate = v; drawImb(); });
+    AI.bindRange('iSep', function (v) { return v.toFixed(2) + ' σ'; }, function (v) { IM.sep = v; drawImb(); });
+    AI.bindRange('iTh', function (v) { return v.toFixed(2); }, function (v) { IM.th = v; drawImb(); });
+    AI.onRedraw(drawImb); drawImb();
+
+    lkPlot = new AI.Plot(document.getElementById('lkCv'),
+      { dom: [-1.15, 1.15], ran: [-1.15, 1.15], pad: { l: 44, r: 14, t: 14, b: 40 } });
+    lkData();
+    AI.on(document.getElementById('lkRun'), 'click', runLeak);
+    AI.onRedraw(drawLk); drawLk();
+
+    drPlot = new AI.Plot(document.getElementById('drCv'),
+      { dom: [-1.5, 2.3], ran: [-1.5, 1.8], pad: { l: 46, r: 14, t: 14, b: 42 } });
+    drHist = new AI.Plot(document.getElementById('drHist'),
+      { dom: [-1.6, 1.6], ran: [0, 100], pad: { l: 44, r: 14, t: 12, b: 34 } });
+    drData();
+    AI.bindRange('dSh', function (v) { return v.toFixed(2); }, function (v) { DR.sh = v; if (DR.w) drCur(); });
+    AI.bindRange('dSp', function (v) { return v.toFixed(2) + '×'; }, function (v) { DR.sp = v; if (DR.w) drCur(); });
+    AI.onRedraw(drawDr);
+
+    caPlot = new AI.Plot(document.getElementById('caCv'),
+      { dom: [-3, 3], ran: [-2, 2], pad: { l: 46, r: 14, t: 14, b: 42 } });
+    AI.bindRange('caA', function (v) { return v.toFixed(2); }, function (v) { CA.a = v; caSim(); drawCa(); });
+    AI.bindRange('caB', function (v) { return caFmt(v) + ' s/scatto'; }, function (v) { CA.beta = v; caSim(); drawCa(); });
+    AI.segmented(document.getElementById('caViewSeg'), function (v) { CA.view = v; drawCa(); });
+    AI.on(document.getElementById('caNew'), 'click', function () { CA.seed += 1; caSim(); drawCa(); });
+    AI.onRedraw(drawCa);
+
+    AI.bindRange('nIt', function (v) { return F.c(v); }, function (v) { CO.n = v; calcCost(); });
+    AI.bindRange('nSec', function (v) { return v + ' s'; }, function (v) { CO.sec = v; calcCost(); });
+    AI.bindRange('nRed', function (v) { return v; }, function (v) { CO.red = v; calcCost(); });
+    AI.bindRange('nRate', function (v) { return '€' + v; }, function (v) { CO.rate = v; calcCost(); });
+    AI.bindRange('nPpl', function (v) { return v; }, function (v) { CO.ppl = v; calcCost(); });
+    AI.bindRange('nHrs', function (v) { return v + ' h'; }, function (v) { CO.hrs = v; calcCost(); });
+    calcCost();
+
+    drawRd();
+  };
+})();
+</script>
+</body>
+</html>
