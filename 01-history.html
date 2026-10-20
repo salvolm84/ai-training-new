@@ -51,6 +51,9 @@
   .tl-detail .h { display: flex; gap: 12px; align-items: baseline; }
   .tl-detail .h .y { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 1.15rem; }
 
+  /* ---- interest index ---- */
+  .hype-cv { width: 100%; height: 300px; }
+
   /* ---- nesting ---- */
   .nest-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 26px; align-items: center; }
   @media (max-width: 900px) { .nest-grid { grid-template-columns: 1fr; } }
@@ -109,55 +112,15 @@
 <header class="pagehead wrap">
   <span class="eyebrow">Module 1</span>
   <h1>What AI actually is</h1>
-  <p class="lead">Before any mathematics: eighty years of history, the words people use loosely,
+  <p class="lead">Before any mathematics: the words people use loosely, eighty years of history,
   and what separates a rule, a learned model and a generative model.</p>
 </header>
 
 <main class="wrap">
 
-<!-- ====================================================== 1.1 TIMELINE -->
-<section class="chapter" id="timeline">
-  <h2>1.1 · Eighty years in one line</h2>
-  <p>Artificial intelligence is older than the transistor is common, and almost every idea in
-  today's systems was published decades before it worked. What changed was not the mathematics —
-  it was data, silicon and money. Click any milestone.</p>
-
-  <div class="lab tl-wrap">
-    <div class="lab-head"><h3>Interactive timeline</h3><span class="tag try">Click the markers</span></div>
-    <div class="tl-scroll"><div class="tl-rail" id="tlRail"></div></div>
-    <div class="card tl-detail" id="tlDetail"></div>
-    <div class="btnrow">
-      <button class="btn sm" id="tlPrev">← Earlier</button>
-      <button class="btn sm" id="tlNext">Later →</button>
-      <span class="small muted">The two shaded bands are the “AI winters”: periods when funding collapsed
-      because the promises had outrun the hardware.</span>
-    </div>
-  </div>
-
-  <div class="callout key">
-    <span class="ctitle">Key takeaway</span>
-    <p class="mb0">The neuron model is from 1943. Backpropagation, the training algorithm behind every
-    modern network, was popularised in 1986. The transformer, which underpins every large language
-    model, is from 2017. <strong>The field advances in long plateaus punctuated by short jumps</strong> —
-    and the jumps have nearly always come from a new kind of hardware or a new pile of data, not from
-    a new theory.</p>
-  </div>
-
-  <div class="note">
-    <ul>
-      <li>Good opening line: “everything I am going to show you today was invented before most of this
-      room finished school. The reason it works now is that we can afford it.”</li>
-      <li>Linger on 1969 (Minsky &amp; Papert) — it sets up module 2's XOR wall, which you will hit
-      deliberately.</li>
-      <li>Linger on 2012 (AlexNet): GPUs were designed to draw triangles for video games. That accident
-      of hardware economics is why deep learning happened when it did.</li>
-    </ul>
-  </div>
-</section>
-
-<!-- ====================================================== 1.2 NESTING -->
+<!-- ====================================================== 1.1 NESTING -->
 <section class="chapter" id="nesting">
-  <h2>1.2 · AI, ML, deep learning, GenAI — what contains what</h2>
+  <h2>1.1 · AI, ML, deep learning, GenAI — what contains what</h2>
   <p>These five words are used interchangeably in most meetings and they are not interchangeable.
   They nest: each one is a subset of the one outside it.</p>
 
@@ -175,6 +138,60 @@
     the 1956 definition and needs no data at all; a large language model is AI too and needs a
     datacenter. <strong>The useful question is never “should we use AI” but “which of these five
     things, and what does it need from us?”</strong></p>
+  </div>
+</section>
+
+<!-- ====================================================== 1.2 TIMELINE -->
+<section class="chapter" id="timeline">
+  <h2>1.2 · Eighty years in one line</h2>
+  <p>Artificial intelligence is older than the transistor is common, and almost every idea in
+  today's systems was published decades before it worked. What changed was not the mathematics —
+  it was data, silicon and money. Click any milestone.</p>
+
+  <div class="lab tl-wrap">
+    <div class="lab-head"><h3>Interactive timeline</h3><span class="tag try">Click the markers</span></div>
+    <div class="tl-scroll"><div class="tl-rail" id="tlRail"></div></div>
+    <div class="card tl-detail" id="tlDetail"></div>
+    <div class="btnrow">
+      <button class="btn sm" id="tlPrev">← Earlier</button>
+      <button class="btn sm" id="tlNext">Later →</button>
+      <span class="small muted">The two shaded bands are the “AI winters”: periods when funding collapsed
+      because the promises had outrun the hardware.</span>
+    </div>
+  </div>
+
+  <div class="lab">
+    <div class="lab-head"><h3>Interest in AI, 1943–2026</h3><span class="tag">Authored index</span></div>
+    <canvas id="hypeCv" class="hype-cv"></canvas>
+    <div class="btnrow">
+      <div class="segmented" id="hypeScale">
+        <button data-v="lin" class="on">Linear scale</button>
+        <button data-v="log">Log scale</button>
+      </div>
+      <span class="small muted" id="hypeCap"></span>
+    </div>
+    <p class="srcnote">An authored illustration, not a measured series: no single source covers 1943 to today. Before 2004 the curve reconstructs relative attention from research funding, publication counts and press coverage; from 2004 it follows the shape of worldwide web-search interest in “artificial intelligence” (Google Trends). 100 = the 2026 level. Read it for shape and timing, not for exact values. The dots are the milestones above — click one.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="ctitle">Key takeaway</span>
+    <p class="mb0">The neuron model is from 1943. Backpropagation, the training algorithm behind every
+    modern network, was popularised in 1986. The transformer, which underpins every large language
+    model, is from 2017. <strong>The field advances in long plateaus punctuated by short jumps</strong> —
+    and the jumps have nearly always come from a new kind of hardware or a new pile of data, not from
+    a new theory.</p>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Good line to open the history: “everything I am going to show you today was invented before most of this
+      room finished school. The reason it works now is that we can afford it.”</li>
+      <li>Linger on 1969 (Minsky &amp; Papert) — it sets up module 2's XOR wall, which you will hit
+      deliberately.</li>
+      <li>Linger on 2012 (AlexNet): GPUs were designed to draw triangles for video games. That accident
+      of hardware economics is why deep learning happened when it did.</li>
+      <li>The interest chart: show it on the linear scale first — the room sees a hockey stick. Then switch to log: the same curve has peaked twice before, and both peaks were followed by a winter. Ask what is different this time; “the money is now coming from revenue, not grants” is the best answer anyone usually gives.</li>
+    </ul>
   </div>
 </section>
 
@@ -373,6 +390,94 @@
       var sc = railEl.parentNode;
       sc.scrollTo({ left: pos(tlIdx) - sc.clientWidth / 2, behavior: 'smooth' });
     }
+    if (hypePlot) drawHype();
+  }
+
+  /* ---------------- interest index ---------------- */
+
+  /* Authored, not measured: relative attention to AI (funding, publications, press; from 2004
+     the shape of web-search interest). 100 = the 2026 level. */
+  var HYPE = [
+    [1943, 0.15], [1950, 0.3], [1956, 0.8], [1958, 1.3], [1962, 1.6], [1966, 1.9], [1969, 1.7],
+    [1972, 1.2], [1974, 0.8], [1977, 0.5], [1980, 0.7], [1983, 1.6], [1985, 2.6], [1987, 3.0],
+    [1989, 2.0], [1991, 1.2], [1993, 0.8], [1995, 0.8], [1997, 1.4], [1999, 1.0], [2001, 1.3],
+    [2004, 1.3], [2008, 1.4], [2011, 2.0], [2012, 2.5], [2014, 4], [2016, 8], [2018, 11],
+    [2020, 13], [2022, 20], [2022.9, 28], [2023.5, 72], [2024.5, 85], [2025.5, 94], [2026.7, 100]
+  ];
+  /* x position of each TL milestone on the chart */
+  var TL_X = [1943, 1950, 1956, 1958, 1969, 1977, 1985, 1986, 1993, 1997, 2009, 2012, 2016, 2017,
+    2019, 2022.9, 2023.5, 2025.5];
+  var WINTERS = [[1974, 1980], [1987, 1993]];
+  var HYPE_STR = { ylabel: 'interest index (2026 = 100)', winter: ['Winter I', 'Winter II'],
+      lin: 'Linear: on today’s scale, everything before 2016 is a rounding error. Switch to log.',
+      log: 'Log: each gridline is ten times the one below — the earlier booms and busts reappear.' };
+  var hypeLog = false, hypePlot;
+
+  function hypeAt(x) {
+    for (var i = 1; i < HYPE.length; i++) {
+      if (x <= HYPE[i][0]) {
+        var a = HYPE[i - 1], b = HYPE[i], t = (x - a[0]) / (b[0] - a[0]);
+        return a[1] + t * (b[1] - a[1]);
+      }
+    }
+    return HYPE[HYPE.length - 1][1];
+  }
+  function hv(v) { return hypeLog ? Math.log10(v) : v; }
+
+  function drawHype() {
+    var p = hypePlot, g = p.ctx, C = AI.cssVar, i;
+    p.resize(); p.clear();
+    p.ran = hypeLog ? [-1, 2] : [0, 100];
+    /* winters */
+    g.font = '700 10px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
+    WINTERS.forEach(function (w, k) {
+      var x0 = p.X(w[0]), x1 = p.X(w[1]);
+      g.fillStyle = C('--bg-3'); g.fillRect(x0, p.pad.t, x1 - x0, p.ph);
+      g.fillStyle = C('--ink-3'); g.fillText(HYPE_STR.winter[k].toUpperCase(), (x0 + x1) / 2, p.pad.t + 6);
+    });
+    p.frame({ xticks: 9, yticks: hypeLog ? 3 : 5, ylabel: HYPE_STR.ylabel,
+      xfmt: function (x) { return Math.round(x); },
+      yfmt: hypeLog ? function (y) { return String(Math.round(Math.pow(10, y) * 10) / 10); }
+                    : function (y) { return Math.round(y); } });
+    var pts = HYPE.map(function (d) { return [d[0], hv(d[1])]; });
+    var sel = TL_X[tlIdx], acc = C('--accent');
+    p.clip(function (g) {
+      /* area under the curve */
+      g.beginPath(); g.moveTo(p.X(pts[0][0]), p.Y(p.ran[0]));
+      pts.forEach(function (q) { g.lineTo(p.X(q[0]), p.Y(q[1])); });
+      g.lineTo(p.X(pts[pts.length - 1][0]), p.Y(p.ran[0])); g.closePath();
+      g.globalAlpha = 0.12; g.fillStyle = acc; g.fill(); g.globalAlpha = 1;
+      p.line(pts, acc, 2.6);
+      /* selected milestone guide */
+      p.line([[sel, p.ran[0]], [sel, p.ran[1]]], C('--ink-3'), 1.2, [4, 4]);
+    });
+    for (i = 0; i < TL_X.length; i++) {
+      var on = i === tlIdx;
+      p.dot(TL_X[i], hv(hypeAt(TL_X[i])), on ? 6.5 : 4, on ? acc : C('--panel'), acc);
+    }
+    /* label of the selected milestone, kept inside the plot */
+    var lx = Math.max(p.pad.l + 40, Math.min(p.pad.l + p.pw - 40, p.X(sel)));
+    g.font = '700 11px ui-monospace, monospace'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.fillStyle = acc; g.fillText(TL[tlIdx].y, lx, p.pad.t + p.ph - 6);
+    document.getElementById('hypeCap').textContent = hypeLog ? HYPE_STR.log : HYPE_STR.lin;
+  }
+
+  function initHype() {
+    var cv = document.getElementById('hypeCv');
+    hypePlot = new AI.Plot(cv, { dom: [1940, 2030], ran: [0, 100], pad: { l: 52, r: 14, t: 14, b: 34 } });
+    function nearest(e) {
+      var r = cv.getBoundingClientRect(), px = e.clientX - r.left, best = -1, bd = 14;
+      for (var i = 0; i < TL_X.length; i++) {
+        var d = Math.abs(hypePlot.X(TL_X[i]) - px);
+        if (d < bd) { bd = d; best = i; }
+      }
+      return best;
+    }
+    cv.addEventListener('click', function (e) { var i = nearest(e); if (i >= 0) pick(i); });
+    cv.addEventListener('mousemove', function (e) { cv.style.cursor = nearest(e) >= 0 ? 'pointer' : 'default'; });
+    AI.segmented(document.getElementById('hypeScale'), function (v) { hypeLog = v === 'log'; drawHype(); });
+    AI.onRedraw(drawHype);
+    drawHype();
   }
 
   /* ---------------- nesting ---------------- */
@@ -583,6 +688,7 @@
 
   window.PAGE_INIT = function () {
     renderTimeline();
+    initHype();
     renderNest();
     renderJargon();
     renderQuiz();

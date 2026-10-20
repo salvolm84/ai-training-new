@@ -33,7 +33,7 @@ Speaker notes also appear when a page is printed to PDF.
 
 | # | Module | Interactive |
 | --- | --- | --- |
-| 1 | What AI actually is | timeline, nesting diagram, jargon deck, classification quiz |
+| 1 | What AI actually is | nesting diagram, timeline, interest-in-AI curve, jargon deck, classification quiz |
 | 2 | The perceptron | live neuron, logic-gate challenge, the XOR wall, learning rule, gradient descent |
 | 3 | From neuron to network | network builder (real backprop), forward pass, overfitting, CNN kernel, train-your-own classifier |
 | 4 | How an LLM works | tokenizer, embedding space, next-token picker, attention map, context window, RAG simulator, retrieval evaluation, image tokens, toy diffusion |
@@ -118,8 +118,8 @@ repository must be public, which makes the material world-readable and indexable
 ## Notes on the material
 
 Almost everything computes live: the networks really train by backpropagation, the surrogate models
-really fit, the statistics are really calculated. Three things are authored rather than live and are
-labelled as such on the page itself — the tokenizer in module 4.1, the next-token probabilities in
+really fit, the statistics are really calculated. Four things are authored rather than live and are
+labelled as such on the page itself — the interest-in-AI curve in module 1.2, the tokenizer in module 4.1, the next-token probabilities in
 4.3, and the attention maps in 4.4. Labs added later (4.9–4.10, 7.6, 10.6, 11.6–11.8, 12.7 and modules 15–20) run
 on seeded synthetic data; where an input is invented for teaching — a document corpus, a planted code
 defect, a scenario distribution, an error budget — the page says so next to it.

@@ -16,12 +16,12 @@
 
   /* author and dates — refreshed by scripts/stamp-dates.py before each release */
   var AUTHOR = 'Salvatore La Malfa';
-  var RELEASE = '2026-10-06';
+  var RELEASE = '2026-10-20';
 
   var PAGES = [
-    { id: 'index', n: '',   file: 'index.html',        short: 'Overview',        title: 'Course overview', part: null, mins: 0, upd: '2026-10-06' },
+    { id: 'index', n: '',   file: 'index.html',        short: 'Overview',        title: 'Course overview', part: null, mins: 0, upd: '2026-10-20' },
 
-    { id: 'p1',  n: '1',  file: '01-history.html',    short: 'History & jargon', title: 'What AI actually is', part: 0, mins: 30, upd: '2026-10-06' },
+    { id: 'p1',  n: '1',  file: '01-history.html',    short: 'History & jargon', title: 'What AI actually is', part: 0, mins: 30, upd: '2026-10-20' },
     { id: 'p2',  n: '2',  file: '02-perceptron.html', short: 'The perceptron',   title: 'The perceptron', part: 0, mins: 30, upd: '2026-10-06' },
     { id: 'p3',  n: '3',  file: '03-networks.html',   short: 'Networks',         title: 'From neuron to network', part: 0, mins: 45, upd: '2026-10-06' },
     { id: 'p4',  n: '4',  file: '04-llm.html',        short: 'LLMs',             title: 'How an LLM works', part: 0, mins: 75, upd: '2026-10-06' },
