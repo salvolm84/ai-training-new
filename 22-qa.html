@@ -58,6 +58,8 @@
       <li>Three come up in every room: where data leaks, why there is no guarantee, and why the model
       does not learn from you. Have the “ask it 100 times” demo ready: put the rare fact at temperature
       0 and let the room see that consistent and correct are different things.</li>
+      <li>The models question in 22.2 dates fastest of all. Check its names and prices before
+      every delivery.</li>
       <li>The CAPTCHA question gets a laugh. Use it to land the real point: labelled data is valuable
       enough that people build whole products to collect it.</li>
     </ul>
@@ -195,8 +197,102 @@
 </section>
 
 <!-- ====================================================== 22.2 -->
+<section class="chapter qa-sec" id="models">
+  <h2>22.2 · Today's models</h2>
+
+  <details class="reveal qa" id="q-models">
+    <summary>What is the difference between ChatGPT, Claude, Gemini and the rest, and between versions such as Fable, Opus, Sonnet and Haiku?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> At the top end, the big families are closer to each other than
+      their marketing suggests, and they overtake one another every few months. The differences that
+      matter more are where each one lives and what it costs. Within a family, the names are size tiers:
+      from a large model that is smarter, slower and more expensive down to a small one that is fast and
+      cheap.</p>
+
+      <h4 class="mt1">Between vendors</h4>
+      <p>First, separate the app from the model. ChatGPT is OpenAI's app, running OpenAI's GPT models.
+      Claude is both Anthropic's app and its family of models, and Gemini is both of those for Google.
+      Microsoft Copilot is built largely on OpenAI's models. Alongside them are the open-weight families
+      you can run yourself (see 22.1).</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Family</th><th>From</th><th>Where it tends to fit</th></tr></thead>
+          <tbody>
+            <tr><td>GPT, in ChatGPT</td><td>OpenAI</td><td>The largest consumer user base, with image and
+            voice tools in the same app, and close ties to Microsoft's products.</td></tr>
+            <tr><td>Claude</td><td>Anthropic</td><td>Widely chosen for coding, agents and long documents.
+            Sold through its own API and on the Amazon, Google and Microsoft clouds.</td></tr>
+            <tr><td>Gemini</td><td>Google</td><td>Built into Google Workspace, Android and Search, with
+            native video and audio input. Sold on Google Cloud.</td></tr>
+            <tr><td>Open-weight</td><td>Meta, Mistral, Alibaba, DeepSeek, OpenAI and others</td><td>Runs on
+            your own hardware, so no data leaves. Weaker than the best hosted models on the hardest
+            work.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>For a company, what actually differs is this:</p>
+      <ul>
+        <li><b>Integration.</b> The assistant built into the tools people already use often wins on
+        adoption, whatever the benchmarks say.</li>
+        <li><b>Data terms and hosting.</b> Retention, use for training, and which cloud and region the
+        model runs in (see 22.5). The same model can come with different terms depending on whether you
+        buy it from the vendor directly or through a cloud provider.</li>
+        <li><b>Price and limits.</b> Price per token, context window and rate limits.</li>
+        <li><b>Behaviour on your tasks.</b> Style, instruction following, tool use and refusals differ
+        more than leaderboard scores do, and only your own evaluation set shows how.</li>
+      </ul>
+      <p>Leaderboards reshuffle with every release, so a ranking that is right in October may be wrong by
+      Christmas. Avoid locking yourself to one vendor: keep prompts, evaluation sets and tool
+      definitions portable, so that switching is a test run rather than a project.</p>
+
+      <h4 class="mt1">Within a family: the tiers</h4>
+      <p>Every vendor sells a ladder of sizes from the same generation. The larger the model, the more it
+      knows and the better it reasons, and the slower and more expensive it is. This is Anthropic's
+      ladder as of October 2026:</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Model</th><th>Position</th><th>$ per million tokens, input / output</th></tr></thead>
+          <tbody>
+            <tr><td>Claude Fable 5.1</td><td>The most capable widely released model, for the hardest
+            reasoning and long autonomous tasks. It always thinks before answering.</td><td>10 / 50</td></tr>
+            <tr><td>Claude Opus 5.5</td><td>The flagship for demanding work. Anthropic describes it as
+            close to Fable on most tasks, at well under half the price.</td><td>4 / 20</td></tr>
+            <tr><td>Claude Sonnet 5.5</td><td>The everyday workhorse: fast and capable for coding, agents
+            and business work.</td><td>2 / 10</td></tr>
+            <tr><td>Claude Haiku 5.5</td><td>The fastest and cheapest, for high-volume simple tasks and for
+            sub-steps inside agents.</td><td>0.10 / 0.50</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>All four read up to a million tokens of context. The other vendors work the same way under
+      different names: Google's Gemini comes as Pro, Flash and Flash-Lite, and OpenAI's GPT-6 family as
+      Astra, Sol and Luna, from largest to cheapest. The number is the generation: 5.5 is newer than 5.
+      Older versions stay available for a while and are then retired, which is why production systems
+      should pin a version.</p>
+      <p>There is a second dial on top of size: how long the model thinks. Current models can spend extra
+      computation reasoning before they answer (an “effort” or “thinking” setting), so a mid-sized
+      model thinking hard can beat a larger one answering quickly.</p>
+      <p>To choose, run your evaluation set on the cheapest tier that might work, and move up only where
+      it fails. The price gap from Haiku to Fable is a factor of 100. A million requests a month with
+      2,000-token prompts costs about $200 in input tokens on Haiku and $20,000 on Fable, which is the
+      whole business case for a classification job. For a hard engineering analysis run twice a week,
+      the difference is irrelevant.</p>
+      <p class="srcnote">Anthropic list API prices per million tokens, as of October 2026; Haiku's price
+      applies to prompts up to 100,000 tokens. Model names and prices change several times a year, and
+      even vendors' own pages disagree on the latest version numbers, so check each vendor's model page
+      before every delivery.</p>
+      <p class="deeper">Go deeper: <a href="05-cost.html#inference">5.4 inference is the real bill</a> ·
+      <a href="05-cost.html#buy">5.8 buy or build</a> ·
+      <a href="08-evaluation.html#llmeval">8.7 evaluating an LLM system</a> ·
+      <a href="18-adaptation.html#distil">18.5 distillation</a> ·
+      <a href="19-deployment.html#versioning">19.2 version everything</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.3 -->
 <section class="chapter qa-sec" id="learning">
-  <h2>22.2 · How a model learns, and why it stops</h2>
+  <h2>22.3 · How a model learns, and why it stops</h2>
 
   <details class="reveal qa" id="q-selftrain">
     <summary>Why doesn't an LLM learn from what I tell it? Why can't it train itself on my prompts and documents?</summary>
@@ -225,7 +321,7 @@
         audited.</li>
       </ul>
       <p>What does happen is slower. Providers may later use conversations offline, filtered and mixed
-      into the next training run, if your plan's terms allow it (see 22.4). That is a deliberate release
+      into the next training run, if your plan's terms allow it (see 22.5). That is a deliberate release
       cycle measured in months, not learning on the fly. If you want the model to know your documents,
       give them to it at question time; that is what RAG does.</p>
       <p class="deeper">Go deeper: <a href="04-llm.html#training">4.6 how one gets built</a> ·
@@ -288,9 +384,9 @@
   </details>
 </section>
 
-<!-- ====================================================== 22.3 -->
+<!-- ====================================================== 22.4 -->
 <section class="chapter qa-sec" id="reliability">
-  <h2>22.3 · Reliability</h2>
+  <h2>22.4 · Reliability</h2>
 
   <details class="reveal qa" id="q-guarantee">
     <summary>Why can I never get a 100% guarantee that an LLM's answer is correct?</summary>
@@ -408,9 +504,9 @@
   </details>
 </section>
 
-<!-- ====================================================== 22.4 -->
+<!-- ====================================================== 22.5 -->
 <section class="chapter qa-sec" id="yourdata">
-  <h2>22.4 · Your data</h2>
+  <h2>22.5 · Your data</h2>
 
   <details class="reveal qa" id="q-leak">
     <summary>If I send sensitive information to an LLM, where exactly can it leak?</summary>
@@ -450,7 +546,7 @@
         </table>
       </div>
       <p>The model itself is a smaller risk than people assume: answering your prompt does not store it
-      in the weights (see 22.2). The questions to ask about any AI tool are the same as for any other
+      in the weights (see 22.3). The questions to ask about any AI tool are the same as for any other
       cloud service: where is the data stored, for how long, who can read it, and is it used for
       anything else? For the most sensitive data, a self-hosted model removes rows 3 and 4
       entirely.</p>
@@ -494,9 +590,9 @@
   </details>
 </section>
 
-<!-- ====================================================== 22.5 -->
+<!-- ====================================================== 22.6 -->
 <section class="chapter qa-sec" id="sources">
-  <h2>22.5 · Where the training data comes from</h2>
+  <h2>22.6 · Where the training data comes from</h2>
 
   <details class="reveal qa" id="q-captcha">
     <summary>Are CAPTCHAs a way to get people to label images for free?</summary>

@@ -58,6 +58,8 @@
       <li>Tre domande arrivano in ogni sala: dove finiscono i dati, perché non c’è garanzia e perché il
       modello non impara da te. Tieni pronta la demo “chiediglielo 100 volte”: metti il fatto raro a
       temperatura 0 e lascia che la sala veda che coerente e corretto sono due cose diverse.</li>
+      <li>La domanda sui modelli in 22.2 è quella che invecchia più in fretta. Controlla nomi e
+      prezzi prima di ogni sessione.</li>
       <li>La domanda sui CAPTCHA strappa una risata. Usala per arrivare al punto vero: i dati etichettati
       valgono abbastanza da costruirci sopra interi prodotti per raccoglierli.</li>
     </ul>
@@ -199,8 +201,105 @@
 </section>
 
 <!-- ====================================================== 22.2 -->
+<section class="chapter qa-sec" id="models">
+  <h2>22.2 · I modelli di oggi</h2>
+
+  <details class="reveal qa" id="q-models">
+    <summary>Che differenza c’è tra ChatGPT, Claude, Gemini e gli altri, e tra versioni come Fable, Opus, Sonnet e Haiku?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Ai livelli più alti le grandi famiglie si somigliano più di
+      quanto dica il marketing, e si superano a vicenda ogni pochi mesi. Le differenze che contano di più
+      sono dove vive ciascuna e quanto costa. All’interno di una famiglia, i nomi sono taglie: da un
+      modello grande, più intelligente, lento e costoso, fino a uno piccolo, rapido ed economico.</p>
+
+      <h4 class="mt1">Tra fornitori</h4>
+      <p>Prima di tutto, separa l’app dal modello. ChatGPT è l’app di OpenAI, che usa i modelli GPT di
+      OpenAI. Claude è sia l’app di Anthropic sia la sua famiglia di modelli, e Gemini è entrambe le cose
+      per Google. Microsoft Copilot si basa in gran parte sui modelli di OpenAI. Accanto a questi ci sono
+      le famiglie a pesi aperti che puoi far girare da te (vedi 22.1).</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Famiglia</th><th>Di</th><th>Dove tende a essere adatta</th></tr></thead>
+          <tbody>
+            <tr><td>GPT, in ChatGPT</td><td>OpenAI</td><td>La base di utenti consumer più ampia, con
+            strumenti per immagini e voce nella stessa app, e stretti legami con i prodotti
+            Microsoft.</td></tr>
+            <tr><td>Claude</td><td>Anthropic</td><td>Scelta spesso per programmazione, agenti e documenti
+            lunghi. Venduta tramite la propria API e sui cloud di Amazon, Google e Microsoft.</td></tr>
+            <tr><td>Gemini</td><td>Google</td><td>Integrata in Google Workspace, Android e nella Ricerca,
+            con input nativo di video e audio. Venduta su Google Cloud.</td></tr>
+            <tr><td>Pesi aperti</td><td>Meta, Mistral, Alibaba, DeepSeek, OpenAI e altri</td><td>Gira sul
+            tuo hardware, quindi nessun dato esce. Più debole dei migliori modelli in cloud sui lavori più
+            difficili.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Per un’azienda, ciò che cambia davvero è questo:</p>
+      <ul>
+        <li><b>Integrazione.</b> L’assistente integrato negli strumenti che le persone usano già spesso
+        vince sull’adozione, qualunque cosa dicano i benchmark.</li>
+        <li><b>Condizioni sui dati e hosting.</b> Conservazione, uso per l’addestramento, e su quale cloud
+        e in quale regione gira il modello (vedi 22.5). Lo stesso modello può avere condizioni diverse a
+        seconda che lo compri direttamente dal fornitore o tramite un provider cloud.</li>
+        <li><b>Prezzo e limiti.</b> Prezzo per token, finestra di contesto e limiti di utilizzo.</li>
+        <li><b>Comportamento sui tuoi compiti.</b> Stile, aderenza alle istruzioni, uso degli strumenti e
+        rifiuti differiscono più dei punteggi in classifica, e solo il tuo set di valutazione mostra
+        come.</li>
+      </ul>
+      <p>Le classifiche si rimescolano a ogni rilascio, quindi una graduatoria giusta a ottobre può
+      essere sbagliata a Natale. Evita di legarti a un solo fornitore: tieni portabili prompt, set di
+      valutazione e definizioni degli strumenti, così che cambiare sia una prova e non un progetto.</p>
+
+      <h4 class="mt1">All’interno di una famiglia: le taglie</h4>
+      <p>Ogni fornitore vende una scala di taglie della stessa generazione. Più il modello è grande, più
+      sa e meglio ragiona, e più è lento e costoso. Questa è la scala di Anthropic a ottobre 2026:</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Modello</th><th>Posizione</th><th>$ per milione di token, input / output</th></tr></thead>
+          <tbody>
+            <tr><td>Claude Fable 5.1</td><td>Il modello più capace tra quelli ampiamente disponibili, per il
+            ragionamento più difficile e i compiti autonomi lunghi. Pensa sempre prima di
+            rispondere.</td><td>10 / 50</td></tr>
+            <tr><td>Claude Opus 5.5</td><td>L’ammiraglia per il lavoro impegnativo. Anthropic lo descrive
+            vicino a Fable nella maggior parte dei compiti, a molto meno della metà del
+            prezzo.</td><td>4 / 20</td></tr>
+            <tr><td>Claude Sonnet 5.5</td><td>Il cavallo da lavoro quotidiano: rapido e capace per
+            programmazione, agenti e lavoro d’ufficio.</td><td>2 / 10</td></tr>
+            <tr><td>Claude Haiku 5.5</td><td>Il più rapido ed economico, per compiti semplici ad alto volume
+            e per i passaggi intermedi dentro gli agenti.</td><td>0.10 / 0.50</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Tutti e quattro leggono fino a un milione di token di contesto. Gli altri fornitori funzionano
+      allo stesso modo con nomi diversi: Gemini di Google è disponibile come Pro, Flash e Flash-Lite, e la
+      famiglia GPT-6 di OpenAI come Astra, Sol e Luna, dal più grande al più economico. Il numero indica
+      la generazione: 5.5 è più recente di 5. Le versioni precedenti restano disponibili per un po’ e poi
+      vengono ritirate, ed è per questo che i sistemi in produzione devono fissare una versione.</p>
+      <p>Oltre alla taglia c’è una seconda manopola: quanto a lungo pensa il modello. I modelli attuali
+      possono spendere calcolo in più per ragionare prima di rispondere (un’impostazione di “effort” o di
+      “thinking”), quindi un modello medio che pensa a fondo può battere uno più grande che risponde di
+      getto.</p>
+      <p>Per scegliere, fai girare il tuo set di valutazione sulla taglia più economica che potrebbe
+      funzionare, e sali solo dove fallisce. Tra Haiku e Fable il prezzo cambia di un fattore 100. Un
+      milione di richieste al mese con prompt da 2 000 token costa circa 200 dollari di token in input
+      su Haiku e 20 000 su Fable: per un lavoro di classificazione è tutto il business case. Per
+      un’analisi ingegneristica difficile fatta due volte a settimana, la differenza è irrilevante.</p>
+      <p class="srcnote">Prezzi di listino dell’API di Anthropic per milione di token, a ottobre 2026; il
+      prezzo di Haiku vale per prompt fino a 100 000 token. Nomi e prezzi dei modelli cambiano più volte
+      all’anno, e persino le pagine dei fornitori non concordano sui numeri di versione più recenti:
+      controlla la pagina dei modelli di ciascun fornitore prima di ogni sessione.</p>
+      <p class="deeper">Per approfondire: <a href="05-cost.html#inference">5.4 il vero conto è l’inferenza</a> ·
+      <a href="05-cost.html#buy">5.8 comprare o costruire</a> ·
+      <a href="08-evaluation.html#llmeval">8.7 valutare un sistema LLM</a> ·
+      <a href="18-adaptation.html#distil">18.5 distillazione</a> ·
+      <a href="19-deployment.html#versioning">19.2 versionare tutto</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.3 -->
 <section class="chapter qa-sec" id="learning">
-  <h2>22.2 · Come impara un modello, e perché smette</h2>
+  <h2>22.3 · Come impara un modello, e perché smette</h2>
 
   <details class="reveal qa" id="q-selftrain">
     <summary>Perché un LLM non impara da quello che gli dico? Perché non può addestrarsi da solo sui miei prompt e sui miei documenti?</summary>
@@ -231,7 +330,7 @@
       </ul>
       <p>Quello che succede davvero è più lento. I fornitori possono usare le conversazioni in un secondo
       momento, offline, filtrate e mescolate nel ciclo di addestramento successivo, se le condizioni del
-      tuo piano lo consentono (vedi 22.4). È un ciclo di rilascio deliberato, che si misura in mesi, non
+      tuo piano lo consentono (vedi 22.5). È un ciclo di rilascio deliberato, che si misura in mesi, non
       apprendimento al volo. Se vuoi che il modello conosca i tuoi documenti, daglieli al momento della
       domanda: è quello che fa la RAG.</p>
       <p class="deeper">Per approfondire: <a href="04-llm.html#training">4.6 come si costruisce</a> ·
@@ -294,9 +393,9 @@
   </details>
 </section>
 
-<!-- ====================================================== 22.3 -->
+<!-- ====================================================== 22.4 -->
 <section class="chapter qa-sec" id="reliability">
-  <h2>22.3 · Affidabilità</h2>
+  <h2>22.4 · Affidabilità</h2>
 
   <details class="reveal qa" id="q-guarantee">
     <summary>Perché non posso mai avere la garanzia al 100% che la risposta di un LLM sia corretta?</summary>
@@ -421,9 +520,9 @@
   </details>
 </section>
 
-<!-- ====================================================== 22.4 -->
+<!-- ====================================================== 22.5 -->
 <section class="chapter qa-sec" id="yourdata">
-  <h2>22.4 · I tuoi dati</h2>
+  <h2>22.5 · I tuoi dati</h2>
 
   <details class="reveal qa" id="q-leak">
     <summary>Se mando informazioni riservate a un LLM, dove possono finire esattamente?</summary>
@@ -468,7 +567,7 @@
         </table>
       </div>
       <p>Il modello in sé è un rischio più piccolo di quanto si pensi: rispondere al tuo prompt non lo
-      memorizza nei pesi (vedi 22.2). Le domande da fare su qualsiasi strumento di AI sono le stesse che
+      memorizza nei pesi (vedi 22.3). Le domande da fare su qualsiasi strumento di AI sono le stesse che
       si fanno per qualunque servizio cloud: dove sono conservati i dati, per quanto tempo, chi può
       leggerli, e vengono usati per altro? Per i dati più sensibili, un modello ospitato in casa elimina
       del tutto le righe 3 e 4.</p>
@@ -513,9 +612,9 @@
   </details>
 </section>
 
-<!-- ====================================================== 22.5 -->
+<!-- ====================================================== 22.6 -->
 <section class="chapter qa-sec" id="sources">
-  <h2>22.5 · Da dove vengono i dati di addestramento</h2>
+  <h2>22.6 · Da dove vengono i dati di addestramento</h2>
 
   <details class="reveal qa" id="q-captcha">
     <summary>I CAPTCHA sono un modo per farsi etichettare le immagini gratis dalle persone?</summary>

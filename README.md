@@ -74,7 +74,7 @@ Speaker notes also appear when a page is printed to PDF.
 
 | # | Module | Interactive |
 | --- | --- | --- |
-| 22 | Questions people actually ask | searchable Q&A, CPU vs GPU calculator, ask-it-100-times sampling demo |
+| 22 | Questions people actually ask | searchable Q&A, today's models and tiers, CPU vs GPU calculator, ask-it-100-times sampling demo |
 
 `index.html` is the course hub and carries suggested shorter delivery tracks (half-day executive,
 one-day engineering, two-hour general, and others).
@@ -131,7 +131,7 @@ sampling demo in module 22 (the sampling itself is live). Labs added later (4.9�
 on seeded synthetic data; where an input is invented for teaching — a document corpus, a planted code
 defect, a scenario distribution, an error budget — the page says so next to it.
 
-Three sections date quickly and are sourced on the page:
+Four sections date quickly and are sourced on the page:
 
 - **Module 5** — energy, cost and hardware figures, current as of September 2026. The per-query and
   per-token numbers in particular move by large factors within a year.
@@ -140,8 +140,10 @@ Three sections date quickly and are sourced on the page:
 - **Module 20** — status of ISO 26262, ISO 21448 (SOTIF), ISO/PAS 8800, UNECE automated-driving
   regulations and how the AI Act reaches vehicles through type approval, checked October 2026. Also
   an orientation, not legal advice.
+- **Module 22.2** — LLM families, tier names and Claude list prices, checked October 2026. Model
+  names and prices change several times a year.
 
-Check all three before each delivery.
+Check all four before each delivery.
 
 ## Releasing an update
 
