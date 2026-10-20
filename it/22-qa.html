@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>22 · Le domande che si fanno davvero — AI Foundations</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* ---- filter ---- */
+  .qa-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .qa-bar input[type=text] { max-width: 320px; }
+
+  /* ---- questions ---- */
+  details.qa { scroll-margin-top: 80px; }
+  details.qa .body .short { font-size: 1.02rem; }
+  details.qa .deeper { font-size: .84rem; color: var(--ink-3); border-top: 1px solid var(--line-2); padding-top: .7em; }
+  details.qa .lab { margin: 1.2rem 0; }
+  details.qa table td:first-child { font-weight: 600; white-space: nowrap; }
+  @media (max-width: 700px) { details.qa table td:first-child { white-space: normal; } }
+
+  /* ---- sampling demo ---- */
+  .samp-prompt { font-family: var(--mono); font-size: .92rem; background: var(--bg-3); padding: 9px 12px; border-radius: 8px; }
+  .samp-row { display: grid; grid-template-columns: 190px minmax(0,1fr) 52px 48px; gap: 10px; align-items: center;
+    font-size: .88rem; padding: 4px 0; }
+  .samp-row .pc, .samp-row .ct { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .samp-row .ct { color: var(--accent); font-weight: 700; }
+  .samp-row .pill { margin-left: 6px; font-size: .7rem; padding: 1px 7px; }
+  @media (max-width: 600px) { .samp-row { grid-template-columns: 120px minmax(0,1fr) 44px 40px; } }
+
+  @media print { details.qa .body { display: block; } }
+</style>
+</head>
+<body data-page="p22">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Modulo 22 · Domande e risposte</span>
+  <h1>Le domande che si fanno davvero</h1>
+  <p class="lead">Le domande che arrivano alla fine di ogni sessione, con risposte in parole semplici.
+  Ognuna ha una risposta breve, una più lunga e un collegamento al modulo che la tratta per bene.</p>
+</header>
+
+<main class="wrap">
+
+<section class="chapter" id="find">
+  <div class="qa-bar">
+    <input type="text" id="qaSearch" placeholder="Filtra, es. “GPU”, “dati”, “etichettatura”…" autocomplete="off">
+    <button class="btn sm" id="qaOpen">Apri tutte</button>
+    <button class="btn sm" id="qaClose">Chiudi tutte</button>
+    <span class="small muted" id="qaCount"></span>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Usa questo modulo come parcheggio. Quando a metà sessione arriva una domanda che appartiene a
+      questa pagina, dillo, vai avanti e riprendila alla fine. Ogni domanda ha un suo indirizzo (per
+      esempio <code>22-qa.html#q-gpu</code>) da mandare dopo.</li>
+      <li>Tre domande arrivano in ogni sala: dove finiscono i dati, perché non c’è garanzia e perché il
+      modello non impara da te. Tieni pronta la demo “chiediglielo 100 volte”: metti il fatto raro a
+      temperatura 0 e lascia che la sala veda che coerente e corretto sono due cose diverse.</li>
+      <li>La domanda sui CAPTCHA strappa una risata. Usala per arrivare al punto vero: i dati etichettati
+      valgono abbastanza da costruirci sopra interi prodotti per raccoglierli.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ====================================================== 22.1 -->
+<section class="chapter qa-sec" id="history">
+  <h2>22.1 · Storia e hardware</h2>
+
+  <details class="reveal qa" id="q-deepblue">
+    <summary>Deep Blue ha battuto Kasparov nel 1997 e AlphaGo ha battuto Lee Sedol nel 2016. Che cosa è cambiato davvero?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> A Deep Blue erano state le persone a dire come valutare una
+      posizione di scacchi, e vinceva cercando più in fretta di chiunque. AlphaGo ha imparato da solo a
+      valutare una posizione di Go, prima dalle partite umane e poi giocando contro sé stesso, e
+      cercava molto meno.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th></th><th>Deep Blue (IBM, 1997)</th><th>AlphaGo (DeepMind, 2016)</th></tr></thead>
+          <tbody>
+            <tr><td>Il gioco</td><td>Scacchi: circa 35 mosse legali per turno.</td><td>Go: circa 250 mosse legali per turno, e più posizioni legali degli atomi nell’universo osservabile.</td></tr>
+            <tr><td>Valutare una posizione</td><td>Una funzione di valutazione con migliaia di caratteristiche, scritta e messa a punto da programmatori insieme a grandi maestri.</td><td>Appresa da due reti neurali. Una rete di <i>policy</i> suggerisce le mosse da considerare; è stata addestrata su circa 30 milioni di posizioni tratte da partite umane, poi migliorata giocando contro sé stessa. Una rete di <i>valore</i> stima chi sta vincendo.</td></tr>
+            <tr><td>Ricerca</td><td>Forza bruta: circa 200 milioni di posizioni al secondo su 480 chip dedicati agli scacchi.</td><td>Ricerca ad albero Monte Carlo guidata dalle reti. Valuta migliaia di volte meno posizioni di Deep Blue.</td></tr>
+            <tr><td>Apprendimento</td><td>Praticamente nessuno. Sa quello che le persone ci hanno messo.</td><td>Quasi tutto. Il suo successore, AlphaGo Zero (2017), non ha usato alcuna partita umana e lo ha battuto 100–0.</td></tr>
+            <tr><td>Generalità</td><td>Solo scacchi.</td><td>Il metodo si è trasferito: AlphaZero (2017) ha imparato scacchi, shogi e Go con un unico algoritmo.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Perché conta sul lavoro: Deep Blue è l’approccio a regole del modulo 1.3, portato su larga
+      scala. È verificabile, ma vale quanto le regole dei suoi esperti. AlphaGo è l’approccio appreso.
+      Ha trovato mosse che nessun esperto avrebbe scritto come regola, come la famosa mossa 37 della
+      seconda partita, e nessuno sa spiegarle fino in fondo. La forza bruta funzionava per gli scacchi
+      perché gli scacchi sono abbastanza piccoli. Non funziona per il Go, né per la maggior parte dei
+      problemi reali.</p>
+      <p class="deeper">Per approfondire: <a href="01-history.html#timeline">1.2 la linea del tempo</a> ·
+      <a href="01-history.html#paradigms">1.3 tre modi di risolvere un problema</a> ·
+      <a href="06-classical.html#rl">6.7 apprendimento per rinforzo</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-gpu">
+    <summary>Perché l’AI ha bisogno delle GPU? Che cos’ha che non va una normale CPU?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Non ha niente che non va: è fatta per un altro lavoro. Una
+      CPU ha qualche decina di core molto capaci, che eseguono codice complicato e pieno di diramazioni,
+      un passo dopo l’altro. Una rete neurale è quasi interamente una sola operazione semplice,
+      moltiplica e somma, ripetuta miliardi di volte senza diramazioni. Le migliaia di core più semplici
+      di una GPU fanno esattamente questo, in parallelo.</p>
+      <p>A decidere sono due numeri:</p>
+      <ul>
+        <li><b>Aritmetica.</b> Una GPU da datacenter fa circa 200 volte più moltiplicazioni e somme al
+        secondo di una CPU server di fascia alta. Gran parte del vantaggio viene dai tensor core,
+        circuiti che eseguono una piccola moltiplicazione tra matrici in un solo passo.</li>
+        <li><b>Banda di memoria.</b> Per scrivere ogni token di una risposta, un LLM deve leggere dalla
+        memoria tutti i suoi pesi. La memoria delle GPU (HBM) muove 3–8 TB al secondo, da sette a venti
+        volte quello che riesce a fare la memoria di una CPU. Nella generazione di testo il limite è di
+        solito la banda, non l’aritmetica.</li>
+      </ul>
+      <p>Le GPU sono nate per disegnare i triangoli dei videogiochi, e si scopre che la matematica è la
+      stessa. La svolta di AlexNet nel 2012 girava su due schede da gioco. I chip progettati apposta per
+      l’AI, come le TPU di Google, spingono l’idea più in là, eliminando tutto ciò che a una rete neurale
+      non serve.</p>
+
+      <div class="lab">
+        <div class="lab-head"><h3>CPU o GPU: far girare un LLM</h3><span class="tag try">Sposta il cursore</span></div>
+        <div class="grid g2" style="gap:14px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Dimensione del modello</span><span class="val" id="gPOut"></span></div>
+            <input type="range" id="gP" min="0" max="8" step="1" value="2">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Precisione di ogni peso</span></div>
+            <div class="segmented" id="gBits">
+              <button data-v="16" class="on">16 bit</button>
+              <button data-v="8">8 bit</button>
+              <button data-v="4">4 bit</button>
+            </div>
+          </div>
+        </div>
+        <div class="readout mt1">
+          <div class="stat hl"><span class="k">pesi da tenere</span><span class="v" id="gMem">—</span><span class="u">in memoria, più circa il 10% di spazio di lavoro</span></div>
+          <div class="stat"><span class="k">GPU necessarie</span><span class="v" id="gN">—</span><span class="u">da 80 GB ciascuna</span></div>
+        </div>
+        <div class="tablewrap mt1">
+          <table>
+            <thead><tr><th></th><th>CPU server</th><th>GPU da datacenter</th></tr></thead>
+            <tbody>
+              <tr><td>Sta in memoria?</td><td id="gC0">—</td><td id="gG0">—</td></tr>
+              <tr><td>Leggere un prompt di 2 000 token</td><td id="gC1">—</td><td id="gG1">—</td></tr>
+              <tr><td>Scrivere la risposta</td><td id="gC2">—</td><td id="gG2">—</td></tr>
+              <tr><td>Una risposta di 300 token, in totale</td><td id="gC3">—</td><td id="gG3">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small mb0 mt1" id="gSum"></p>
+        <p class="srcnote">Sono limiti superiori, ricavati dalle specifiche di picco e da due regole
+        semplici. Leggere il prompt costa circa 2 FLOP per parametro per token. Scrivere ogni token
+        significa leggere ogni peso una volta, quindi i token al secondo non possono superare la banda di
+        memoria divisa per la dimensione del modello. CPU server: un processore di fascia alta, circa 5
+        TFLOP/s e 0.46 TB/s (DDR5 a 12 canali), con 768 GB di RAM. GPU: classe H100, circa 990 TFLOP/s
+        BF16 densi e 3.35 TB/s, con 80 GB per scheda. Un modello troppo grande per una scheda viene
+        diviso su più schede, il che moltiplica entrambe le cifre. I sistemi reali arrivano a circa metà
+        di questi limiti: va letto il rapporto tra le colonne, più che i numeri assoluti.</p>
+      </div>
+
+      <p>Il calcolatore tralascia due cose. Primo, una GPU serve molti utenti insieme: legge i pesi una
+      volta e li usa per un intero lotto di richieste, e questo moltiplica di nuovo il throughput.
+      Secondo, le CPU fanno ancora girare moltissima AI: il machine learning classico (gli alberi del
+      modulo 6), i modelli piccoli su hardware embedded e tutto il codice che sta attorno a ogni
+      modello.</p>
+      <p class="deeper">Per approfondire: <a href="05-cost.html#flops">5.1 l’unità di lavoro</a> ·
+      <a href="05-cost.html#hardware">5.5 la macchina fisica</a> ·
+      <a href="19-deployment.html#quantise">19.4 quantizzazione</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-local">
+    <summary>Non possiamo semplicemente far girare un modello sul nostro portatile o sul nostro server?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Sì, e per alcuni lavori è la risposta giusta. Il prezzo è una
+      qualità inferiore a quella dei migliori modelli in cloud, e la gestione diventa compito tuo.</p>
+      <p>I modelli a pesi aperti (Llama, Mistral, Qwen, Gemma, gpt-oss e altri) si scaricano e si fanno
+      girare senza che alcun dato esca dall’azienda. Quantizzato a 4 bit, un modello da 8 miliardi di
+      parametri occupa circa 5 GB e gira su un portatile recente. Il calcolatore qui sopra mostra perché
+      i modelli più grandi richiedono dei server.</p>
+      <p><b>A cosa rinunci:</b> i modelli aperti più grandi richiedono più GPU, e quelli piccoli sono
+      sensibilmente più deboli nel ragionamento difficile. Aggiornamenti, patch di sicurezza,
+      monitoraggio e valutazione diventano tuoi. <b>Che cosa guadagni:</b> i dati non escono mai, il
+      costo è fisso, il modello non ti cambia sotto i piedi e funziona anche offline.</p>
+      <p>Il caso tipico è un compito sensibile, circoscritto e ad alto volume, come classificazione,
+      estrazione o ricerca su documenti interni, in cui un modello piccolo supera il tuo set di
+      valutazione. Costruisci prima quel set.</p>
+      <p class="deeper">Per approfondire: <a href="05-cost.html#buy">5.8 comprare o costruire</a> ·
+      <a href="18-adaptation.html#distil">18.5 distillazione</a> ·
+      <a href="19-deployment.html#quantise">19.4 farlo stare nell’hardware</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.2 -->
+<section class="chapter qa-sec" id="learning">
+  <h2>22.2 · Come impara un modello, e perché smette</h2>
+
+  <details class="reveal qa" id="q-selftrain">
+    <summary>Perché un LLM non impara da quello che gli dico? Perché non può addestrarsi da solo sui miei prompt e sui miei documenti?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Usare un modello e addestrarlo sono due operazioni diverse.
+      Quando chatti, i pesi sono congelati e il modello si limita a leggere. Cambiarlo vorrebbe dire
+      calcolare i gradienti e aggiornare miliardi di numeri condivisi: costoso, lento e pericoloso da
+      fare in tempo reale.</p>
+      <p>Quello che in una chat sembra apprendimento è <i>apprendimento in contesto</i>: il tuo testo sta
+      nella finestra di contesto e orienta la risposta. L’effetto è reale ma temporaneo. Chiudi la
+      conversazione, o riempi la finestra, e nel modello non ne resta nulla.</p>
+      <p>I fornitori non aggiornano i pesi in tempo reale, per cinque motivi:</p>
+      <ul>
+        <li><b>Costo.</b> Un passo di addestramento costa circa tre volte il calcolo di una risposta (un
+        passaggio in avanti e uno all’indietro) e richiede molta più memoria. Farlo per ogni messaggio di
+        milioni di utenti non è sostenibile.</li>
+        <li><b>Il modello è uno solo per tutti.</b> Gli stessi pesi servono ogni cliente. Se il modello
+        imparasse dai tuoi prompt, imparerebbe anche da quelli di tutti gli altri, errori e dati
+        riservati compresi, che poi riaffiorerebbero nelle tue risposte.</li>
+        <li><b>Avvelenamento.</b> Nel 2016 il chatbot Tay di Microsoft imparava dagli utenti di Twitter.
+        In circa 16 ore gli avevano insegnato a pubblicare insulti, e fu spento. Un modello che impara dai
+        suoi utenti è una porta aperta alla manipolazione deliberata.</li>
+        <li><b>Dimenticanza e regressioni.</b> Addestrare su un flusso ristretto di dati danneggia ciò
+        che il modello già sapeva (dimenticanza catastrofica), e ogni modifica va ritestata prima del
+        rilascio.</li>
+        <li><b>Responsabilità.</b> Un modello che cambia ogni minuto non si può versionare, valutare o
+        sottoporre ad audit.</li>
+      </ul>
+      <p>Quello che succede davvero è più lento. I fornitori possono usare le conversazioni in un secondo
+      momento, offline, filtrate e mescolate nel ciclo di addestramento successivo, se le condizioni del
+      tuo piano lo consentono (vedi 22.4). È un ciclo di rilascio deliberato, che si misura in mesi, non
+      apprendimento al volo. Se vuoi che il modello conosca i tuoi documenti, daglieli al momento della
+      domanda: è quello che fa la RAG.</p>
+      <p class="deeper">Per approfondire: <a href="04-llm.html#training">4.6 come si costruisce</a> ·
+      <a href="04-llm.html#context">4.7 il contesto</a> ·
+      <a href="18-adaptation.html#forgetting">18.3 dimenticanza catastrofica</a> ·
+      <a href="19-deployment.html#versioning">19.2 versionare</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-memory">
+    <summary>Ma il mio assistente si ricorda cose della settimana scorsa. Non è apprendimento?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> No, è prendere appunti. L’assistente salva brevi note o
+      conversazioni passate in un database e incolla quelle pertinenti nel contesto di una nuova chat. I
+      pesi del modello non cambiano.</p>
+      <p>È la RAG applicata alla tua cronologia, e questo ha tre conseguenze. Le memorie si possono vedere,
+      modificare e cancellare, cosa impossibile con qualunque cosa stia nei pesi. Occupano spazio nella
+      finestra di contesto. E sono dati archiviati, quindi sollevano le stesse domande di conservazione
+      e riservatezza di qualsiasi altra cosa tu invii.</p>
+      <p class="deeper">Per approfondire: <a href="04-llm.html#context">4.7 il contesto</a> ·
+      <a href="04-llm.html#rag">4.8 RAG</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-finetune">
+    <summary>Se facciamo fine-tuning di un modello sui nostri documenti, conoscerà i nostri fatti?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Non in modo affidabile. Il fine-tuning è bravo a cambiare il
+      comportamento, come tono, formato, gergo o un compito circoscritto, e scarso nel memorizzare
+      fatti. Per i fatti, recupera il documento e lascia che il modello lo citi.</p>
+      <p>Un modello dopo il fine-tuning assorbe i fatti come tendenze vaghe, non come registrazioni. Può
+      mescolare versioni vecchie e nuove, non sa dirti da dove viene un fatto, e non puoi cancellarne uno
+      solo quando una norma viene rivista. La ricerca ha anche trovato che il fine-tuning su fatti che il
+      modello non conosceva già può aumentare le allucinazioni. Il recupero (retrieval), invece, tiene
+      la conoscenza in un database che controlli tu, si aggiorna subito e può citare le fonti.</p>
+      <p class="deeper">Per approfondire: <a href="18-adaptation.html#ladder">18.1 la scala dell’adattamento</a> ·
+      <a href="18-adaptation.html#choose">18.6 calcolatore di scelta</a> ·
+      <a href="18-adaptation.html#wrong">18.7 quando il fine-tuning è sbagliato</a> ·
+      <a href="04-llm.html#rag">4.8 RAG</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-letters">
+    <summary>Perché sa scrivere codice che funziona ma sbaglia a contare le lettere di una parola?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Non vede mai le lettere. Il testo arriva al modello come
+      token, pezzi di pochi caratteri ciascuno, quindi “quante r ci sono in strawberry?” chiede qualcosa
+      che sta sotto la sua risoluzione. Il codice, invece, è abbondante e regolare, e pieno di schemi che
+      il modello ha visto milioni di volte.</p>
+      <p>Con l’aritmetica il problema è lo stesso: i numeri vengono spezzati in token in modo arbitrario
+      (“12345” può diventare “123” e “45”), quindi il modello fa le moltiplicazioni lunghe per
+      somiglianza, non con un algoritmo. I modelli moderni, soprattutto quelli di ragionamento, vanno
+      molto meglio di un tempo, ma la soluzione affidabile è uno strumento: lascia che il modello
+      scriva ed esegua codice, o che chiami una calcolatrice. La regola generale è che, quando un
+      compito ha una procedura esatta, il modello deve chiamare la procedura, non imitarla.</p>
+      <p class="deeper">Per approfondire: <a href="04-llm.html#tokens">4.1 i token</a> ·
+      <a href="09-agents.html#anatomy">9.2 come funziona una chiamata a uno strumento</a> ·
+      <a href="12-prompting.html#techniques">12.3 tecniche</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.3 -->
+<section class="chapter qa-sec" id="reliability">
+  <h2>22.3 · Affidabilità</h2>
+
+  <details class="reveal qa" id="q-guarantee">
+    <summary>Perché non posso mai avere la garanzia al 100% che la risposta di un LLM sia corretta?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Perché il modello non sta consultando nulla. Genera la
+      continuazione più plausibile, token dopo token, a partire da probabilità apprese dal testo.
+      Plausibile e vero di solito coincidono, ed è per questo che il modello è utile, ma nulla nel
+      meccanismo li obbliga a coincidere.</p>
+      <ul>
+        <li><b>Campiona.</b> Ogni token viene estratto da una distribuzione di probabilità, quindi un 10%
+        di probabilità di una parola sbagliata è un 10% di probabilità di una risposta sbagliata. Provalo
+        qui sotto.</li>
+        <li><b>Anche la risposta più probabile può essere sbagliata.</b> Per i fatti rari, i dati di
+        addestramento possono contenere la risposta sbagliata più spesso di quella giusta, o quella
+        giusta troppo di rado perché resti. Spegnere la casualità (temperatura 0) rende allora il
+        modello sistematicamente sbagliato.</li>
+        <li><b>Non c’è una specifica con cui confrontarlo.</b> Una calcolatrice si può dimostrare corretta
+        perché “addizione” ha una definizione. “Una risposta corretta a qualsiasi domanda in italiano” non
+        ne ha, e lo spazio dei possibili input è infinito, quindi non si può testare in modo
+        esaustivo.</li>
+        <li><b>Gli errori si sommano.</b> Un passo affidabile al 99%, ripetuto 50 volte, dà un risultato
+        interamente corretto solo il 60% delle volte circa.</li>
+      </ul>
+
+      <div class="lab">
+        <div class="lab-head"><h3>Chiediglielo 100 volte</h3><span class="tag try">Scegli una domanda, regola la temperatura</span></div>
+        <div class="btnrow">
+          <div class="segmented" id="sQ">
+            <button data-v="easy" class="on">Un fatto noto</button>
+            <button data-v="rare">Un fatto raro</button>
+          </div>
+        </div>
+        <p class="samp-prompt" id="sPrompt"></p>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Temperatura</span><span class="val" id="sTOut"></span></div>
+          <input type="range" id="sT" min="0" max="1.5" step="0.05" value="1">
+        </div>
+        <div id="sRows"></div>
+        <div class="btnrow">
+          <button class="btn sm primary" id="sRun">Chiedi 100 volte</button>
+          <span class="small" id="sRes"></span>
+        </div>
+        <p class="srcnote">Le probabilità sono scritte a scopo didattico, non misurate su un modello
+        particolare; il campionamento è dal vivo. La temperatura le rimodella: sotto 1 guadagna la
+        favorita, sopra 1 guadagnano le outsider, e a 0 il modello prende sempre la risposta in cima. Il
+        premio Nobel per la letteratura del 1931 andò a Erik Axel Karlfeldt, alla memoria. Sinclair Lewis
+        lo vinse nel 1930, John Galsworthy nel 1932 e Luigi Pirandello nel 1934. Gli errori di un modello
+        tendono a essere vicini alla verità, ed è questo che li rende convincenti.</p>
+      </div>
+
+      <p>Quello che puoi fare è rendere gli errori rari, visibili ed economici. Ancora la risposta a
+      documenti recuperati ed esigi le citazioni. Usa strumenti per il lavoro esatto. Vincola il formato
+      dell’output. Valuta il sistema sui tuoi casi, così conosci il tasso d’errore. E tieni una persona su
+      ogni decisione che conta. Nemmeno gli esperti umani danno garanzie; la differenza è che sappiamo
+      come sbagliano le persone, mentre stiamo ancora imparando come sbagliano i modelli.</p>
+      <p class="deeper">Per approfondire: <a href="04-llm.html#predict">4.3 la previsione del token successivo</a> ·
+      <a href="04-llm.html#fail">4.11 modi di guasto</a> ·
+      <a href="14-limits.html#reliability">14.2 il muro dell’affidabilità</a> ·
+      <a href="08-evaluation.html#llmeval">8.7 valutare un sistema LLM</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-twice">
+    <summary>Perché se faccio due volte la stessa domanda ricevo risposte diverse?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Perché il modello campiona (vedi sopra), e perché anche
+      l’impostazione “deterministica” non è perfettamente deterministica sulle GPU.</p>
+      <p>La temperatura regola la casualità. I prodotti di chat la tengono sopra lo zero di proposito,
+      perché una formulazione varia si legge meglio e offre alternative. Anche a temperatura 0, però,
+      due esecuzioni possono differire. La GPU somma i numeri in un ordine che dipende da quante altre
+      richieste condividono il lotto, e l’addizione in virgola mobile non è esattamente associativa. Una
+      differenza minuscola può cambiare un token, e da lì il resto della risposta diverge. Inoltre i
+      fornitori aggiornano i modelli mantenendo lo stesso nome.</p>
+      <p>In pratica: per estrazione, classificazione e codice usa la temperatura più bassa e una versione
+      del modello fissata. Per tutto ciò che potresti dover riprodurre, registra il prompt completo, la
+      versione del modello e l’output. E considera il disaccordo tra due esecuzioni un’informazione
+      utile: se le risposte differiscono nella sostanza, il modello non è sicuro.</p>
+      <p class="deeper">Per approfondire: <a href="04-llm.html#predict">4.3 la previsione del token successivo</a> ·
+      <a href="19-deployment.html#versioning">19.2 versionare tutto</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-confidence">
+    <summary>Non posso semplicemente chiedere al modello quanto è sicuro?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Puoi chiederlo, ma il numero che ti dà è testo generato come
+      tutto il resto. Sembra calibrato e spesso non lo è.</p>
+      <p>Segnali migliori, dal più forte al più debole:</p>
+      <ol>
+        <li><b>Confronta la risposta con la fonte:</b> recupero con citazioni che apri davvero.</li>
+        <li><b>Chiedi più volte, o a più modelli, e guarda se concordano.</b> Il disaccordo è un
+        avvertimento affidabile. L’accordo non è una prova, perché i modelli condividono gli stessi punti
+        ciechi.</li>
+        <li><b>Calibra le probabilità.</b> In un compito di classificazione con un insieme fisso di
+        risposte, le probabilità dei token si possono calibrare sui tuoi dati, come per qualsiasi altro
+        classificatore.</li>
+        <li><b>Le sue parole.</b> Un “sono sicuro al 95%” dichiarato è il segnale più debole di tutti.</li>
+      </ol>
+      <p class="deeper">Per approfondire: <a href="08-evaluation.html#calibration">8.4 le probabilità sono reali?</a> ·
+      <a href="16-uncertainty.html#kinds">16.1 due modi di non sapere</a> ·
+      <a href="16-uncertainty.html#traps">16.6 trappole comuni</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-errorrate">
+    <summary>Se sbaglia il 5% delle volte, non è inutile?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Dipende da tre numeri che puoi misurare: quanto costa un
+      errore, quanto costa controllare e quanto spesso sbaglia il processo attuale, di solito una
+      persona.</p>
+      <p>Una bozza giusta il 95% delle volte, che si controlla in 30 secondi, può battere una persona che
+      scrive da zero per 20 minuti, a patto che qualcuno la controlli davvero. Lo stesso 5% è
+      inaccettabile dove gli errori sono silenziosi e costosi e nessuno li rivede. Il pericolo maggiore
+      non è il tasso d’errore ma il bias di automazione: dopo una settimana di risposte buone, chi
+      controlla smette di guardare. Progetta il flusso di lavoro in modo che controllare sia facile e che
+      un controllo saltato si veda.</p>
+      <p class="deeper">Per approfondire: <a href="08-evaluation.html#cost">8.2 la soglia è una decisione di business</a> ·
+      <a href="08-evaluation.html#baselines">8.5 che cosa devi battere</a> ·
+      <a href="13-human.html#bias">13.1 l’esperimento sul bias di automazione</a> ·
+      <a href="13-human.html#review">13.3 rivedere l’output</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.4 -->
+<section class="chapter qa-sec" id="yourdata">
+  <h2>22.4 · I tuoi dati</h2>
+
+  <details class="reveal qa" id="q-leak">
+    <summary>Se mando informazioni riservate a un LLM, dove possono finire esattamente?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Raramente durante il transito, e raramente dal modello
+      stesso. I punti di fuga realistici sono dovunque i dati vengano conservati e chiunque possa
+      leggerli: i log e la pipeline di addestramento del fornitore, i tuoi sistemi attorno al modello, e
+      le persone e gli strumenti che li inviano.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Dove</th><th>Che cosa può andare storto</th><th>Che cosa lo controlla</th></tr></thead>
+          <tbody>
+            <tr><td>1 · Prima che escano</td><td>Qualcuno li incolla in un account personale, in uno
+            strumento non approvato o in un’estensione del browser. Nel 2023 alcuni ingegneri Samsung
+            incollarono codice sorgente riservato in un chatbot pubblico, e l’azienda ne limitò poi
+            l’uso.</td><td>Strumenti approvati più comodi di quelli non approvati, e regole chiare su che
+            cosa può entrarci.</td></tr>
+            <tr><td>2 · In transito</td><td>Intercettazione. Il traffico è cifrato (TLS), quindi di rado è
+            questo il punto debole.</td><td>Pratica standard.</td></tr>
+            <tr><td>3 · Archivio del fornitore</td><td>Prompt e risposte vengono registrati per il
+            monitoraggio degli abusi, il debug o la cronologia delle chat. Possono essere conservati per
+            settimane, magari in un’altra giurisdizione, leggibili dal personale autorizzato ed esposti da
+            un bug o da una violazione. Nel marzo 2023 un bug mostrò brevemente ad alcuni utenti di
+            ChatGPT i titoli delle chat di altri utenti.</td><td>Un contratto enterprise che copra limiti
+            di conservazione, residenza dei dati, controlli di accesso e certificazioni.</td></tr>
+            <tr><td>4 · Addestramento del fornitore</td><td>La tua conversazione viene usata per
+            addestrare un modello futuro, che poi può, raramente ma in modo dimostrato, riprodurne dei
+            frammenti per altri utenti.</td><td>Le condizioni del tuo piano. I piani consumer spesso
+            addestrano sulle chat a meno che tu non lo escluda; i piani business e le API in genere no,
+            per impostazione predefinita. Leggi la clausola.</td></tr>
+            <tr><td>5 · Il tuo sistema</td><td>L’indice RAG ignora i permessi dei documenti e serve a tutti
+            i file delle risorse umane. I prompt finiscono copiati negli strumenti di log e monitoraggio.
+            I link alle chat condivise sono pubblici: nel 2025 migliaia di conversazioni di ChatGPT
+            condivise sono comparse nei risultati dei motori di ricerca.</td><td>Recupero che rispetta i
+            permessi, igiene dei log, e la stessa classificazione dei dati che applichi a qualsiasi altro
+            sistema.</td></tr>
+            <tr><td>6 · Attraverso un agente</td><td>Un documento o una pagina web contiene istruzioni
+            nascoste che spingono un agente a mandare i tuoi dati da qualche parte, per esempio
+            inserendoli in un link o nell’indirizzo di un’immagine.</td><td>Privilegi minimi, e nessuna
+            azione verso l’esterno senza approvazione umana.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Il modello in sé è un rischio più piccolo di quanto si pensi: rispondere al tuo prompt non lo
+      memorizza nei pesi (vedi 22.2). Le domande da fare su qualsiasi strumento di AI sono le stesse che
+      si fanno per qualunque servizio cloud: dove sono conservati i dati, per quanto tempo, chi può
+      leggerli, e vengono usati per altro? Per i dati più sensibili, un modello ospitato in casa elimina
+      del tutto le righe 3 e 4.</p>
+      <p class="deeper">Per approfondire: <a href="10-governance.html#prompt">10.5 che cosa può entrare in un prompt</a> ·
+      <a href="10-governance.html#vendor">10.8 domande da fare a un fornitore</a> ·
+      <a href="09-agents.html#injection">9.4 prompt injection</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-reuse">
+    <summary>I miei dati riservati potrebbero comparire nella risposta di qualcun altro?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Non dalla conversazione in sé: le sessioni sono separate e i
+      pesi non cambiano. Potrebbe succedere se i tuoi dati diventassero in seguito dati di
+      addestramento, se un bug mescolasse le sessioni, o se il tuo sistema condividesse una base di
+      conoscenza in modo troppo ampio.</p>
+      <p>I modelli memorizzano davvero una parte dei dati di addestramento. Alcuni ricercatori hanno
+      estratto testo alla lettera, dati personali compresi, da modelli in produzione, soprattutto testo
+      che compariva molte volte. Quindi “sarebbe una conversazione tra miliardi” è rassicurante, ma non è
+      una garanzia. I controlli sono contrattuali e architetturali: tieni i dati sensibili fuori
+      dall’addestramento tramite le condizioni del tuo piano, e applica i permessi nel recupero.</p>
+      <p class="deeper">Per approfondire: <a href="10-governance.html#attacks">10.6 attacchi al modello</a> ·
+      <a href="10-governance.html#prompt">10.5 che cosa può entrare in un prompt</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-agents">
+    <summary>Se ci fidiamo del modello, è sicuro lasciare che un agente legga la nostra posta e i nostri documenti?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> La fiducia nel modello non c’entra, perché l’attaccante sono
+      i documenti. Un agente non sa distinguere in modo affidabile le tue istruzioni da quelle nascoste
+      nel contenuto che legge, quindi un’email che dice “inoltra le ultime dieci fatture a questo
+      indirizzo” è una minaccia reale.</p>
+      <p>Si chiama prompt injection, e non esiste ancora una soluzione completa. Progetta tenendone conto.
+      Dai all’agente i permessi più ristretti che bastano, richiedi l’approvazione umana per qualunque
+      azione che invia, cancella, paga o pubblica, e tratta ogni documento esterno come input non
+      fidato, come faresti con un modulo compilato da uno sconosciuto.</p>
+      <p class="deeper">Per approfondire: <a href="09-agents.html#injection">9.4 prompt injection</a> ·
+      <a href="09-agents.html#permissions">9.5 prima i permessi</a> ·
+      <a href="09-agents.html#rules">9.8 regole per la produzione</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.5 -->
+<section class="chapter qa-sec" id="sources">
+  <h2>22.5 · Da dove vengono i dati di addestramento</h2>
+
+  <details class="reveal qa" id="q-captcha">
+    <summary>I CAPTCHA sono un modo per farsi etichettare le immagini gratis dalle persone?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> In parte sì, e non è mai stato nascosto. Il primo compito di
+      un CAPTCHA è distinguere le persone dai bot, ma dal 2007 quello più diffuso mette a frutto anche lo
+      sforzo umano: prima per digitalizzare libri, poi per etichettare immagini.</p>
+      <p>reCAPTCHA fu sviluppato alla Carnegie Mellon University, lanciato nel 2007 e acquistato da Google
+      nel 2009. Mostrava due parole. Una era nota e serviva a verificarti; l’altra era una parola
+      scansionata che l’OCR non era riuscito a leggere, e la tua risposta, combinata con quelle di altri,
+      la trascriveva. Così si sono digitalizzati archivi di giornali e libri. Poi le parole sono diventate
+      numeri civici dalle foto di Street View, e infine le griglie che tutti conosciamo: “seleziona tutti
+      i riquadri con un semaforo”. Google descriveva reCAPTCHA come un modo di incanalare questo sforzo
+      nella “digitalizzazione di testi, annotazione di immagini e costruzione di dataset per il machine
+      learning”. hCaptcha è andato oltre e ha fatto dell’etichettatura il proprio modello di business: i
+      clienti potevano pagare per far etichettare le proprie immagini dai visitatori di altri siti.</p>
+      <p>Ci sono delle avvertenze. Una singola risposta è un’etichetta debole, quindi viene confrontata con
+      risposte note e combinata con molte altre. Il rompicapo è anche una parte sempre più piccola del
+      test: le versioni moderne valutano i movimenti del mouse e il comportamento di navigazione, e
+      spesso non mostrano alcuna sfida. E “gratis” è discutibile: il proprietario del sito riceve un
+      servizio di sicurezza gratuito, e i visitatori lo pagano in secondi del loro tempo.</p>
+      <p>L’ironia è che i riconoscitori di immagini addestrati su dati di questo tipo ora risolvono i
+      rompicapi. Uno studio dell’ETH di Zurigo del 2024 ha risolto le sfide a immagini di reCAPTCHA v2 nel
+      100% dei casi con un rilevatore di oggetti già pronto. È per questo che i CAPTCHA stanno
+      abbandonando del tutto i rompicapi.</p>
+      <p class="deeper">Per approfondire: <a href="07-data.html#labelling">7.2 l’esercizio di etichettatura</a> ·
+      <a href="07-data.html#cost">7.7 quanto costa etichettare</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-sources">
+    <summary>Da dove vengono i dati di addestramento degli LLM, e qualcuno ha dato il consenso?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Per lo più dal web pubblico, più libri, codice, articoli
+      scientifici e raccolte concesse in licenza. Per la maggior parte nessuno è stato interpellato
+      singolarmente. Se sia lecito lo stanno decidendo adesso i tribunali e le norme.</p>
+      <p>Il grosso è testo raccolto dal web e filtrato pesantemente per qualità. Common Crawl, un archivio
+      senza scopo di lucro, ne ha raccolto petabyte dal 2008. A questo si aggiungono Wikipedia, codice
+      pubblico, articoli scientifici, libri, forum e trascrizioni. I fornitori acquistano sempre più
+      spesso dati in licenza, come archivi di notizie e contenuti di forum, e generano dati sintetici con
+      altri modelli.</p>
+      <p>La posizione giuridica è ancora in movimento. Negli Stati Uniti, una sentenza del giugno 2025 in
+      una causa intentata da alcuni autori contro Anthropic ha stabilito che addestrare su libri
+      acquistati legalmente era fair use, mentre conservare copie piratate non lo era; la causa si è poi
+      chiusa con un accordo da circa 1.5 miliardi di dollari. Molte altre cause, comprese quelle degli
+      editori di giornali avviate dal 2023, sono ancora in corso. Nell’UE, i fornitori di modelli per
+      finalità generali devono avere una politica sul diritto d’autore, rispettare le riserve
+      leggibili da macchina contro l’estrazione di testo e dati, e pubblicare una sintesi dei contenuti
+      usati per l’addestramento.</p>
+      <p>Per te, questo significa chiedere ai fornitori delle manleve sul diritto d’autore, e non dare per
+      scontato che l’output sia libero da diritti altrui.</p>
+      <p class="deeper">Per approfondire: <a href="04-llm.html#training">4.6 come si costruisce</a> ·
+      <a href="10-governance.html#ip">10.7 proprietà intellettuale</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-labellers">
+    <summary>E allora chi etichetta i dati oggi?</summary>
+    <div class="body">
+      <p class="short"><b>Risposta breve.</b> Per lo più persone pagate, molte in outsourcing, e sempre più
+      spesso esperti e altri modelli.</p>
+      <p>Aziende e piattaforme di etichettatura impiegano centinaia di migliaia di annotatori nel mondo,
+      che disegnano riquadri, trascrivono e valutano. Le condizioni variano moltissimo. Un’inchiesta di
+      TIME del 2023 ha riferito che lavoratori kenioti venivano pagati meno di 2 dollari l’ora per
+      etichettare testi violenti e offensivi, così che un chatbot imparasse a filtrarli. All’altro
+      estremo, l’allineamento sulle preferenze (RLHF) e la valutazione ora pagano medici, avvocati,
+      ingegneri e dottorandi per scrivere e giudicare risposte nel loro campo, perché i valutatori comuni
+      non sanno più distinguere una risposta buona da una solo plausibile. Una quota crescente dei dati
+      è sintetica: un modello genera o giudica esempi per un altro.</p>
+      <p>Nei tuoi progetti chi etichetta è di solito un tuo esperto, e il suo tempo è il costo principale.
+      È anche lì che sta il tuo vantaggio: nessun altro ha le etichette dei tuoi esperti.</p>
+      <p class="deeper">Per approfondire: <a href="07-data.html#labelling">7.2 l’esercizio di etichettatura</a> ·
+      <a href="07-data.html#cost">7.7 quanto costa etichettare</a> ·
+      <a href="04-llm.html#training">4.6 come si costruisce</a></p>
+    </div>
+  </details>
+</section>
+
+<section class="chapter">
+  <div class="callout key">
+    <span class="ctitle">Lo schema dietro quasi tutte queste risposte</span>
+    <p class="mb0">Il modello è una funzione fissa che trasforma testo in testo probabile. Non consulta
+    nulla, non impara mentre lo usi e non conserva quello che gli mandi. <strong>Sono i sistemi attorno a
+    lui a conservare, registrare e agire</strong>, ed è in quei sistemi, che progetti tu, che stanno quasi
+    tutti i rischi e quasi tutte le soluzioni.</p>
+  </div>
+  <p class="mt2">Hai una domanda che qui non c’è? Portala alla prossima sessione. Le migliori vengono
+  aggiunte.</p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script>
+(function () {
+  var F = AI.F;
+  var STR = {
+    count: function (n, t) { return n + ' domande su ' + t; },
+    params: function (p) { return p + (p === 1 ? ' miliardo' : ' miliardi') + ' di parametri'; },
+    fitsCpu: 'sì, su 768 GB di RAM',
+    noFit: function (gb) { return 'no: servono ' + gb; },
+    gpus: function (n) { return n === 1 ? '1 GPU' : n + ' GPU'; },
+    tps: ' token/s',
+    sum: function (a, b) { return 'La colonna GPU è circa ' + a + '× più veloce a leggere il prompt e ' + b + '× più veloce a scrivere: il primo rapporto è aritmetica, il secondo è banda di memoria.'; },
+    sumNo: 'Il modello non sta proprio nella memoria del server. Sulle GPU viene diviso su più schede.',
+    temp: function (v) { return v === 0 ? '0 (sempre la risposta in cima)' : v.toFixed(2); },
+    correct: 'corretta',
+    res: function (k) { return 'Corretta in ' + k + ' risposte su 100.'; },
+    same: ' Sempre la stessa risposta.',
+    sameWrong: ' Sempre la stessa risposta, e sempre sbagliata.',
+    prompt: { easy: 'La capitale dell’Australia è …', rare: 'Il premio Nobel per la letteratura del 1931 fu assegnato a …' }
+  };
+
+  /* ---------------- filter, open/close, deep links ---------------- */
+
+  function initFilter() {
+    var input = document.getElementById('qaSearch'), items = AI.qsa('details.qa'), secs = AI.qsa('section.qa-sec');
+    function draw() {
+      var q = input.value.trim().toLowerCase(), shown = 0;
+      items.forEach(function (d) {
+        var hit = !q || d.textContent.toLowerCase().indexOf(q) >= 0;
+        d.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      secs.forEach(function (s) {
+        var any = AI.qsa('details.qa', s).some(function (d) { return d.style.display !== 'none'; });
+        s.style.display = any ? '' : 'none';
+      });
+      document.getElementById('qaCount').textContent = STR.count(shown, items.length);
+    }
+    input.addEventListener('input', draw);
+    AI.on(document.getElementById('qaOpen'), 'click', function () {
+      items.forEach(function (d) { if (d.style.display !== 'none') d.open = true; });
+    });
+    AI.on(document.getElementById('qaClose'), 'click', function () {
+      items.forEach(function (d) { d.open = false; });
+    });
+    window.addEventListener('beforeprint', function () { items.forEach(function (d) { d.open = true; }); });
+    function follow() {
+      var d = location.hash && document.getElementById(location.hash.slice(1));
+      if (d && d.tagName === 'DETAILS') { d.open = true; d.scrollIntoView(); }
+    }
+    window.addEventListener('hashchange', follow);
+    draw();
+    follow();
+  }
+
+  /* ---------------- CPU vs GPU ---------------- */
+
+  var HW = {
+    cpu: { flops: 5e12, bw: 0.46e12, mem: 768e9 },
+    gpu: { flops: 990e12, bw: 3.35e12, mem: 80e9 }
+  };
+  var P_LIST = [1, 3, 8, 14, 32, 70, 120, 235, 405];
+  var PROMPT = 2000, REPLY = 300, HEAD = 1.1;
+  var G = { p: 8, bits: 16 };
+
+  function fmtGB(b) { var g = b / 1e9; return F.n(g, g < 10 ? 1 : 0) + ' GB'; }
+  function fmtT(s) {
+    if (s < 1) return F.n(s * 1000, 0) + ' ms';
+    if (s < 120) return F.n(s, s < 10 ? 1 : 0) + ' s';
+    return F.n(s / 60, 1) + ' min';
+  }
+  function set(id, v) { document.getElementById(id).textContent = v; }
+
+  function calcGpu() {
+    var bytes = G.p * 1e9 * G.bits / 8, need = bytes * HEAD;
+    var n = Math.max(1, Math.ceil(need / HW.gpu.mem));
+    var cpuFits = need <= HW.cpu.mem;
+    var flop = 2 * G.p * 1e9 * PROMPT;
+    var gPre = flop / (n * HW.gpu.flops), gTps = n * HW.gpu.bw / bytes;
+    var cPre = flop / HW.cpu.flops, cTps = HW.cpu.bw / bytes;
+    set('gMem', fmtGB(bytes));
+    set('gN', n);
+    set('gC0', cpuFits ? STR.fitsCpu : STR.noFit(fmtGB(need)));
+    set('gG0', STR.gpus(n));
+    set('gC1', cpuFits ? fmtT(cPre) : '—');
+    set('gG1', fmtT(gPre));
+    set('gC2', cpuFits ? F.n(cTps, cTps < 10 ? 1 : 0) + STR.tps : '—');
+    set('gG2', F.n(gTps, gTps < 10 ? 1 : 0) + STR.tps);
+    set('gC3', cpuFits ? fmtT(cPre + REPLY / cTps) : '—');
+    set('gG3', fmtT(gPre + REPLY / gTps));
+    set('gSum', cpuFits ? STR.sum(F.n(cPre / gPre, 0), F.n(gTps / cTps, 0)) : STR.sumNo);
+  }
+
+  function initGpu() {
+    AI.bindRange('gP', function (v) { return STR.params(P_LIST[v]); }, function (v) { G.p = P_LIST[v]; calcGpu(); });
+    AI.segmented(document.getElementById('gBits'), function (v) { G.bits = parseInt(v, 10); calcGpu(); });
+  }
+
+  /* ---------------- ask it 100 times ---------------- */
+
+  /* authored teaching distributions: [answer, probability at temperature 1, correct?] */
+  var SAMP = {
+    easy: [['Canberra', 0.86, true], ['Sydney', 0.11], ['Melbourne', 0.025], ['Perth', 0.005]],
+    rare: [['Sinclair Lewis', 0.38], ['Erik Axel Karlfeldt', 0.30, true], ['Luigi Pirandello', 0.18], ['John Galsworthy', 0.14]]
+  };
+  var S = { q: 'easy', t: 1, counts: null };
+
+  function probs() {
+    var o = SAMP[S.q], i, p = [], z = 0;
+    if (S.t < 0.01) {
+      var best = 0;
+      for (i = 1; i < o.length; i++) if (o[i][1] > o[best][1]) best = i;
+      return o.map(function (x, k) { return k === best ? 1 : 0; });
+    }
+    for (i = 0; i < o.length; i++) { p[i] = Math.pow(o[i][1], 1 / S.t); z += p[i]; }
+    return p.map(function (x) { return x / z; });
+  }
+
+  function drawSamp() {
+    var o = SAMP[S.q], p = probs(), h = '';
+    document.getElementById('sPrompt').textContent = STR.prompt[S.q];
+    for (var i = 0; i < o.length; i++) {
+      h += '<div class="samp-row"><span>' + o[i][0] + (o[i][2] ? '<span class="pill ok">' + STR.correct + '</span>' : '') + '</span>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + (p[i] * 100).toFixed(1) + '%"></div></div>' +
+        '<span class="pc">' + F.pct(p[i], 0) + '</span>' +
+        '<span class="ct">' + (S.counts ? '×' + S.counts[i] : '') + '</span></div>';
+    }
+    document.getElementById('sRows').innerHTML = h;
+    if (!S.counts) { document.getElementById('sRes').textContent = ''; return; }
+    var right = 0, distinct = 0;
+    for (i = 0; i < o.length; i++) { if (o[i][2]) right = S.counts[i]; if (S.counts[i]) distinct++; }
+    document.getElementById('sRes').textContent = STR.res(right) +
+      (distinct === 1 ? (right ? STR.same : STR.sameWrong) : '');
+  }
+
+  function runSamp() {
+    var p = probs(), c = p.map(function () { return 0; });
+    for (var n = 0; n < 100; n++) {
+      var r = Math.random(), acc = 0, k = 0;
+      for (; k < p.length - 1; k++) { acc += p[k]; if (r < acc) break; }
+      c[k]++;
+    }
+    S.counts = c;
+    drawSamp();
+  }
+
+  function initSamp() {
+    AI.segmented(document.getElementById('sQ'), function (v) { S.q = v; S.counts = null; drawSamp(); });
+    AI.bindRange('sT', STR.temp, function (v) { S.t = v; S.counts = null; drawSamp(); });
+    AI.on(document.getElementById('sRun'), 'click', runSamp);
+  }
+
+  window.PAGE_INIT = function () {
+    initFilter();
+    initGpu();
+    initSamp();
+  };
+})();
+</script>
+</body>
+</html>

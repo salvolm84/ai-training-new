@@ -8,7 +8,8 @@
     { k: 'I',   name: 'Foundations',       note: 'How it works' },
     { k: 'II',  name: 'Engineering it',    note: 'How you build and prove it' },
     { k: 'III', name: 'Applying it',       note: 'How it lands in the organisation' },
-    { k: 'IV',  name: 'Shipping it',       note: 'How it gets into a product and stays safe' }
+    { k: 'IV',  name: 'Shipping it',       note: 'How it gets into a product and stays safe' },
+    { k: 'Q&A', name: 'Questions',         note: 'What people ask afterwards' }
   ];
 
   /* page language: English pages sit at the root, Italian copies with the same file names in it/ */
@@ -44,7 +45,9 @@
     { id: 'p18', n: '18', file: '18-adaptation.html', short: 'Adapting models',  title: 'Adapting models: fine-tuning, LoRA, distillation', part: 3, mins: 45, upd: '2026-10-06' },
     { id: 'p19', n: '19', file: '19-deployment.html', short: 'Deployment',       title: 'Deploying and running models', part: 3, mins: 45, upd: '2026-10-06' },
     { id: 'p20', n: '20', file: '20-safety.html',     short: 'Vehicle safety',   title: 'AI in safety-critical vehicle systems', part: 3, mins: 50, upd: '2026-10-06' },
-    { id: 'p21', n: '21', file: '21-capstone.html',   short: 'Capstone',         title: 'Capstone: your own use case', part: 3, mins: 75, upd: '2026-10-06' }
+    { id: 'p21', n: '21', file: '21-capstone.html',   short: 'Capstone',         title: 'Capstone: your own use case', part: 3, mins: 75, upd: '2026-10-06' },
+
+    { id: 'p22', n: '22', file: '22-qa.html',         short: 'Q&A',              title: 'Questions people actually ask', part: 4, mins: 30, upd: '2026-10-20' }
   ];
 
   /* Italian part and page names, by part index and page id */
@@ -52,7 +55,8 @@
     { name: 'Fondamenti',             note: 'Come funziona' },
     { name: 'Progettarla',            note: 'Come costruirla e dimostrare che funziona' },
     { name: 'Applicarla',             note: 'Come entra nell’organizzazione' },
-    { name: 'Portarla in produzione', note: 'Come arriva in un prodotto e resta sicura' }
+    { name: 'Portarla in produzione', note: 'Come arriva in un prodotto e resta sicura' },
+    { name: 'Domande',                note: 'Quello che si chiede dopo' }
   ];
   var PAGES_IT = {
     index: { short: 'Panoramica',          title: 'Panoramica del corso' },
@@ -76,7 +80,8 @@
     p18: { short: 'Adattare i modelli',    title: 'Adattare i modelli: fine-tuning, LoRA, distillazione' },
     p19: { short: 'Deployment',            title: 'Rilasciare e gestire i modelli' },
     p20: { short: 'Sicurezza veicolo',     title: 'L’AI nei sistemi del veicolo critici per la sicurezza' },
-    p21: { short: 'Progetto finale',       title: 'Progetto finale: il tuo caso d’uso' }
+    p21: { short: 'Progetto finale',       title: 'Progetto finale: il tuo caso d’uso' },
+    p22: { short: 'Domande e risposte',    title: 'Le domande che si fanno davvero' }
   };
   if (LANG === 'it') {
     PARTS.forEach(function (p, i) { p.name = PARTS_IT[i].name; p.note = PARTS_IT[i].note; });

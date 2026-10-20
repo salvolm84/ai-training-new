@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Salvatore La Malfa">
+<title>22 · Questions people actually ask — AI Foundations</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  /* ---- filter ---- */
+  .qa-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .qa-bar input[type=text] { max-width: 320px; }
+
+  /* ---- questions ---- */
+  details.qa { scroll-margin-top: 80px; }
+  details.qa .body .short { font-size: 1.02rem; }
+  details.qa .deeper { font-size: .84rem; color: var(--ink-3); border-top: 1px solid var(--line-2); padding-top: .7em; }
+  details.qa .lab { margin: 1.2rem 0; }
+  details.qa table td:first-child { font-weight: 600; white-space: nowrap; }
+  @media (max-width: 700px) { details.qa table td:first-child { white-space: normal; } }
+
+  /* ---- sampling demo ---- */
+  .samp-prompt { font-family: var(--mono); font-size: .92rem; background: var(--bg-3); padding: 9px 12px; border-radius: 8px; }
+  .samp-row { display: grid; grid-template-columns: 190px minmax(0,1fr) 52px 48px; gap: 10px; align-items: center;
+    font-size: .88rem; padding: 4px 0; }
+  .samp-row .pc, .samp-row .ct { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .samp-row .ct { color: var(--accent); font-weight: 700; }
+  .samp-row .pill { margin-left: 6px; font-size: .7rem; padding: 1px 7px; }
+  @media (max-width: 600px) { .samp-row { grid-template-columns: 120px minmax(0,1fr) 44px 40px; } }
+
+  @media print { details.qa .body { display: block; } }
+</style>
+</head>
+<body data-page="p22">
+
+<header class="pagehead wrap">
+  <span class="eyebrow">Module 22 · Questions and answers</span>
+  <h1>Questions people actually ask</h1>
+  <p class="lead">The questions that come up at the end of every session, answered in plain language.
+  Each one has a short answer, a longer one, and a link to the module that covers it properly.</p>
+</header>
+
+<main class="wrap">
+
+<section class="chapter" id="find">
+  <div class="qa-bar">
+    <input type="text" id="qaSearch" placeholder="Filter, e.g. “GPU”, “data”, “labelling”…" autocomplete="off">
+    <button class="btn sm" id="qaOpen">Open all</button>
+    <button class="btn sm" id="qaClose">Close all</button>
+    <span class="small muted" id="qaCount"></span>
+  </div>
+
+  <div class="note">
+    <ul>
+      <li>Use this module as a parking lot. When a question comes up mid-session that belongs here, say
+      so, carry on, and come back at the end. Every question has its own address
+      (<code>22-qa.html#q-gpu</code>, for example) that you can send afterwards.</li>
+      <li>Three come up in every room: where data leaks, why there is no guarantee, and why the model
+      does not learn from you. Have the “ask it 100 times” demo ready: put the rare fact at temperature
+      0 and let the room see that consistent and correct are different things.</li>
+      <li>The CAPTCHA question gets a laugh. Use it to land the real point: labelled data is valuable
+      enough that people build whole products to collect it.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ====================================================== 22.1 -->
+<section class="chapter qa-sec" id="history">
+  <h2>22.1 · History and hardware</h2>
+
+  <details class="reveal qa" id="q-deepblue">
+    <summary>Deep Blue beat Kasparov in 1997 and AlphaGo beat Lee Sedol in 2016. What actually changed?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> People told Deep Blue how to judge a chess position, and it
+      won by searching faster than anyone. AlphaGo learned how to judge a Go position, from human games
+      and then from playing itself, and it searched far less.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th></th><th>Deep Blue (IBM, 1997)</th><th>AlphaGo (DeepMind, 2016)</th></tr></thead>
+          <tbody>
+            <tr><td>The game</td><td>Chess: about 35 legal moves per turn.</td><td>Go: about 250 legal moves per turn, and more legal positions than atoms in the observable universe.</td></tr>
+            <tr><td>Judging a position</td><td>An evaluation function with thousands of features, written and tuned by programmers working with grandmasters.</td><td>Learned by two neural networks. A <i>policy</i> network suggests moves worth considering; it was trained on about 30 million positions from human games, then improved by self-play. A <i>value</i> network estimates who is winning.</td></tr>
+            <tr><td>Search</td><td>Brute force: about 200 million positions a second on 480 custom chess chips.</td><td>Monte Carlo tree search guided by the networks. It evaluates thousands of times fewer positions than Deep Blue did.</td></tr>
+            <tr><td>Learning</td><td>Essentially none. Its knowledge is what people put in.</td><td>Nearly everything. Its successor, AlphaGo Zero (2017), used no human games at all and beat it 100–0.</td></tr>
+            <tr><td>Generality</td><td>Chess only.</td><td>The method transferred: AlphaZero (2017) learned chess, shogi and Go with one algorithm.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Why this matters at work: Deep Blue is the rule-based approach from module 1.3, scaled up. It
+      is auditable, but only as good as its experts' rules. AlphaGo is the learned approach. It found
+      moves that no expert would have written down as a rule, such as the famous move 37 in game two, and
+      nobody can fully explain those moves either. Brute force worked for chess because chess is small
+      enough. It fails for Go, and for most real problems.</p>
+      <p class="deeper">Go deeper: <a href="01-history.html#timeline">1.2 timeline</a> ·
+      <a href="01-history.html#paradigms">1.3 three ways to solve a problem</a> ·
+      <a href="06-classical.html#rl">6.7 reinforcement learning</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-gpu">
+    <summary>Why does AI need GPUs? What is wrong with a normal CPU?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Nothing is wrong with a CPU; it is built for a different job.
+      A CPU has a few dozen very capable cores that run complicated, branching code one step after
+      another. A neural network is almost entirely one simple operation, multiply and add, repeated
+      billions of times with no branching. A GPU's thousands of simpler cores do exactly that, in
+      parallel.</p>
+      <p>Two numbers decide it:</p>
+      <ul>
+        <li><b>Arithmetic.</b> A datacenter GPU does roughly 200 times as many multiply-adds per second as
+        a top server CPU. Much of that comes from tensor cores, circuits that do a small matrix
+        multiplication in a single step.</li>
+        <li><b>Memory bandwidth.</b> To write each token of a reply, an LLM has to read every one of its
+        weights from memory. GPU memory (HBM) moves 3–8 TB per second, roughly seven to twenty times what
+        a CPU's memory system manages. For generating text, bandwidth rather than arithmetic is usually
+        the limit.</li>
+      </ul>
+      <p>GPUs were designed to draw video-game triangles, which turns out to be the same mathematics.
+      AlexNet's 2012 breakthrough ran on two gaming cards. Purpose-built AI chips, such as Google's TPUs,
+      push the idea further by dropping everything a neural network does not need.</p>
+
+      <div class="lab">
+        <div class="lab-head"><h3>CPU or GPU: running one LLM</h3><span class="tag try">Move the slider</span></div>
+        <div class="grid g2" style="gap:14px">
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Model size</span><span class="val" id="gPOut"></span></div>
+            <input type="range" id="gP" min="0" max="8" step="1" value="2">
+          </div>
+          <div class="ctrl mb0">
+            <div class="ctrl-label"><span>Precision of each weight</span></div>
+            <div class="segmented" id="gBits">
+              <button data-v="16" class="on">16-bit</button>
+              <button data-v="8">8-bit</button>
+              <button data-v="4">4-bit</button>
+            </div>
+          </div>
+        </div>
+        <div class="readout mt1">
+          <div class="stat hl"><span class="k">weights to hold</span><span class="v" id="gMem">—</span><span class="u">in memory, plus about 10% working space</span></div>
+          <div class="stat"><span class="k">GPUs needed</span><span class="v" id="gN">—</span><span class="u">at 80 GB each</span></div>
+        </div>
+        <div class="tablewrap mt1">
+          <table>
+            <thead><tr><th></th><th>Server CPU</th><th>Datacenter GPU</th></tr></thead>
+            <tbody>
+              <tr><td>Fits in memory?</td><td id="gC0">—</td><td id="gG0">—</td></tr>
+              <tr><td>Read a 2,000-token prompt</td><td id="gC1">—</td><td id="gG1">—</td></tr>
+              <tr><td>Write the reply</td><td id="gC2">—</td><td id="gG2">—</td></tr>
+              <tr><td>A 300-token answer, in total</td><td id="gC3">—</td><td id="gG3">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small mb0 mt1" id="gSum"></p>
+        <p class="srcnote">These are upper bounds from peak specifications and two simple rules. Reading
+        the prompt costs about 2 FLOPs per parameter per token. Writing each token means reading every
+        weight once, so tokens per second can be no more than memory bandwidth divided by model size.
+        Server CPU: one high-end part, about 5 TFLOP/s and 0.46 TB/s (12-channel DDR5), with 768 GB of
+        RAM. GPU: H100-class, about 990 TFLOP/s dense BF16 and 3.35 TB/s, with 80 GB per card. A model
+        too big for one card is split across several, which multiplies both figures. Real systems
+        reach roughly half these bounds, so read the ratio between the columns rather than the absolute
+        numbers.</p>
+      </div>
+
+      <p>The calculator leaves out two things. First, a GPU serves many users at once: it reads the
+      weights once and uses them for a whole batch of requests, which multiplies throughput again.
+      Second, CPUs still run a great deal of AI: classical machine learning (the trees in module 6),
+      small models on embedded hardware, and all the code around every model.</p>
+      <p class="deeper">Go deeper: <a href="05-cost.html#flops">5.1 the unit of work</a> ·
+      <a href="05-cost.html#hardware">5.5 the physical machine</a> ·
+      <a href="19-deployment.html#quantise">19.4 quantisation</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-local">
+    <summary>Can we just run a model on our own laptop or server?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Yes, and for some jobs it is the right answer. The cost is
+      lower quality than the best hosted models, and running it becomes your job.</p>
+      <p>You can download open-weight models (Llama, Mistral, Qwen, Gemma, gpt-oss and others) and run
+      them without any data leaving the building. Quantised to 4 bits, an 8-billion-parameter model
+      needs about 5 GB and runs on a recent laptop. The calculator above shows why bigger models need
+      servers.</p>
+      <p><b>What you give up:</b> the largest open models need several GPUs, and the smaller ones are
+      noticeably weaker at hard reasoning. Updates, security patches, monitoring and evaluation become
+      yours. <b>What you gain:</b> the data never leaves, the cost is fixed, the model never changes
+      under you, and it works offline.</p>
+      <p>The typical good fit is a sensitive, narrow, high-volume task, such as classification,
+      extraction or search over internal documents, where a small model passes your evaluation set.
+      Build that evaluation set first.</p>
+      <p class="deeper">Go deeper: <a href="05-cost.html#buy">5.8 buy or build</a> ·
+      <a href="18-adaptation.html#distil">18.5 distillation</a> ·
+      <a href="19-deployment.html#quantise">19.4 making it fit</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.2 -->
+<section class="chapter qa-sec" id="learning">
+  <h2>22.2 · How a model learns, and why it stops</h2>
+
+  <details class="reveal qa" id="q-selftrain">
+    <summary>Why doesn't an LLM learn from what I tell it? Why can't it train itself on my prompts and documents?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Using a model and training it are two different operations.
+      When you chat, the weights are frozen and the model only reads. Changing it would mean computing
+      gradients and updating billions of shared numbers, which is expensive, slow and dangerous to do
+      live.</p>
+      <p>What looks like learning within a chat is <i>in-context learning</i>: your text sits in the
+      context window and shapes the answer. The effect is real but temporary. Close the conversation, or
+      overflow the window, and nothing of it remains in the model.</p>
+      <p>Providers do not update the weights live, for five reasons:</p>
+      <ul>
+        <li><b>Cost.</b> A training step costs about three times as much computation as answering (a
+        forward and a backward pass) and needs far more memory. Doing that for every message from
+        millions of users is not affordable.</li>
+        <li><b>Everyone shares one model.</b> The same weights serve every customer. If the model learned
+        from your prompts, it would learn from everyone else's too, mistakes and confidential data
+        included, and those would then surface in your answers.</li>
+        <li><b>Poisoning.</b> In 2016 Microsoft's Tay chatbot learned from Twitter users. Within about 16
+        hours they had taught it to post abuse, and it was taken offline. A model that learns from its
+        users is an open door to deliberate manipulation.</li>
+        <li><b>Forgetting and regressions.</b> Training on a narrow stream of data damages what the model
+        already knew (catastrophic forgetting), and every change has to be re-tested before release.</li>
+        <li><b>Accountability.</b> A model that changes every minute cannot be versioned, evaluated or
+        audited.</li>
+      </ul>
+      <p>What does happen is slower. Providers may later use conversations offline, filtered and mixed
+      into the next training run, if your plan's terms allow it (see 22.4). That is a deliberate release
+      cycle measured in months, not learning on the fly. If you want the model to know your documents,
+      give them to it at question time; that is what RAG does.</p>
+      <p class="deeper">Go deeper: <a href="04-llm.html#training">4.6 how one gets built</a> ·
+      <a href="04-llm.html#context">4.7 context</a> ·
+      <a href="18-adaptation.html#forgetting">18.3 catastrophic forgetting</a> ·
+      <a href="19-deployment.html#versioning">19.2 versioning</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-memory">
+    <summary>But my assistant remembers things from last week. Isn't that learning?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> No, it is note-taking. The assistant saves short notes or
+      past conversations in a database and pastes the relevant ones into the context of a new chat. The
+      model's weights do not change.</p>
+      <p>It is RAG applied to your own history, and that has three consequences. You can view, edit and
+      delete memories, which you cannot do with anything in the weights. They take up room in the
+      context window. And they are stored data, so they raise the same retention and confidentiality
+      questions as anything else you send.</p>
+      <p class="deeper">Go deeper: <a href="04-llm.html#context">4.7 context</a> ·
+      <a href="04-llm.html#rag">4.8 RAG</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-finetune">
+    <summary>If we fine-tune a model on our documents, will it know our facts?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Not reliably. Fine-tuning is good at changing behaviour, such as
+      tone, format, jargon or a narrow task, and poor at storing facts. For facts, retrieve the document
+      and let the model quote it.</p>
+      <p>A fine-tuned model absorbs facts as vague tendencies, not as records. It may blend old and new
+      versions, it cannot tell you where a fact came from, and you cannot delete a single fact when a
+      standard is revised. Research has also found that fine-tuning a model on facts it did not
+      already know can make it hallucinate more. Retrieval, by contrast, keeps the knowledge in a database
+      you control, updates instantly and can cite its sources.</p>
+      <p class="deeper">Go deeper: <a href="18-adaptation.html#ladder">18.1 the adaptation ladder</a> ·
+      <a href="18-adaptation.html#choose">18.6 decision calculator</a> ·
+      <a href="18-adaptation.html#wrong">18.7 when fine-tuning is wrong</a> ·
+      <a href="04-llm.html#rag">4.8 RAG</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-letters">
+    <summary>Why can it write working code but miscount the letters in a word?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> It never sees letters. Text reaches the model as tokens,
+      chunks of a few characters each, so “how many r's are in strawberry?” asks about something below
+      its resolution. Code, on the other hand, is plentiful and regular, and full of patterns the model
+      has seen millions of times.</p>
+      <p>Arithmetic has the same problem: numbers are split into tokens in arbitrary chunks (“12345”
+      might become “123” and “45”), so the model does long multiplication by pattern rather than by
+      algorithm. Modern models, especially reasoning models, do much better than they used to, but the
+      reliable fix is a tool: let the model write and run code, or call a calculator. The general rule
+      is that when a task has an exact procedure, the model should call the procedure, not imitate
+      it.</p>
+      <p class="deeper">Go deeper: <a href="04-llm.html#tokens">4.1 tokens</a> ·
+      <a href="09-agents.html#anatomy">9.2 how a tool call works</a> ·
+      <a href="12-prompting.html#techniques">12.3 techniques</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.3 -->
+<section class="chapter qa-sec" id="reliability">
+  <h2>22.3 · Reliability</h2>
+
+  <details class="reveal qa" id="q-guarantee">
+    <summary>Why can I never get a 100% guarantee that an LLM's answer is correct?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Because the model is not looking anything up. It generates the
+      most plausible continuation, token by token, from probabilities learned from text. Plausible and
+      true usually coincide, which is why the model is useful, but nothing in the mechanism forces them
+      to.</p>
+      <ul>
+        <li><b>It samples.</b> Each token is drawn from a probability distribution, so a 10% chance of a
+        wrong word is a 10% chance of a wrong answer. Try it below.</li>
+        <li><b>The most likely answer can itself be wrong.</b> For rare facts, the training data may
+        contain the wrong answer more often than the right one, or the right one too rarely to stick.
+        Turning the randomness off (temperature 0) then makes the model consistently wrong.</li>
+        <li><b>There is no specification to check against.</b> A calculator can be proven correct because
+        “addition” has a definition. “A correct answer to any question in English” has none, and the
+        space of possible inputs is infinite, so it cannot be tested exhaustively.</li>
+        <li><b>Errors compound.</b> A step that is 99% reliable, repeated 50 times, gives a fully correct
+        result only about 60% of the time.</li>
+      </ul>
+
+      <div class="lab">
+        <div class="lab-head"><h3>Ask it 100 times</h3><span class="tag try">Pick a question, set the temperature</span></div>
+        <div class="btnrow">
+          <div class="segmented" id="sQ">
+            <button data-v="easy" class="on">A well-known fact</button>
+            <button data-v="rare">A rare fact</button>
+          </div>
+        </div>
+        <p class="samp-prompt" id="sPrompt"></p>
+        <div class="ctrl">
+          <div class="ctrl-label"><span>Temperature</span><span class="val" id="sTOut"></span></div>
+          <input type="range" id="sT" min="0" max="1.5" step="0.05" value="1">
+        </div>
+        <div id="sRows"></div>
+        <div class="btnrow">
+          <button class="btn sm primary" id="sRun">Ask 100 times</button>
+          <span class="small" id="sRes"></span>
+        </div>
+        <p class="srcnote">The probabilities are authored for teaching, not measured from any particular
+        model; the sampling is live. Temperature reshapes them: below 1 the favourite gains, above 1 the
+        outsiders do, and at 0 the model always takes the top answer. The 1931 Nobel Prize in Literature
+        went to Erik Axel Karlfeldt, posthumously. Sinclair Lewis won in 1930, John Galsworthy in 1932
+        and Luigi Pirandello in 1934. A model's near misses tend to be neighbours of the truth, which is
+        what makes them convincing.</p>
+      </div>
+
+      <p>What you can do is make errors rare, visible and cheap. Ground the answer in retrieved documents
+      and require citations. Use tools for exact work. Constrain the output format. Evaluate on your own
+      cases so you know the error rate. And keep a human on any consequential decision. Human experts
+      give no guarantee either; the difference is that we know how humans fail, and we are still learning
+      how models do.</p>
+      <p class="deeper">Go deeper: <a href="04-llm.html#predict">4.3 next-token prediction</a> ·
+      <a href="04-llm.html#fail">4.11 failure modes</a> ·
+      <a href="14-limits.html#reliability">14.2 the reliability wall</a> ·
+      <a href="08-evaluation.html#llmeval">8.7 evaluating an LLM system</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-twice">
+    <summary>Why do I get a different answer when I ask the same question twice?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Because the model samples (see above), and because even the
+      “deterministic” setting is not perfectly deterministic on GPUs.</p>
+      <p>Temperature controls the randomness. Chat products set it above zero on purpose, because varied
+      wording reads better and gives you alternatives. Even at temperature 0, two runs can differ. The
+      GPU adds numbers in an order that depends on how many other requests share the batch, and
+      floating-point addition is not exactly associative. A tiny difference can flip one token, and the
+      rest of the answer diverges from there. Providers also update models behind the same name.</p>
+      <p>In practice, use the lowest temperature and a pinned model version for extraction,
+      classification and code. For anything you may need to reproduce, log the full prompt, the model
+      version and the output. And treat disagreement between two runs as useful information: if the
+      answers differ in substance, the model is not sure.</p>
+      <p class="deeper">Go deeper: <a href="04-llm.html#predict">4.3 next-token prediction</a> ·
+      <a href="19-deployment.html#versioning">19.2 version everything</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-confidence">
+    <summary>Can't I just ask the model how sure it is?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> You can ask, but the number it gives you is generated text like
+      everything else. It sounds calibrated and often is not.</p>
+      <p>Better signals, from strongest to weakest:</p>
+      <ol>
+        <li><b>Check the answer against the source:</b> retrieval with citations that you actually open.</li>
+        <li><b>Ask several times, or ask several models, and look at agreement.</b> Disagreement is a
+        reliable warning. Agreement is not proof, because models share blind spots.</li>
+        <li><b>Calibrate the probabilities.</b> For a classification task with a fixed set of answers, the
+        model's token probabilities can be calibrated on your own data, like any other classifier's.</li>
+        <li><b>Its own words.</b> A stated “I am 95% confident” is the weakest signal of all.</li>
+      </ol>
+      <p class="deeper">Go deeper: <a href="08-evaluation.html#calibration">8.4 are the probabilities real?</a> ·
+      <a href="16-uncertainty.html#kinds">16.1 two kinds of not knowing</a> ·
+      <a href="16-uncertainty.html#traps">16.6 common traps</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-errorrate">
+    <summary>If it's wrong 5% of the time, isn't it useless?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> That depends on three numbers you can measure: what an error
+      costs, what checking costs, and how often the current process, usually a person, gets it
+      wrong.</p>
+      <p>A draft that is right 95% of the time and takes 30 seconds to check can beat a person writing
+      from scratch for 20 minutes, provided someone really does check it. The same 5% is unacceptable
+      where errors are silent and expensive and nobody reviews them. The bigger danger is not the error
+      rate but automation bias: after a week of good answers, reviewers stop looking. Design the
+      workflow so that checking is easy and skipped checks are visible.</p>
+      <p class="deeper">Go deeper: <a href="08-evaluation.html#cost">8.2 the threshold is a business decision</a> ·
+      <a href="08-evaluation.html#baselines">8.5 what you have to beat</a> ·
+      <a href="13-human.html#bias">13.1 the automation-bias experiment</a> ·
+      <a href="13-human.html#review">13.3 reviewing output</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.4 -->
+<section class="chapter qa-sec" id="yourdata">
+  <h2>22.4 · Your data</h2>
+
+  <details class="reveal qa" id="q-leak">
+    <summary>If I send sensitive information to an LLM, where exactly can it leak?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Rarely in transit, and rarely from the model itself. The
+      realistic leak points are wherever the data is stored and whoever can read it: the provider's logs
+      and training pipeline, your own systems around the model, and the people and tools that send
+      it.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Where</th><th>What can go wrong</th><th>What controls it</th></tr></thead>
+          <tbody>
+            <tr><td>1 · Before it leaves you</td><td>Someone pastes it into a personal account, an unapproved
+            tool or a browser extension. In 2023 Samsung engineers pasted confidential source code into a
+            public chatbot, and the company restricted its use afterwards.</td><td>Approved tools that are
+            easier to use than the unapproved ones, and clear rules on what may go in.</td></tr>
+            <tr><td>2 · In transit</td><td>Interception. Traffic is encrypted (TLS), so this is rarely the
+            weak point.</td><td>Standard practice.</td></tr>
+            <tr><td>3 · Provider storage</td><td>Prompts and replies are logged for abuse monitoring,
+            debugging or chat history. They may be kept for weeks, possibly in another jurisdiction,
+            readable by authorised staff, and exposed by a bug or a breach. In March 2023 a bug briefly
+            showed some ChatGPT users the titles of other users' chats.</td><td>An enterprise contract
+            covering retention limits, data residency, access controls and certifications.</td></tr>
+            <tr><td>4 · Provider training</td><td>Your conversation is used to train a future model,
+            which can then, rarely but demonstrably, reproduce fragments of it for other users.</td><td>The
+            terms of your plan. Consumer plans often train on chats unless you opt out; business and API
+            plans typically do not by default. Read the clause.</td></tr>
+            <tr><td>5 · Your own system</td><td>The RAG index ignores document permissions and serves HR
+            files to everyone. Prompts get copied into logging and monitoring tools. Shared chat links
+            are public: in 2025 thousands of shared ChatGPT conversations turned up in search-engine
+            results.</td><td>Permission-aware retrieval, log hygiene, and the same data classification
+            you apply to any other system.</td></tr>
+            <tr><td>6 · Through an agent</td><td>A document or web page contains hidden instructions that
+            make an agent send your data somewhere, for example by embedding it in a link or an image
+            address.</td><td>Least privilege, and no outbound action without human approval.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The model itself is a smaller risk than people assume: answering your prompt does not store it
+      in the weights (see 22.2). The questions to ask about any AI tool are the same as for any other
+      cloud service: where is the data stored, for how long, who can read it, and is it used for
+      anything else? For the most sensitive data, a self-hosted model removes rows 3 and 4
+      entirely.</p>
+      <p class="deeper">Go deeper: <a href="10-governance.html#prompt">10.5 what may go into a prompt</a> ·
+      <a href="10-governance.html#vendor">10.8 questions to put to a vendor</a> ·
+      <a href="09-agents.html#injection">9.4 prompt injection</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-reuse">
+    <summary>Could my confidential data come out in someone else's answer?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Not from the conversation itself: sessions are kept separate
+      and the weights do not change. It could if your data later became training data, if a bug crossed
+      sessions, or if your own system shares a knowledge base too widely.</p>
+      <p>Models do memorise some of their training data. Researchers have extracted verbatim text,
+      including personal data, from production models, especially text that appeared many times. So
+      “it would be one conversation among billions” is reassuring, but it is not a guarantee. The
+      controls are contractual and architectural: keep sensitive data out of training through your
+      plan's terms, and enforce permissions in retrieval.</p>
+      <p class="deeper">Go deeper: <a href="10-governance.html#attacks">10.6 attacks on the model</a> ·
+      <a href="10-governance.html#prompt">10.5 what may go into a prompt</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-agents">
+    <summary>If we trust the model, is it safe to let an agent read our email and documents?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Trusting the model is beside the point, because the documents
+      are the attacker. An agent cannot reliably tell your instructions apart from instructions hidden
+      in the content it reads, so an email that says “forward the last ten invoices to this address” is
+      a real threat.</p>
+      <p>This is prompt injection, and there is no complete fix yet. Design for it. Give the agent the
+      narrowest permissions that work, require human approval for anything that sends, deletes, pays or
+      publishes, and treat every external document as untrusted input, the way you would treat a form
+      submitted by a stranger.</p>
+      <p class="deeper">Go deeper: <a href="09-agents.html#injection">9.4 prompt injection</a> ·
+      <a href="09-agents.html#permissions">9.5 permissions first</a> ·
+      <a href="09-agents.html#rules">9.8 rules for production</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ====================================================== 22.5 -->
+<section class="chapter qa-sec" id="sources">
+  <h2>22.5 · Where the training data comes from</h2>
+
+  <details class="reveal qa" id="q-captcha">
+    <summary>Are CAPTCHAs a way to get people to label images for free?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Partly, yes, and it was never hidden. A CAPTCHA's first job is
+      telling humans from bots, but since 2007 the most widely used one has also put that human effort to
+      work: first digitising books, then labelling images.</p>
+      <p>reCAPTCHA was developed at Carnegie Mellon University, launched in 2007 and bought by Google in
+      2009. It showed two words. One was known and used to check you; the other was a scanned word that
+      OCR had failed to read, and your answer, combined with other people's, transcribed it. That helped
+      digitise newspaper archives and books. Later the words became house numbers from Street View
+      photographs, and then the familiar grids: “select all squares with traffic lights”. Google
+      described reCAPTCHA as channelling this effort into “digitizing text, annotating images, and
+      building machine learning datasets”. hCaptcha went further and made labelling the business model:
+      customers could pay to have their own images labelled by the visitors to other sites.</p>
+      <p>There are caveats. A single answer is a weak label, so it is checked against known answers and
+      combined with many others. The puzzle is also a shrinking part of the test: modern versions score
+      your mouse movements and browsing behaviour, and often show no challenge at all. And “free” is
+      arguable: the site owner gets a free security service, and visitors pay for it in seconds of their
+      time.</p>
+      <p>The irony is that image recognisers trained on this kind of data now solve the puzzles. A 2024
+      ETH Zurich study solved reCAPTCHA v2 image challenges 100% of the time with an off-the-shelf object
+      detector. That is why CAPTCHAs are moving away from puzzles altogether.</p>
+      <p class="deeper">Go deeper: <a href="07-data.html#labelling">7.2 the labelling exercise</a> ·
+      <a href="07-data.html#cost">7.7 what labelling costs</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-sources">
+    <summary>Where did the training data for LLMs come from, and did anyone agree to it?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Mostly from the public web, plus books, code, papers and
+      licensed collections. For most of it, nobody was asked individually. Whether that is lawful is
+      being settled now, in the courts and in regulation.</p>
+      <p>The bulk is crawled web text, heavily filtered for quality. Common Crawl, a non-profit archive,
+      has collected petabytes of it since 2008. On top of that come Wikipedia, public code, scientific
+      papers, books, forums and transcripts. Providers increasingly license data, such as news archives
+      and forum content, and generate synthetic data with other models.</p>
+      <p>The legal position is still moving. In the US, a June 2025 ruling in a case brought by authors
+      against Anthropic found that training on lawfully bought books was fair use but that keeping
+      pirated copies was not; the case then settled for about $1.5 billion. Many other cases, including
+      suits by news publishers filed since 2023, are still working through the courts. In the EU,
+      providers of general-purpose models must have a copyright policy, respect machine-readable opt-outs
+      from text and data mining, and publish a summary of their training content.</p>
+      <p>For you, this means asking vendors about copyright indemnities, and not assuming that output is
+      free of other people's rights.</p>
+      <p class="deeper">Go deeper: <a href="04-llm.html#training">4.6 how one gets built</a> ·
+      <a href="10-governance.html#ip">10.7 intellectual property</a></p>
+    </div>
+  </details>
+
+  <details class="reveal qa" id="q-labellers">
+    <summary>So who labels the data today?</summary>
+    <div class="body">
+      <p class="short"><b>Short answer.</b> Mostly paid people, many of them outsourced, and increasingly
+      experts and other models.</p>
+      <p>Labelling firms and platforms employ hundreds of thousands of annotators worldwide to draw boxes,
+      transcribe and rate. Conditions vary widely. A 2023 TIME investigation reported that Kenyan
+      workers were paid less than $2 an hour to label violent and abusive text so that a chatbot could
+      learn to filter it. At the other end, preference tuning (RLHF) and evaluation now pay doctors,
+      lawyers, engineers and PhD students to write and judge answers in their field, because ordinary
+      raters can no longer tell a good answer from a merely plausible one. A growing share of the data is
+      synthetic, with one model generating or grading examples for another.</p>
+      <p>In your own projects the labeller is usually your own expert, and their time is the main cost.
+      It is also where your advantage lies: nobody else has your experts' labels.</p>
+      <p class="deeper">Go deeper: <a href="07-data.html#labelling">7.2 the labelling exercise</a> ·
+      <a href="07-data.html#cost">7.7 what labelling costs</a> ·
+      <a href="04-llm.html#training">4.6 how one gets built</a></p>
+    </div>
+  </details>
+</section>
+
+<section class="chapter">
+  <div class="callout key">
+    <span class="ctitle">The pattern behind most of these answers</span>
+    <p class="mb0">The model is a fixed function that turns text into probable text. It does not look
+    things up, it does not learn while you use it, and it does not keep what you send. <strong>The
+    systems around it do store, log and act</strong>, and most of the risks and most of the fixes live in
+    those systems, which are yours to design.</p>
+  </div>
+  <p class="mt2">Have a question that is not here? Bring it to the next session. The best ones get
+  added.</p>
+</section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap"><div class="footnav"></div></div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var F = AI.F;
+  var STR = {
+    count: function (n, t) { return n + ' of ' + t + ' questions'; },
+    params: function (p) { return p + ' billion parameters'; },
+    fitsCpu: 'yes, of 768 GB RAM',
+    noFit: function (gb) { return 'no: needs ' + gb; },
+    gpus: function (n) { return n === 1 ? '1 GPU' : n + ' GPUs'; },
+    tps: ' tokens/s',
+    sum: function (a, b) { return 'The GPU column is about ' + a + '× faster at reading the prompt and ' + b + '× faster at writing: the first ratio is arithmetic, the second is memory bandwidth.'; },
+    sumNo: 'The model does not fit in the server’s memory at all. On GPUs it is split across several cards.',
+    temp: function (v) { return v === 0 ? '0 (always the top answer)' : v.toFixed(2); },
+    correct: 'correct',
+    res: function (k) { return 'Correct in ' + k + ' of 100 answers.'; },
+    same: ' The same answer every time.',
+    sameWrong: ' The same answer every time, and wrong every time.',
+    prompt: { easy: 'The capital of Australia is …', rare: 'The 1931 Nobel Prize in Literature was awarded to …' }
+  };
+
+  /* ---------------- filter, open/close, deep links ---------------- */
+
+  function initFilter() {
+    var input = document.getElementById('qaSearch'), items = AI.qsa('details.qa'), secs = AI.qsa('section.qa-sec');
+    function draw() {
+      var q = input.value.trim().toLowerCase(), shown = 0;
+      items.forEach(function (d) {
+        var hit = !q || d.textContent.toLowerCase().indexOf(q) >= 0;
+        d.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      secs.forEach(function (s) {
+        var any = AI.qsa('details.qa', s).some(function (d) { return d.style.display !== 'none'; });
+        s.style.display = any ? '' : 'none';
+      });
+      document.getElementById('qaCount').textContent = STR.count(shown, items.length);
+    }
+    input.addEventListener('input', draw);
+    AI.on(document.getElementById('qaOpen'), 'click', function () {
+      items.forEach(function (d) { if (d.style.display !== 'none') d.open = true; });
+    });
+    AI.on(document.getElementById('qaClose'), 'click', function () {
+      items.forEach(function (d) { d.open = false; });
+    });
+    window.addEventListener('beforeprint', function () { items.forEach(function (d) { d.open = true; }); });
+    function follow() {
+      var d = location.hash && document.getElementById(location.hash.slice(1));
+      if (d && d.tagName === 'DETAILS') { d.open = true; d.scrollIntoView(); }
+    }
+    window.addEventListener('hashchange', follow);
+    draw();
+    follow();
+  }
+
+  /* ---------------- CPU vs GPU ---------------- */
+
+  var HW = {
+    cpu: { flops: 5e12, bw: 0.46e12, mem: 768e9 },
+    gpu: { flops: 990e12, bw: 3.35e12, mem: 80e9 }
+  };
+  var P_LIST = [1, 3, 8, 14, 32, 70, 120, 235, 405];
+  var PROMPT = 2000, REPLY = 300, HEAD = 1.1;
+  var G = { p: 8, bits: 16 };
+
+  function fmtGB(b) { var g = b / 1e9; return F.n(g, g < 10 ? 1 : 0) + ' GB'; }
+  function fmtT(s) {
+    if (s < 1) return F.n(s * 1000, 0) + ' ms';
+    if (s < 120) return F.n(s, s < 10 ? 1 : 0) + ' s';
+    return F.n(s / 60, 1) + ' min';
+  }
+  function set(id, v) { document.getElementById(id).textContent = v; }
+
+  function calcGpu() {
+    var bytes = G.p * 1e9 * G.bits / 8, need = bytes * HEAD;
+    var n = Math.max(1, Math.ceil(need / HW.gpu.mem));
+    var cpuFits = need <= HW.cpu.mem;
+    var flop = 2 * G.p * 1e9 * PROMPT;
+    var gPre = flop / (n * HW.gpu.flops), gTps = n * HW.gpu.bw / bytes;
+    var cPre = flop / HW.cpu.flops, cTps = HW.cpu.bw / bytes;
+    set('gMem', fmtGB(bytes));
+    set('gN', n);
+    set('gC0', cpuFits ? STR.fitsCpu : STR.noFit(fmtGB(need)));
+    set('gG0', STR.gpus(n));
+    set('gC1', cpuFits ? fmtT(cPre) : '—');
+    set('gG1', fmtT(gPre));
+    set('gC2', cpuFits ? F.n(cTps, cTps < 10 ? 1 : 0) + STR.tps : '—');
+    set('gG2', F.n(gTps, gTps < 10 ? 1 : 0) + STR.tps);
+    set('gC3', cpuFits ? fmtT(cPre + REPLY / cTps) : '—');
+    set('gG3', fmtT(gPre + REPLY / gTps));
+    set('gSum', cpuFits ? STR.sum(F.n(cPre / gPre, 0), F.n(gTps / cTps, 0)) : STR.sumNo);
+  }
+
+  function initGpu() {
+    AI.bindRange('gP', function (v) { return STR.params(P_LIST[v]); }, function (v) { G.p = P_LIST[v]; calcGpu(); });
+    AI.segmented(document.getElementById('gBits'), function (v) { G.bits = parseInt(v, 10); calcGpu(); });
+  }
+
+  /* ---------------- ask it 100 times ---------------- */
+
+  /* authored teaching distributions: [answer, probability at temperature 1, correct?] */
+  var SAMP = {
+    easy: [['Canberra', 0.86, true], ['Sydney', 0.11], ['Melbourne', 0.025], ['Perth', 0.005]],
+    rare: [['Sinclair Lewis', 0.38], ['Erik Axel Karlfeldt', 0.30, true], ['Luigi Pirandello', 0.18], ['John Galsworthy', 0.14]]
+  };
+  var S = { q: 'easy', t: 1, counts: null };
+
+  function probs() {
+    var o = SAMP[S.q], i, p = [], z = 0;
+    if (S.t < 0.01) {
+      var best = 0;
+      for (i = 1; i < o.length; i++) if (o[i][1] > o[best][1]) best = i;
+      return o.map(function (x, k) { return k === best ? 1 : 0; });
+    }
+    for (i = 0; i < o.length; i++) { p[i] = Math.pow(o[i][1], 1 / S.t); z += p[i]; }
+    return p.map(function (x) { return x / z; });
+  }
+
+  function drawSamp() {
+    var o = SAMP[S.q], p = probs(), h = '';
+    document.getElementById('sPrompt').textContent = STR.prompt[S.q];
+    for (var i = 0; i < o.length; i++) {
+      h += '<div class="samp-row"><span>' + o[i][0] + (o[i][2] ? '<span class="pill ok">' + STR.correct + '</span>' : '') + '</span>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + (p[i] * 100).toFixed(1) + '%"></div></div>' +
+        '<span class="pc">' + F.pct(p[i], 0) + '</span>' +
+        '<span class="ct">' + (S.counts ? '×' + S.counts[i] : '') + '</span></div>';
+    }
+    document.getElementById('sRows').innerHTML = h;
+    if (!S.counts) { document.getElementById('sRes').textContent = ''; return; }
+    var right = 0, distinct = 0;
+    for (i = 0; i < o.length; i++) { if (o[i][2]) right = S.counts[i]; if (S.counts[i]) distinct++; }
+    document.getElementById('sRes').textContent = STR.res(right) +
+      (distinct === 1 ? (right ? STR.same : STR.sameWrong) : '');
+  }
+
+  function runSamp() {
+    var p = probs(), c = p.map(function () { return 0; });
+    for (var n = 0; n < 100; n++) {
+      var r = Math.random(), acc = 0, k = 0;
+      for (; k < p.length - 1; k++) { acc += p[k]; if (r < acc) break; }
+      c[k]++;
+    }
+    S.counts = c;
+    drawSamp();
+  }
+
+  function initSamp() {
+    AI.segmented(document.getElementById('sQ'), function (v) { S.q = v; S.counts = null; drawSamp(); });
+    AI.bindRange('sT', STR.temp, function (v) { S.t = v; S.counts = null; drawSamp(); });
+    AI.on(document.getElementById('sRun'), 'click', runSamp);
+  }
+
+  window.PAGE_INIT = function () {
+    initFilter();
+    initGpu();
+    initSamp();
+  };
+})();
+</script>
+</body>
+</html>

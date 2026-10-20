@@ -1,8 +1,8 @@
 # AI Foundations — internal seminar series
 
 Twenty-one interactive, self-contained web pages used as seminar material for an internal AI training
-series. They build from a single artificial neuron to a pre-qualified list of AI use cases drawn from
-the audience's own work.
+series, plus a closing question-and-answer module. They build from a single artificial neuron to a
+pre-qualified list of AI use cases drawn from the audience's own work.
 
 Written for engineers who are new to machine learning. Every concept has something you can move,
 break and put back together, and the calculators compute their numbers live rather than displaying
@@ -70,6 +70,12 @@ Speaker notes also appear when a page is printed to PDF.
 | 20 | AI in safety-critical vehicle systems | SOTIF areas, ODD builder, doer/checker, test-distance calculator, safety-case builder |
 | 21 | Capstone | use-case canvas, scorecard, next steps, portfolio grid |
 
+### Questions and answers (≈30 min)
+
+| # | Module | Interactive |
+| --- | --- | --- |
+| 22 | Questions people actually ask | searchable Q&A, CPU vs GPU calculator, ask-it-100-times sampling demo |
+
 `index.html` is the course hub and carries suggested shorter delivery tracks (half-day executive,
 one-day engineering, two-hour general, and others).
 
@@ -77,8 +83,8 @@ one-day engineering, two-hour general, and others).
 
 ```
 index.html                  course hub and delivery tracks
-01-history.html … 21-capstone.html
-it/                         Italian edition: the same 22 pages under the same file names
+01-history.html … 22-qa.html
+it/                         Italian edition: the same 23 pages under the same file names
 assets/
 ├── style.css               shared design system, light and dark
 └── app.js                  shared navigation, plotting and a small MLP implementation
@@ -118,9 +124,10 @@ repository must be public, which makes the material world-readable and indexable
 ## Notes on the material
 
 Almost everything computes live: the networks really train by backpropagation, the surrogate models
-really fit, the statistics are really calculated. Four things are authored rather than live and are
-labelled as such on the page itself — the interest-in-AI curve in module 1.2, the tokenizer in module 4.1, the next-token probabilities in
-4.3, and the attention maps in 4.4. Labs added later (4.9–4.10, 7.6, 10.6, 11.6–11.8, 12.7 and modules 15–20) run
+really fit, the statistics are really calculated. Five things are authored rather than live and are
+labelled as such on the page itself — the interest-in-AI curve in module 1.2, the tokenizer in module 4.1,
+the next-token probabilities in 4.3, the attention maps in 4.4, and the answer probabilities in the
+sampling demo in module 22 (the sampling itself is live). Labs added later (4.9–4.10, 7.6, 10.6, 11.6–11.8, 12.7 and modules 15–20) run
 on seeded synthetic data; where an input is invented for teaching — a document corpus, a planted code
 defect, a scenario distribution, an error budget — the page says so next to it.
 
